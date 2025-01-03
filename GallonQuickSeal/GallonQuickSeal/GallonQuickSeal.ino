@@ -55,6 +55,12 @@ void loop() {
       break;
   };
 
+  Serial.print("| proximityState: ");
+  Serial.print(proximityState);
+  Serial.print("| systemState: ");
+  Serial.print(systemState);
+  Serial.println();
+
   DigitalIn::updateAll(&proximity, DigitalIn::stop());
   DigitalOut::updateAll(&solenoid, &ledBuiltIn, DigitalOut::stop());
 }

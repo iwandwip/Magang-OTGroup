@@ -34,7 +34,7 @@ void loop() {
   switch (systemState) {
     case SYSTEM_IDLE:
       proximityState = proximity.getStateRaw();
-      if (!proximityState) {
+      if (proximityState) {
         ledBuiltIn.off();
       } else {
         ledBuiltIn.on();

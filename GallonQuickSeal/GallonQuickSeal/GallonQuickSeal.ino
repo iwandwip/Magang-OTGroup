@@ -1,33 +1,18 @@
-#define ENABLE_MODULE_TIMER_DURATION
-#define ENABLE_MODULE_TIMER_TASK
-#define ENABLE_MODULE_DIGITAL_INPUT
-#define ENABLE_MODULE_DIGITAL_OUTPUT
-
-#include "Kinematrix.h"
-
-#define PROXIMITY_SENSOR_PIN 3
-#define SOLENOID_OUTPUT_PIN 4
-
-DigitalIn proximity(PROXIMITY_SENSOR_PIN, INPUT_PULLUP);
-DigitalOut solenoid(SOLENOID_OUTPUT_PIN, true);
-DigitalOut ledBuiltIn(LED_BUILTIN);
-
-TimerDuration solenoidDelayOnTimer;
-
-enum SystemState {
-  SYSTEM_IDLE,
-  SYSTEM_RUN,
-  SYSTEM_STOP,
-};
-
-SystemState systemState = SYSTEM_IDLE;
-int proximityState = 0;
-
-constexpr uint32_t SOLENOID_DELAY_MS = 1000;
-constexpr uint32_t SOLENOID_PULSE_MS = 500;
+#include "Header.h"
 
 void setup() {
-  Serial.begin(9600);
+  usbSerial.begin(&Serial, 9600);
+  solenoidDelayMs = eeprom.readInt(SOLENOID_DELAY_ADDRESS);
+  solenoidPulseMs = eeprom.readInt(SOLENOID_PULSE_ADDRESS);
+  solenoidWaitMs = eeprom.readInt(SOLENOID_WAIT_ADDRESS);
+
+  Serial.print("| solenoidDelayMs: ");
+  Serial.print(solenoidDelayMs);
+  Serial.print("| solenoidPulseMs: ");
+  Serial.print(solenoidPulseMs);
+  Serial.print("| solenoidWaitMs: ");
+  Serial.print(solenoidWaitMs);
+  Serial.println();
 }
 
 void loop() {
@@ -38,28 +23,34 @@ void loop() {
         ledBuiltIn.off();
       } else {
         ledBuiltIn.on();
-        solenoidDelayOnTimer.setDuration(SOLENOID_DELAY_MS);
-        solenoidDelayOnTimer.reset();
-        solenoidDelayOnTimer.start();
+        solenoidTimer.setDuration(solenoidDelayMs);
+        solenoidTimer.reset();
+        solenoidTimer.start();
         systemState = SYSTEM_RUN;
       }
       solenoid.off();
       break;
     case SYSTEM_RUN:
-      if (solenoidDelayOnTimer.isExpired()) {
+      if (solenoidTimer.isExpired()) {
         solenoid.on();
-        delay(SOLENOID_PULSE_MS);
+        delay(solenoidPulseMs);
         solenoid.off();
+        solenoidTimer.setDuration(solenoidWaitMs);
+        solenoidTimer.reset();
+        solenoidTimer.start();
+        systemState = SYSTEM_WAIT;
+      }
+      break;
+    case SYSTEM_WAIT:
+      if (!solenoidTimer.isExpired()) ledBuiltIn.toggleAsync(25);
+      else {
         systemState = SYSTEM_IDLE;
+        arduinoReset();
       }
       break;
   };
 
-  Serial.print("| proximityState: ");
-  Serial.print(proximityState);
-  Serial.print("| systemState: ");
-  Serial.print(systemState);
-  Serial.println();
+  usbSerial.receiveString(usbSerialReceiveCallback);
 
   DigitalIn::updateAll(&proximity, DigitalIn::stop());
   DigitalOut::updateAll(&solenoid, &ledBuiltIn, DigitalOut::stop());

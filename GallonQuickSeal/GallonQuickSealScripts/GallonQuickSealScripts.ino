@@ -11,7 +11,7 @@ void setup() {
   Serial.print("| solenoidPulseMs: ");
   Serial.print(solenoidPulseMs);
   Serial.print("| solenoidWaitMs: ");
-  Serial.print(solenoidWaitMs);
+  Serial.print(solenoidWaitMs);=p=
   Serial.println();
 }
 

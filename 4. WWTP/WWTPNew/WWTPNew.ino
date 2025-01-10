@@ -11,8 +11,8 @@ uint16_t delay1;
 uint16_t delay2;
 uint32_t fillingStartTime;
 uint32_t transferStartTime;
+uint32_t thresholdStartTime;
 
-uint32_t thresholdStartTime = 0;
 bool isTimerStarted = false;
 
 SystemState currentState;

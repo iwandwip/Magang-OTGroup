@@ -11,7 +11,7 @@ void setup() {
   Serial.print("| solenoidPulseMs: ");
   Serial.print(solenoidPulseMs);
   Serial.print("| solenoidWaitMs: ");
-  Serial.print(solenoidWaitMs);=p=
+  Serial.print(solenoidWaitMs);
   Serial.println();
 }
 
@@ -23,7 +23,7 @@ void loop() {
         ledBuiltIn.off();
       } else {
         ledBuiltIn.on();
-        solenoidTimer.setDuration(solenoidDelayMs);
+        solenoidTimer.setDuration(625);
         solenoidTimer.reset();
         solenoidTimer.start();
         systemState = SYSTEM_RUN;
@@ -35,7 +35,7 @@ void loop() {
         solenoid.on();
         delay(solenoidPulseMs);
         solenoid.off();
-        solenoidTimer.setDuration(solenoidWaitMs);
+        solenoidTimer.setDuration(750);
         solenoidTimer.reset();
         solenoidTimer.start();
         systemState = SYSTEM_WAIT;

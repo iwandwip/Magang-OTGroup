@@ -14,4 +14,5 @@ const uint32_t TRANSFER_TIMEOUT = 380000;  // 380 seconds
 const uint16_t VOLTAGE_SAMPLES = 500;
 const uint16_t RADAR_SAMPLES = 200;
 const float VOLTAGE_THRESHOLD = 500.0;
-const uint32_t VERIFICATION_TIME = 15000;
+const uint32_t VERIFICATION_TIME = 15;
+const uint32_t VERIFICATION_TIME_MS = 15000;

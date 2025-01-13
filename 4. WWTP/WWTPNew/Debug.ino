@@ -1,14 +1,16 @@
 void debug() {
-  int acSensor = isACPowerPresent();
-  int radarSensor = isWaterTankFull();
-  Serial.print("| acSensor: ");
-  Serial.print(acSensor);
-  Serial.print("| radarSensor: ");
+  // Serial.print("| volt: ");
+  // Serial.print(wlcSensor.voltage);
+  Serial.print("| raw: ");
+  Serial.print(wlcSensor.raw);
+  Serial.print("| state: ");
+  Serial.print(wlcSensor.state);
+  Serial.print("| radar: ");
   Serial.print(radarSensor);
   Serial.print("| currentState: ");
   if (currentState == SystemState::WAITING) {
     Serial.print("SystemState::WAITING");
-    if (!isTimerStarted) {
+    if (!wlcSensor.isTimerStarted) {
       Serial.print("| thresholdStartTime: ");
       Serial.print(0);
     } else {

@@ -1,6 +1,7 @@
 #include "EEPROM.h"
 #include "Header.h"
 #include "TimerOne.h"
+#include "Utils.h"
 
 enum class SystemState {
   WAITING,
@@ -12,6 +13,7 @@ struct WlcSensor {
   bool isTimerStarted;
   uint32_t count;
   float voltage;
+  int adc;
   int raw;
   int state;
 };
@@ -22,12 +24,16 @@ uint16_t delay1;
 uint16_t delay2;
 uint32_t fillingStartTime;
 uint32_t transferStartTime;
+
 uint32_t thresholdStartTime;
 uint32_t ledBuiltinTime;
 
 WlcSensor wlcSensor;
 RadarSensor radarSensor;
 SystemState currentState;
+// EEPROMLib eeprom;
+
+MovingAverageFilter adcFilter(40);
 
 void setup() {
   Serial.begin(9600);
@@ -38,12 +44,15 @@ void setup() {
     digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
   });
   currentState = SystemState::WAITING;
+  // currentState = static_cast<SystemState>(eeprom.readInt(EEPROM_ADDR_STATE));
+  // fillingStartTime = eeprom.readUint32(EEPROM_ADDR_FILLING_TIME);
+  // transferStartTime = eeprom.readUint32(EEPROM_ADDR_TRANSFER_TIME);
 }
 
 void loop() {
   if (Serial.available() > 0) {
     // handleTesting();
-    handleSerialCommand();
+    // handleSerialCommand();
   }
   processSystemState();
   debug();
@@ -62,8 +71,8 @@ void initializePins() {
 
 void processSystemState() {
   readWlcSensor(&wlcSensor);
-  radarSensor = readRadarSensor();
-  Timer1.setPeriod(getLedDelay(wlcSensor.count, VERIFICATION_TIME, 50, 1500));
+  radarSensor = isRadarStable();
+  Timer1.setPeriod(getLedDelay(wlcSensor.count, VERIFICATION_TIME, 25, 1500));
 
   switch (currentState) {
     case SystemState::WAITING:
@@ -96,17 +105,23 @@ void processSystemState() {
 }
 
 void readWlcSensor(WlcSensor* _wlcSensor) {
-  _wlcSensor->voltage = 0;
-  for (int i = 0; i < VOLTAGE_SAMPLES; i++) {
-    float voltage = abs(analogRead(PIN_AC_VOLTAGE) - 512);
-    _wlcSensor->voltage += voltage * voltage;
-  }
-  _wlcSensor->voltage /= VOLTAGE_SAMPLES;
+  // _wlcSensor->voltage = 0;
+  // for (int i = 0; i < VOLTAGE_SAMPLES; i++) {
+  //   float voltage = abs(analogRead(PIN_AC_VOLTAGE) - 512);
+  //   // float adcVoltage = (float(analogRead(PIN_AC_VOLTAGE)) * 5.0f) / 1023.0f;
+  //   _wlcSensor->adc = analogRead(PIN_AC_VOLTAGE);
+  //   _wlcSensor->voltage += voltage * voltage;
+  // }
+  // _wlcSensor->voltage /= VOLTAGE_SAMPLES;
 
-  if (_wlcSensor->voltage <= VOLTAGE_THRESHOLD) {
+  adcFilter.addMeasurement(analogRead(PIN_AC_VOLTAGE));
+  _wlcSensor->adc = adcFilter.getFilteredValue();
+
+  // if (_wlcSensor->voltage <= VOLTAGE_THRESHOLD) {
+  if (_wlcSensor->adc <= ADC_THRESHOLD) {
     _wlcSensor->raw = false;
     _wlcSensor->isTimerStarted = false;
-    _wlcSensor->count = VERIFICATION_TIME;
+    _wlcSensor->count = 0;
   } else {
     _wlcSensor->raw = true;
     if (!_wlcSensor->isTimerStarted) {
@@ -122,6 +137,25 @@ void readWlcSensor(WlcSensor* _wlcSensor) {
   return;
 }
 
+bool isRadarStable() {
+  static unsigned long lastChangeTime = 0;
+  static bool lastState = false;
+  static uint8_t stableCount = 0;
+
+  const unsigned long DEBOUNCE_DELAY = 500;
+  const uint8_t STABLE_THRESHOLD = 5;
+
+  bool currentReading = readRadarSensor();
+  if (currentReading != lastState) {
+    lastChangeTime = millis();
+    lastState = currentReading;
+    stableCount = 0;
+  } else if (getElapsedTime(lastChangeTime) > DEBOUNCE_DELAY) {
+    stableCount = min(stableCount + 1, STABLE_THRESHOLD);
+  }
+  return (stableCount >= STABLE_THRESHOLD) ? lastState : false;
+}
+
 bool readRadarSensor() {
   const uint8_t SAMPLE_COUNT = 10;
   const uint8_t THRESHOLD = 8;
@@ -134,6 +168,10 @@ bool readRadarSensor() {
     delay(SAMPLE_DELAY_MS);
   }
   return (activeCount >= THRESHOLD);
+}
+
+unsigned long getElapsedTime(unsigned long startTime) {
+  return (millis() >= startTime) ? (millis() - startTime) : (0xFFFFFFFF - startTime + millis());
 }
 
 uint32_t getLedDelay(int16_t countNumber, int16_t maxNum, uint32_t delayMin, uint32_t delayMax) {

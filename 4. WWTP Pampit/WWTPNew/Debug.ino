@@ -9,27 +9,31 @@ void debug() {
   // Serial.print(wlcSensor.state);
   Serial.print("| radar: ");
   Serial.print(radarSensor);
-  // Serial.print("| currentState: ");
-  // if (currentState == SystemState::WAITING) {
-  //   Serial.print("SystemState::WAITING");
-  //   if (!wlcSensor.isTimerStarted) {
-  //     Serial.print("| thresholdStartTime: ");
-  //     Serial.print(0);
-  //   } else {
-  //     Serial.print("| thresholdStartTime: ");
-  //     Serial.print(uint32_t(millis() - thresholdStartTime) / 1000);
-  //   }
-  // } else if (currentState == SystemState::FILLING) {
-  //   Serial.print("SystemState::FILLING");
-  //   Serial.print("| fillingStartTime: ");
-  //   Serial.print(uint32_t(millis() - fillingStartTime) / 1000);  // 250
-  //   Serial.print("| Limit: 250");
-  // } else if (currentState == SystemState::TRANSFER) {
-  //   Serial.print("SystemState::TRANSFER");
-  //   Serial.print("| transferStartTime: ");
-  //   Serial.print(uint32_t(millis() - transferStartTime) / 1000);  //380
-  //   Serial.print("| Limit: 380");
-  // }
+  Serial.print("| state: ");
+  if (currentState == SystemState::WAITING) {
+    Serial.print("WAITING");
+    if (!wlcSensor.isTimerStarted) {
+      Serial.print("| t: ");
+      Serial.print(0);
+    } else {
+      Serial.print("| t: ");
+      Serial.print(uint32_t(millis() - thresholdStartTime) / 1000);
+    }
+  } else if (currentState == SystemState::FILLING) {
+    Serial.print("FILLING");
+    Serial.print("| t: ");
+    Serial.print(uint32_t(millis() - fillingStartTime) / 1000);  // 250
+    Serial.print("| Limit: ");
+    Serial.print(FILLING_TIMEOUT_S);
+    Serial.print("s");
+  } else if (currentState == SystemState::TRANSFER) {
+    Serial.print("TRANSFER");
+    Serial.print("| t: ");
+    Serial.print(uint32_t(millis() - transferStartTime) / 1000);  //380
+    Serial.print("| Limit: ");
+    Serial.print(TRANSFER_TIMEOUT_S);
+    Serial.print("s");
+  }
   Serial.println();
 }
 

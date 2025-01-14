@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<project filever="1.0" ProjectVer="R05R998_V8.4.66_D23102001" SoftLang="English">
+<project filever="1.0" SoftLang="English" OldVersion="R05R998_V8.4.66_D23102001" ProjectVer="R05R998_V8.4.66_D23102001">
 	<HmiSet Type="PI3070ie" RotateAngle="0" Width="800" Height="480" HmiTypeIndex="72" HmiCpuType="RK64" PIEx="0" StartScrNo="0" Style="Rurality" Language="0" />
 	<AddressLib />
 	<StringLib Language="0" />

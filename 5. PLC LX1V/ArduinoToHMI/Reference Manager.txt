@@ -1,0 +1,7 @@
+https://how2electronics.com/rs-485-full-duplex-communication-with-max485-arduino/
+
+master:
+https://github.com/4-20ma/ModbusMaster/tree/master/examples
+
+slave:
+https://github.com/yaacov/ArduinoModbusSlave/blob/master/examples/full/full.ino

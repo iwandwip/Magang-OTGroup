@@ -2,6 +2,7 @@
 #include "Header.h"
 #include "TimerOne.h"
 #include "Utils.h"
+#include "avr/wdt.h"
 
 enum class SystemState {
   WAITING,
@@ -37,6 +38,7 @@ MovingAverageFilter adcFilter(40);
 
 void setup() {
   Serial.begin(9600);
+  wdt_enable(WDTO_8S);
   initializePins();
   // loadSettingsFromEEPROM();
   Timer1.initialize(1000000);
@@ -50,10 +52,12 @@ void setup() {
 }
 
 void loop() {
+  wdt_reset();
   if (Serial.available() > 0) {
     // handleTesting();
     // handleSerialCommand();
   }
+  readAllSensor();
   processSystemState();
   debug();
 }
@@ -69,10 +73,13 @@ void initializePins() {
   updatePumpStates(false, false, false);
 }
 
-void processSystemState() {
+void readAllSensor() {
   readWlcSensor(&wlcSensor);
   radarSensor = isRadarStable();
-  Timer1.setPeriod(getLedDelay(wlcSensor.count, VERIFICATION_TIME, 25, 1500));
+}
+
+void processSystemState() {
+  Timer1.setPeriod(getLedDelay(wlcSensor.count, VERIFICATION_TIME, 25, 1000));
 
   switch (currentState) {
     case SystemState::WAITING:

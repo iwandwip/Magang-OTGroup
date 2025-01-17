@@ -1,3 +1,21 @@
+#include "ModbusConfig.h"
+
+void initModbusConfig() {
+  slave.cbVector[CB_READ_COILS] = readCoils;
+  slave.cbVector[CB_READ_DISCRETE_INPUTS] = readCoils;
+  slave.cbVector[CB_WRITE_COILS] = writeCoils;
+  slave.cbVector[CB_READ_INPUT_REGISTERS] = readInputRegister;
+  slave.cbVector[CB_READ_HOLDING_REGISTERS] = readHoldingRegister;
+  slave.cbVector[CB_WRITE_HOLDING_REGISTERS] = writeHoldingRegister;
+
+  holdingRegister[CALIBRATION_REG] = eeprom.readFloat(200);  // 200 - 999
+  // coilState[POWER_BUTTON] = eeprom.readInt(0);               // 0 - 199
+  // coilState[PUMP_BUTTON] = eeprom.readInt(2);
+
+  modbus.begin(9600);
+  slave.begin(9600);
+}
+
 uint8_t readCoils(uint8_t fc, uint16_t address, uint16_t length, void *context) {
   for (int i = 0; i < length; i++) {
     slave.writeCoilToBuffer(i, coilState[i]);

@@ -1,0 +1,29 @@
+#pragma once
+#include "Arduino.h"
+
+#define MODBUS_RO_PIN 10  // RX
+#define MODBUS_RE_PIN 11  // EN
+#define MODBUS_DE_PIN 11  // EN
+#define MODBUS_DI_PIN 12  // TX
+
+enum WriteHoldingRegisterIndex {
+  ADC_REGISTER,
+  VOLT_REGISTER,
+  DO_REGISTER,
+  OUT_FREQUENCY_REGISTER,
+  WRITE_HOLDING_REGISTER_LEN
+};
+
+enum ReadHoldingRegisterIndex {
+  CALIBRATION_REGISTER,
+  IN_FREQUENCY_REGISTER,
+  READ_HOLDING_REGISTER_LEN
+};
+
+enum ReadCoils {
+  POWER_COIL,
+  AUTO_COIL,
+  READ_COIL_LEN
+};
+
+void initModbusConfig();

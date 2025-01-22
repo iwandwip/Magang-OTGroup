@@ -31,8 +31,8 @@
 	</ScreenSet>
 	<PlcSet Count="1">
 		<Connection>
-			<PLC TypeAlias="MODBUS RTU Slave(All Fuction)" Type="ModBus RTU Slave(All Fuction)" Driver="libModbusRTU_All.so" HmiStatNo="1" PlcStatNo="1" />
-			<CommSet Port="COM1" ComType="1" BaudRate="9600" StopBit="1" DataLength="8" CheckBit="NONE" RetryTimes="2" WaitTimeout="300" RevTimeout="50" RetryTimeOut="3" ComIoDelayTime="0" SingleReadLen="0" ComStepInterval="5" CustomName="MODBUS RTU Slave(All Fuction)" NETIPaddr="" NETPort="0" NETBroadcastAddr="0" NETIsBroadcast="0" NETIsUDP="0" EthType="1" />
+			<PLC TypeAlias="MODBUS RTU Master" Type="ModBus RTU Master" Driver="libModbus_Master.so" HmiStatNo="1" PlcStatNo="1" />
+			<CommSet Port="COM1" ComType="1" BaudRate="9600" StopBit="1" DataLength="8" CheckBit="NONE" RetryTimes="2" WaitTimeout="300" RevTimeout="50" RetryTimeOut="3" ComIoDelayTime="0" SingleReadLen="0" ComStepInterval="5" CustomName="MODBUS RTU Master" NETIPaddr="" NETPort="0" NETBroadcastAddr="0" NETIsBroadcast="0" NETIsUDP="0" EthType="1" />
 		</Connection>
 	</PlcSet>
 </project>

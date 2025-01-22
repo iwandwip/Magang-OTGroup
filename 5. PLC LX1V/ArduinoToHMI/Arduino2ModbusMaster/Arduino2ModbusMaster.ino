@@ -47,10 +47,10 @@ void loop() {
   const uint8_t dataLen = 3;
   float values[dataLen];
   for (int i = 0; i < dataLen; i++) {
-    values[i] = 25.26f + random(0, 10) * 0.1;
+    values[i] = random(0, 10000) * 0.1;
   }
-  digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-  writeFloatToMultipleHoldingRegister(values, 1, dataLen);
+  bool result = writeFloatToMultipleHoldingRegister(values, 1, dataLen);
+  // Serial.println(result);
   // node.clearTransmitBuffer();
 
   // uint32_t dataSend = random(0, 10000);

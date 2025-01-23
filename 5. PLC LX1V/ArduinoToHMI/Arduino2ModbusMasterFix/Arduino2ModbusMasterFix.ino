@@ -27,12 +27,12 @@ void setup() {
   initSensorDO();
 
   eeprom.init();
-  EEPROMHealthReport report = eeprom.totalHealthCheck(eeprom.getWriteCount());
+  // EEPROMHealthReport report = eeprom.totalHealthCheck(eeprom.getWriteCount());
 
   writeHoldingRegister[EEPROM_WRITE_COUNT_REGISTER] = eeprom.getWriteCount();
   writeHoldingRegister[EEPROM_WRITE_LIMIT_REGISTER] = 100000;
-  writeHoldingRegister[EEPROM_HEALTH_REGISTER] = report.healthPercentage;
-  writeHoldingRegister[EEPROM_TOTAL_BAD_SECTOR_REGISTER] = report.badSectors;
+  // writeHoldingRegister[EEPROM_HEALTH_REGISTER] = report.healthPercentage;
+  // writeHoldingRegister[EEPROM_TOTAL_BAD_SECTOR_REGISTER] = report.badSectors;
 
   readHoldingRegister[CALIBRATION_REGISTER] = eeprom.readFloat(0);
   readHoldingRegister[IN_FREQUENCY_REGISTER] = eeprom.readFloat(4);
@@ -41,7 +41,11 @@ void setup() {
   readHoldingRegister[BELOW_THESHOLD_REGISTER] = eeprom.readFloat(16);
   readHoldingRegister[TRANSITION_TIME_REGISTER] = eeprom.readFloat(20);
 
-  writeMultipleFloatsToRegisters(readHoldingRegister, 101, READ_HOLDING_REGISTER_LEN);
+  // serialDebugging();
+  delay(1000);
+  for (int i = 0; i < 10; i++) {
+    writeMultipleFloatsToRegisters(readHoldingRegister, 101, READ_HOLDING_REGISTER_LEN);
+  }
 }
 
 void loop() {
@@ -60,39 +64,62 @@ void loop() {
 
   readMultipleFloatsFromRegisters(readHoldingRegister, 101, READ_HOLDING_REGISTER_LEN);
 
-  eeprom.writeFloat(0, readHoldingRegister[CALIBRATION_REGISTER]);
-  eeprom.writeFloat(4, readHoldingRegister[IN_FREQUENCY_REGISTER]);
-  eeprom.writeFloat(8, readHoldingRegister[DO_THRESHOLD_REGISTER]);
-  eeprom.writeFloat(12, readHoldingRegister[ABOVE_THESHOLD_REGISTER]);
-  eeprom.writeFloat(16, readHoldingRegister[BELOW_THESHOLD_REGISTER]);
-  eeprom.writeFloat(20, readHoldingRegister[TRANSITION_TIME_REGISTER]);
-
-  // NOTES: 
-  if (readCoil[AUTO_COIL]) {
-    static uint32_t systemTransitionTimer;
-    if (millis() - systemTransitionTimer >= readHoldingRegister[TRANSITION_TIME_REGISTER] * 1000) {
-      systemTransitionTimer = millis();
-
-      if (writeHoldingRegister[DO_REGISTER] > readHoldingRegister[DO_THRESHOLD_REGISTER]) {
-        pwmOutput = map(readHoldingRegister[ABOVE_THESHOLD_REGISTER], 0, 50, 0, 255);
-        writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[ABOVE_THESHOLD_REGISTER];
-      } else {
-        pwmOutput = map(readHoldingRegister[BELOW_THESHOLD_REGISTER], 0, 50, 0, 255);
-        writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[BELOW_THESHOLD_REGISTER];
-      }
-      writeHoldingRegister[PWM_OUT_REGISTER] = pwmOutput;
-      analogWrite(PWM_OUTPUT_PIN, pwmOutput);
+  bool eepromEnableWrite = false;
+  for (int i = 0; i < READ_HOLDING_REGISTER_LEN; i++) {
+    if (readHoldingRegister[i] != 0.0) {
+      eepromEnableWrite = true;
+      break;
     }
-  } else {
-    pwmOutput = map(readHoldingRegister[IN_FREQUENCY_REGISTER], 0, 50, 0, 255);
-    writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[IN_FREQUENCY_REGISTER];
+  }
+
+  if (eepromEnableWrite) {
+    eeprom.writeFloat(0, readHoldingRegister[CALIBRATION_REGISTER]);
+    eeprom.writeFloat(4, readHoldingRegister[IN_FREQUENCY_REGISTER]);
+    eeprom.writeFloat(8, readHoldingRegister[DO_THRESHOLD_REGISTER]);
+    eeprom.writeFloat(12, readHoldingRegister[ABOVE_THESHOLD_REGISTER]);
+    eeprom.writeFloat(16, readHoldingRegister[BELOW_THESHOLD_REGISTER]);
+    eeprom.writeFloat(20, readHoldingRegister[TRANSITION_TIME_REGISTER]);
+  }
+
+  static uint32_t systemTransitionTimer;
+  if (millis() - systemTransitionTimer >= readHoldingRegister[TRANSITION_TIME_REGISTER] * 1000) {
+    systemTransitionTimer = millis();
+    if (writeHoldingRegister[DO_REGISTER] > readHoldingRegister[DO_THRESHOLD_REGISTER]) {
+      pwmOutput = map(readHoldingRegister[ABOVE_THESHOLD_REGISTER], 0, 50, 0, 255);
+      writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[ABOVE_THESHOLD_REGISTER];
+    } else {
+      pwmOutput = map(readHoldingRegister[BELOW_THESHOLD_REGISTER], 0, 50, 0, 255);
+      writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[BELOW_THESHOLD_REGISTER];
+    }
     writeHoldingRegister[PWM_OUT_REGISTER] = pwmOutput;
     analogWrite(PWM_OUTPUT_PIN, pwmOutput);
   }
 
+  // NOTES: DO MONITOR & CONTROL V1
+  // if (readCoil[AUTO_COIL]) {
+  //   static uint32_t systemTransitionTimer;
+  //   if (millis() - systemTransitionTimer >= readHoldingRegister[TRANSITION_TIME_REGISTER] * 1000) {
+  //     systemTransitionTimer = millis();
+  //     if (writeHoldingRegister[DO_REGISTER] > readHoldingRegister[DO_THRESHOLD_REGISTER]) {
+  //       pwmOutput = map(readHoldingRegister[ABOVE_THESHOLD_REGISTER], 0, 50, 0, 255);
+  //       writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[ABOVE_THESHOLD_REGISTER];
+  //     } else {
+  //       pwmOutput = map(readHoldingRegister[BELOW_THESHOLD_REGISTER], 0, 50, 0, 255);
+  //       writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[BELOW_THESHOLD_REGISTER];
+  //     }
+  //     writeHoldingRegister[PWM_OUT_REGISTER] = pwmOutput;
+  //     analogWrite(PWM_OUTPUT_PIN, pwmOutput);
+  //   }
+  // } else {
+  //   pwmOutput = map(readHoldingRegister[IN_FREQUENCY_REGISTER], 0, 50, 0, 255);
+  //   writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[IN_FREQUENCY_REGISTER];
+  //   writeHoldingRegister[PWM_OUT_REGISTER] = pwmOutput;
+  //   analogWrite(PWM_OUTPUT_PIN, pwmOutput);
+  // }
+
   writeHoldingRegister[EEPROM_WRITE_COUNT_REGISTER] = eeprom.getWriteCount();
   writeMultipleFloatsToRegisters(writeHoldingRegister, 1, WRITE_HOLDING_REGISTER_LEN);
 
-  // serialDebugging();
+  serialDebugging();
   digitalWrite(LED_BUILTIN, readCoil[AUTO_COIL]);
 }

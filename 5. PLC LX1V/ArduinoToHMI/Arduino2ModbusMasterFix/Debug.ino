@@ -11,17 +11,17 @@ void serialDebugging() {
   Serial.print(writeHoldingRegister[PWM_OUT_REGISTER]);
 
   Serial.print("| cal: ");
-  Serial.print(writeHoldingRegister[CALIBRATION_REGISTER]);
+  Serial.print(readHoldingRegister[CALIBRATION_REGISTER]);
   Serial.print("| in: ");
-  Serial.print(writeHoldingRegister[IN_FREQUENCY_REGISTER]);
+  Serial.print(readHoldingRegister[IN_FREQUENCY_REGISTER]);
   Serial.print("| thresh: ");
-  Serial.print(writeHoldingRegister[DO_THRESHOLD_REGISTER]);
+  Serial.print(readHoldingRegister[DO_THRESHOLD_REGISTER]);
   Serial.print("| above: ");
-  Serial.print(writeHoldingRegister[ABOVE_THESHOLD_REGISTER]);
+  Serial.print(readHoldingRegister[ABOVE_THESHOLD_REGISTER]);
   Serial.print("| below: ");
-  Serial.print(writeHoldingRegister[BELOW_THESHOLD_REGISTER]);
+  Serial.print(readHoldingRegister[BELOW_THESHOLD_REGISTER]);
   Serial.print("| T: ");
-  Serial.print(writeHoldingRegister[TRANSITION_TIME_REGISTER]);
+  Serial.print(readHoldingRegister[TRANSITION_TIME_REGISTER]);
 
   Serial.println();
 }

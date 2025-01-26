@@ -83,6 +83,7 @@ void processSystemState() {
 
   switch (currentState) {
     case SystemState::WAITING:
+      wlcSensor.state = true;
       if (wlcSensor.state) {
         updatePumpStates(true, true, false);  // Start filling and dosing
         fillingStartTime = millis();
@@ -91,7 +92,8 @@ void processSystemState() {
       break;
 
     case SystemState::FILLING:
-      if (radarSensor || millis() - fillingStartTime >= FILLING_TIMEOUT) {
+      // if (radarSensor || millis() - fillingStartTime >= FILLING_TIMEOUT) {
+      if (radarSensor) {
         updatePumpStates(false, false, true);  // Stop filling, start transfer
         transferStartTime = millis();
         currentState = SystemState::TRANSFER;

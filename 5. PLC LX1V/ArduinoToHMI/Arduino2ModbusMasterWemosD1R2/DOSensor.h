@@ -2,7 +2,7 @@
 #include "Arduino.h"
 
 #define DO_SENSOR_PIN A0
-#define DO_SENSOR_VREF_MV 5000
+#define DO_SENSOR_VREF_MV 3300
 #define DO_SENSOR_ADC_RES 1024
 #define TWO_POINT_CALIBRATION 0
 #define DO_READ_TEMPERATURE (25)
@@ -25,17 +25,3 @@ const uint16_t DO_SENSOR_TABLE[41] = {
 void initSensorDO();
 void readSensorDO(float* _adcRawRead, float* _adcVoltage, float* _doSensorValue);
 int16_t convertDOToPercentage(float doValue, float maxDO);
-
-class MovingAverageFilter {
-private:
-  int _windowSize;
-  int _currentIndex;
-  float* _values;
-  float _runningSum;
-public:
-  explicit MovingAverageFilter(int windowSize);
-  ~MovingAverageFilter();
-  void addMeasurement(float value);
-  float getFilteredValue() const;
-  void clear();
-};

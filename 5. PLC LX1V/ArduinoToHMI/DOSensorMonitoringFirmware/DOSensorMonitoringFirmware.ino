@@ -1,5 +1,4 @@
-#define ENABLE_MODULE_EEPROM_LIB
-
+#include "PinsAndConfig.h"
 #include "Kinematrix.h"
 
 #include "ModbusMaster.h"
@@ -8,11 +7,13 @@
 #include "DOSensor.h"
 #include "SensorFilter.h"
 
-#define PWM_OUTPUT_PIN 5
-
 SoftwareSerial modbus(MODBUS_RO_PIN, MODBUS_DI_PIN);
 ModbusMaster node;
+#if IS_ARDUINO_BOARD
 EEPROMLib eeprom;
+#else
+EEPROMLibESP8266 eeprom;
+#endif
 
 uint8_t readCoil[READ_COIL_LEN];
 float writeHoldingRegister[WRITE_HOLDING_REGISTER_LEN];
@@ -22,8 +23,13 @@ uint16_t pwmOutput;
 void setup() {
   Serial.begin(9600);
 
-  pinMode(LED_BUILTIN, OUTPUT);
+  // pinMode(LED_BUILTIN, OUTPUT);
   pinMode(PWM_OUTPUT_PIN, OUTPUT);
+#if IS_ARDUINO_BOARD
+#else
+  analogWriteFreq(980);
+  analogWriteRange(255);
+#endif
   initModbusConfig();
   initSensorDO();
 
@@ -32,8 +38,16 @@ void setup() {
 
   writeHoldingRegister[EEPROM_WRITE_COUNT_REGISTER] = eeprom.getWriteCount();
   writeHoldingRegister[EEPROM_WRITE_LIMIT_REGISTER] = 100000;
+
   // writeHoldingRegister[EEPROM_HEALTH_REGISTER] = report.healthPercentage;
   // writeHoldingRegister[EEPROM_TOTAL_BAD_SECTOR_REGISTER] = report.badSectors;
+
+  // eeprom.writeFloat(0, 0);
+  // eeprom.writeFloat(4, 0);
+  // eeprom.writeFloat(8, 2.0);
+  // eeprom.writeFloat(12, 25);
+  // eeprom.writeFloat(16, 35);
+  // eeprom.writeFloat(20, 1);
 
   readHoldingRegister[CALIBRATION_REGISTER] = eeprom.readFloat(0);
   readHoldingRegister[IN_FREQUENCY_REGISTER] = eeprom.readFloat(4);
@@ -106,11 +120,9 @@ void loop() {
     if (millis() - systemTransitionTimer >= readHoldingRegister[TRANSITION_TIME_REGISTER] * 1000) {
       systemTransitionTimer = millis();
       if (writeHoldingRegister[DO_REGISTER] > readHoldingRegister[DO_THRESHOLD_REGISTER]) {
-        digitalWrite(LED_BUILTIN, HIGH);
         pwmOutput = map(readHoldingRegister[ABOVE_THESHOLD_REGISTER], 0, 50, 0, 255);
         writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[ABOVE_THESHOLD_REGISTER];
       } else {
-        digitalWrite(LED_BUILTIN, LOW);
         pwmOutput = map(readHoldingRegister[BELOW_THESHOLD_REGISTER], 0, 50, 0, 255);
         writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[BELOW_THESHOLD_REGISTER];
       }
@@ -122,30 +134,6 @@ void loop() {
   writeHoldingRegister[EEPROM_WRITE_COUNT_REGISTER] = eeprom.getWriteCount();
   writeMultipleFloatsToRegisters(writeHoldingRegister, 1, WRITE_HOLDING_REGISTER_LEN);
 
-  // serialDebugging();
+  serialDebugging();
   // digitalWrite(LED_BUILTIN, readCoil[AUTO_COIL]);
 }
-
-// void loop() {
-//   // NOTES: DO MONITOR & CONTROL V1
-//   if (readCoil[AUTO_COIL]) {
-//     static uint32_t systemTransitionTimer;
-//     if (millis() - systemTransitionTimer >= readHoldingRegister[TRANSITION_TIME_REGISTER] * 1000) {
-//       systemTransitionTimer = millis();
-//       if (writeHoldingRegister[DO_REGISTER] > readHoldingRegister[DO_THRESHOLD_REGISTER]) {
-//         pwmOutput = map(readHoldingRegister[ABOVE_THESHOLD_REGISTER], 0, 50, 0, 255);
-//         writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[ABOVE_THESHOLD_REGISTER];
-//       } else {
-//         pwmOutput = map(readHoldingRegister[BELOW_THESHOLD_REGISTER], 0, 50, 0, 255);
-//         writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[BELOW_THESHOLD_REGISTER];
-//       }
-//       writeHoldingRegister[PWM_OUT_REGISTER] = pwmOutput;
-//       analogWrite(PWM_OUTPUT_PIN, pwmOutput);
-//     }
-//   } else {
-//     pwmOutput = map(readHoldingRegister[IN_FREQUENCY_REGISTER], 0, 50, 0, 255);
-//     writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[IN_FREQUENCY_REGISTER];
-//     writeHoldingRegister[PWM_OUT_REGISTER] = pwmOutput;
-//     analogWrite(PWM_OUTPUT_PIN, pwmOutput);
-//   }
-// }

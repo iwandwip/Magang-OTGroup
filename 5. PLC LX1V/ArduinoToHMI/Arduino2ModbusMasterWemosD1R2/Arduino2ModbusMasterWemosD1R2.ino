@@ -1,4 +1,4 @@
-#define ENABLE_MODULE_EEPROM_LIB
+#define ENABLE_MODULE_EEPROM_LIB_ESP8266
 
 #include "Kinematrix.h"
 
@@ -8,11 +8,11 @@
 #include "DOSensor.h"
 #include "SensorFilter.h"
 
-#define PWM_OUTPUT_PIN 5
+#define PWM_OUTPUT_PIN D4
 
 SoftwareSerial modbus(MODBUS_RO_PIN, MODBUS_DI_PIN);
 ModbusMaster node;
-EEPROMLib eeprom;
+EEPROMLibESP8266 eeprom;
 
 uint8_t readCoil[READ_COIL_LEN];
 float writeHoldingRegister[WRITE_HOLDING_REGISTER_LEN];
@@ -24,6 +24,9 @@ void setup() {
 
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(PWM_OUTPUT_PIN, OUTPUT);
+  analogWriteFreq(980);
+  analogWriteRange(255);
+
   initModbusConfig();
   initSensorDO();
 

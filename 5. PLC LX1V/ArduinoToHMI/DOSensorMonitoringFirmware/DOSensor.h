@@ -1,8 +1,6 @@
 #pragma once
 #include "Arduino.h"
 
-#define DO_SENSOR_PIN A0
-#define DO_SENSOR_VREF_MV 5000
 #define DO_SENSOR_ADC_RES 1024
 #define TWO_POINT_CALIBRATION 0
 #define DO_READ_TEMPERATURE (25)

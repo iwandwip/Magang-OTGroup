@@ -1,12 +1,15 @@
 #pragma once
 #include "Arduino.h"
 
-#define IS_ARDUINO_BOARD !defined(ESP8266)
+#define IS_ARDUINO_BOARD 0
+#define ENABLE_FIREBASE 0
 
 #if IS_ARDUINO_BOARD
 #define ENABLE_MODULE_EEPROM_LIB
 #else
+#define ENABLE_MODULE_FIREBASE_HANDLER
 #define ENABLE_MODULE_EEPROM_LIB_ESP8266
+#define ENABLE_MODULE_DATETIME_NTP
 #endif
 
 #define DO_SENSOR_PIN A0

@@ -5,11 +5,8 @@
 #define TWO_POINT_CALIBRATION 0
 #define DO_READ_TEMPERATURE (25)
 
-// Single point calibration needs to be filled CAL1_VOLTAGE and CAL1_TEMPERATURE
 #define CAL1_VOLTAGE (1235)    // mv
 #define CAL1_TEMPERATURE (25)  // ℃
-// Two-point calibration needs to be filled CAL2_VOLTAGE and CAL2_TEMPERATURE
-// CAL1 High temperature point, CAL2 Low temperature point
 #define CAL2_VOLTAGE (1300)    // mv
 #define CAL2_TEMPERATURE (15)  // ℃
 
@@ -23,17 +20,3 @@ const uint16_t DO_SENSOR_TABLE[41] = {
 void initSensorDO();
 void readSensorDO(float* _adcRawRead, float* _adcVoltage, float* _doSensorValue);
 int16_t convertDOToPercentage(float doValue, float maxDO);
-
-class MovingAverageFilter {
-private:
-  int _windowSize;
-  int _currentIndex;
-  float* _values;
-  float _runningSum;
-public:
-  explicit MovingAverageFilter(int windowSize);
-  ~MovingAverageFilter();
-  void addMeasurement(float value);
-  float getFilteredValue() const;
-  void clear();
-};

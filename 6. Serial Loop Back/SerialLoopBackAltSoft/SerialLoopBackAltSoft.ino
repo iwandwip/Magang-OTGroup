@@ -14,11 +14,22 @@ void setup() {
 }
 
 void loop() {
-  if (Serial.available()) {
-    altSerial.println(Serial.readStringUntil('\n'));
-  }
+  // if (Serial.available()) {
+  //   altSerial.println(Serial.readStringUntil('\n'));
+  // }
 
+  static uint8_t index = 0;
   if (altSerial.available()) {
-    Serial.println(altSerial.readStringUntil('\n'));
+    // Serial.println(altSerial.readStringUntil('\n'));
+
+    // Serial.print(altSerial.read(), HEX);
+    while (altSerial.available()) {
+      Serial.print(altSerial.read(), HEX);
+      index++;
+    }
+    if (index >= 20) {
+      Serial.println();
+      index = 0;
+    }
   }
 }

@@ -12,6 +12,10 @@ ModbusMaster node;
 #if IS_ARDUINO_BOARD
 EEPROMLib eeprom;
 #else
+#if ENABLE_FIREBASE
+FirebaseModule firebase;
+FirebaseAuthentication auth;
+#endif
 EEPROMLibESP8266 eeprom;
 #endif
 
@@ -21,6 +25,8 @@ float readHoldingRegister[READ_HOLDING_REGISTER_LEN];
 uint16_t pwmOutput;
 
 void setup() {
+  // ESP.wdtDisable();
+  // ESP.wdtEnable(0);
   Serial.begin(9600);
 
   // pinMode(LED_BUILTIN, OUTPUT);
@@ -42,13 +48,6 @@ void setup() {
   // writeHoldingRegister[EEPROM_HEALTH_REGISTER] = report.healthPercentage;
   // writeHoldingRegister[EEPROM_TOTAL_BAD_SECTOR_REGISTER] = report.badSectors;
 
-  // eeprom.writeFloat(0, 0);
-  // eeprom.writeFloat(4, 0);
-  // eeprom.writeFloat(8, 2.0);
-  // eeprom.writeFloat(12, 25);
-  // eeprom.writeFloat(16, 35);
-  // eeprom.writeFloat(20, 1);
-
   readHoldingRegister[CALIBRATION_REGISTER] = eeprom.readFloat(0);
   readHoldingRegister[IN_FREQUENCY_REGISTER] = eeprom.readFloat(4);
   readHoldingRegister[DO_THRESHOLD_REGISTER] = eeprom.readFloat(8);
@@ -56,9 +55,29 @@ void setup() {
   readHoldingRegister[BELOW_THESHOLD_REGISTER] = eeprom.readFloat(16);
   readHoldingRegister[TRANSITION_TIME_REGISTER] = eeprom.readFloat(20);
 
+  bool isAnyNaN =
+    isnan(readHoldingRegister[CALIBRATION_REGISTER])
+    || isnan(readHoldingRegister[IN_FREQUENCY_REGISTER])
+    || isnan(readHoldingRegister[DO_THRESHOLD_REGISTER])
+    || isnan(readHoldingRegister[ABOVE_THESHOLD_REGISTER])
+    || isnan(readHoldingRegister[BELOW_THESHOLD_REGISTER])
+    || isnan(readHoldingRegister[TRANSITION_TIME_REGISTER]);
+
+  if (isAnyNaN) {
+    eeprom.writeFloat(0, 0);
+    eeprom.writeFloat(4, 0);
+    eeprom.writeFloat(8, 2.0);
+    eeprom.writeFloat(12, 25);
+    eeprom.writeFloat(16, 35);
+    eeprom.writeFloat(20, 1);
+  }
+
   delay(1000);
 
   writeMultipleFloatsToRegisters(readHoldingRegister, 101, READ_HOLDING_REGISTER_LEN);
+#if !IS_ARDUINO_BOARD && ENABLE_FIREBASE
+  wifiTaskInit();
+#endif
 }
 
 void loop() {
@@ -82,7 +101,6 @@ void loop() {
   }
 
   readCoil[AUTO_COIL] = readSingleCoil(2);
-
   readMultipleFloatsFromRegisters(readHoldingRegister, 101, READ_HOLDING_REGISTER_LEN);
 
   bool eepromEnableWrite = false;
@@ -133,7 +151,8 @@ void loop() {
 
   writeHoldingRegister[EEPROM_WRITE_COUNT_REGISTER] = eeprom.getWriteCount();
   writeMultipleFloatsToRegisters(writeHoldingRegister, 1, WRITE_HOLDING_REGISTER_LEN);
-
+#if !IS_ARDUINO_BOARD && ENABLE_FIREBASE
+  wifiTaskLoop();
+#endif
   serialDebugging();
-  // digitalWrite(LED_BUILTIN, readCoil[AUTO_COIL]);
 }

@@ -92,8 +92,8 @@ void processSystemState() {
       break;
 
     case SystemState::FILLING:
-      // if (radarSensor || millis() - fillingStartTime >= FILLING_TIMEOUT) {
-      if (radarSensor) {
+      // if (radarSensor) {
+      if (radarSensor || millis() - fillingStartTime >= FILLING_TIMEOUT) {
         updatePumpStates(false, false, true);  // Stop filling, start transfer
         transferStartTime = millis();
         currentState = SystemState::TRANSFER;

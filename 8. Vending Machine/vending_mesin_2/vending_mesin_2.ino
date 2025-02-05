@@ -12,10 +12,13 @@ void setup() {
 
 void loop() {
   if (Serial.available()) {
+    // int addr = Serial.readStringUntil('\n').toInt();
+    // writeCommand(addr);
+    // delay(8000);
+
     while (Serial.available()) {
       Serial.read();
     }
-
     for (uint8_t addr = 10; addr <= 15; addr++) {
       writeCommand(addr);
       delay(8000);
@@ -48,7 +51,6 @@ void writeCommand(uint8_t addr) {
   Serial.print(": ");
 
   for (int i = 0; i < 20; i++) {
-    Serial.print(command[i] < 0x10 ? "0" : "");
     Serial.print(command[i], HEX);
     altSerial.write(command[i]);
   }

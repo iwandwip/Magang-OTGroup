@@ -23,7 +23,7 @@ public:
   void stopContinuous();
 
 private:
-  VL53L0X m_sensor;
+  c m_sensor;
   unsigned int m_timeoutMs;
   uint16_t m_lastDistance;
   bool m_inited;

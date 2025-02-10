@@ -41,8 +41,8 @@ void loop() {
   // }
 
   uint16_t distance = distance_sensor.getLastDistance() / 10;  // toCM
-  uint32_t ledDelay = getLedDelay(distance, 1, 20, 10, 500, false);
-  Timer1.setPeriod(ledDelay);
+  uint32_t ledDelay = getLedDelay(distance, 1, 10, 75, 375, true);
+  Timer1.setPeriod(ledDelay * 1000);
   updateLEDs(distance);
   // printDistance("| mm: %4d | cm: %4d| delay: %lu", distance * 10, distance, ledDelay);
   printDistance("| cm: %4d| delay: %lu", distance, ledDelay);

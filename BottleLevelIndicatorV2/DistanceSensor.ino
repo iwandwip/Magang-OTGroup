@@ -30,6 +30,18 @@ sensor_err_t DistanceSensor::readDistance() {
   return SENSOR_READ_SUCCESS;
 }
 
+sensor_err_t DistanceSensor::readSingleShotDistance() {
+  if (!m_inited) {
+    return SENSOR_READ_TIMEOUT;
+  }
+  uint16_t dist = m_sensor.readRangeSingleMillimeters();  // Single-shot read
+  if (m_sensor.timeoutOccurred()) {
+    return SENSOR_READ_TIMEOUT;
+  }
+  m_lastDistance = dist;
+  return SENSOR_READ_SUCCESS;
+}
+
 uint16_t DistanceSensor::getLastDistance() const {
   return m_lastDistance;
 }

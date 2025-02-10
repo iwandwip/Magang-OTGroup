@@ -17,6 +17,7 @@ public:
   DistanceSensor(unsigned int timeoutMs = 500);
   sensor_err_t begin();
   sensor_err_t readDistance();
+  sensor_err_t readSingleShotDistance();  
   uint16_t getLastDistance() const;
   void startContinuous(uint32_t period = 0);
   void stopContinuous();

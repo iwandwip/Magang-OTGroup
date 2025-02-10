@@ -1,58 +1,57 @@
 #include "DigitalOut.h"
 #include "DistanceSensor.h"
+#include "TimerOne.h"
 
-// Constants
 const uint8_t LED_INDICATOR_SIZE = 4;
 const uint16_t DISTANCE_RANGES[LED_INDICATOR_SIZE][2] = {
-  { 10, 19 }, { 20, 29 }, { 30, 39 }, { 40, 49 }
+  { 1, 5 }, { 6, 10 }, { 11, 15 }, { 16, 20 }
 };
 
-// Pin Definitions
 DigitalOut ledLevelIndicator[LED_INDICATOR_SIZE] = {
   DigitalOut(2), DigitalOut(3), DigitalOut(4), DigitalOut(5)
 };
 
-// Sensor Initialization
-DistanceSensor distance_sensor;
-
-// Function Prototypes
-void resetArduino();
-void initializeLEDs();
-void handleSensorError();
-void updateLEDs(uint16_t distance);
-void printDistance(uint16_t distance);
+DistanceSensor distance_sensor(2000);
 
 void setup() {
   Serial.begin(9600);
+  pinMode(LED_BUILTIN, OUTPUT);
 
-  // Initialize sensor
   if (distance_sensor.begin() == SENSOR_INIT_FAILED) {
     handleSensorError();
   } else {
     initializeLEDs();
     distance_sensor.startContinuous();
   }
+
+  Timer1.initialize(1000000);  // Initial Timer1 setup (1 second)
+  Timer1.attachInterrupt([]() {
+    digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+  });
 }
 
 void loop() {
-  sensor_err_t err_sensor_read = distance_sensor.readDistance();
+  sensor_err_t err_sensor_read = distance_sensor.readSingleShotDistance();
 
-  if (err_sensor_read == SENSOR_READ_TIMEOUT) {
-    for (int j = 0; j < LED_INDICATOR_SIZE; j++) {
-      ledLevelIndicator[j].toggleAsync(250);
-    }
-  } else if (err_sensor_read == SENSOR_READ_SUCCESS) {
-    uint16_t distance = distance_sensor.getLastDistance();
-    updateLEDs(distance);
-    printDistance(distance);
-  }
+  // if (err_sensor_read != SENSOR_READ_SUCCESS) {
+  //   for (int j = 0; j < LED_INDICATOR_SIZE; j++) {
+  //     ledLevelIndicator[j].toggleAsync(250);
+  //   }
+  //   return;
+  // }
+
+  uint16_t distance = distance_sensor.getLastDistance() / 10;  // toCM
+  uint32_t ledDelay = getLedDelay(distance, 1, 20, 10, 500, false);
+  Timer1.setPeriod(ledDelay);
+  updateLEDs(distance);
+  // printDistance("| mm: %4d | cm: %4d| delay: %lu", distance * 10, distance, ledDelay);
+  printDistance("| cm: %4d| delay: %lu", distance, ledDelay);
 
   for (int j = 0; j < LED_INDICATOR_SIZE; j++) {
     ledLevelIndicator[j].update();
   }
 }
 
-// Function Definitions
 void resetArduino() {
   void (*resetFunc)(void) = 0;
   resetFunc();
@@ -92,8 +91,34 @@ void updateLEDs(uint16_t distance) {
   }
 }
 
-void printDistance(uint16_t distance) {
-  Serial.print("Distance = ");
-  Serial.print(distance);
-  Serial.println(" mm");
+void printDistance(const char *format, ...) {
+  va_list args;
+  va_start(args, format);
+  char buffer[100];
+  vsprintf(buffer, format, args);
+  Serial.println(buffer);
+  va_end(args);
+}
+
+uint32_t getLedDelay(uint16_t distance, uint16_t minDist, uint16_t maxDist, uint32_t delayMin, uint32_t delayMax, bool inverse) {
+  if (minDist >= maxDist) {
+    return delayMin;
+  }
+
+  if (distance < minDist) {
+    distance = minDist;
+  } else if (distance > maxDist) {
+    distance = maxDist;
+  }
+
+  float normalizedDistance = (float)(distance - minDist) / (maxDist - minDist);
+  float factor = pow(normalizedDistance, 3);
+
+  if (inverse) {
+    // Semakin jauh, delay semakin besar (delayMin ke delayMax)
+    return delayMin + (uint32_t)((delayMax - delayMin) * factor);
+  } else {
+    // Semakin jauh, delay semakin kecil (delayMax ke delayMin)
+    return delayMax - (uint32_t)((delayMax - delayMin) * factor);
+  }
 }

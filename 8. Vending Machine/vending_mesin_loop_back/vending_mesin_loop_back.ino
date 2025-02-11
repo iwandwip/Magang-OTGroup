@@ -22,6 +22,7 @@ void loop() {
   }
 
   if (altSerial.available()) {
-    Serial.println(altSerial.read(), HEX);
+    Serial.println(altSerial.readStringUntil('\n'));
+    // Serial.println(altSerial.read(), HEX);
   }
 }

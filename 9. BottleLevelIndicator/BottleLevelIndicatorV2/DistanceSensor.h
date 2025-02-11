@@ -3,7 +3,7 @@
 
 #include "Arduino.h"
 #include "Wire.h"
-#include "VL53L0X.h"
+#include "Adafruit_VL53L0X.h"
 
 typedef enum {
   SENSOR_INIT_SUCCESS,
@@ -17,13 +17,14 @@ public:
   DistanceSensor(unsigned int timeoutMs = 500);
   sensor_err_t begin();
   sensor_err_t readDistance();
-  sensor_err_t readSingleShotDistance();  
+  sensor_err_t readSingleShotDistance();
   uint16_t getLastDistance() const;
-  void startContinuous(uint32_t period = 0);
+  void startContinuous();
   void stopContinuous();
+  bool isRangeComplete();  // Untuk memeriksa apakah pembacaan selesai dalam mode continuous
 
 private:
-  c m_sensor;
+  Adafruit_VL53L0X lox;
   unsigned int m_timeoutMs;
   uint16_t m_lastDistance;
   bool m_inited;

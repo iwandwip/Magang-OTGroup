@@ -32,16 +32,23 @@ void loop() {
     if (charDecimal < 33 || charDecimal > 92) return;
     int address = charDecimal - 33;
 
-    Serial.print("| incomingChar: ");
-    Serial.print(incomingChar);
-    Serial.print("| charDecimal: ");
-    Serial.print(charDecimal);
-    Serial.print("| address: ");
-    Serial.print(address);
-    // Serial.println();
+    // Serial.print("| incomingChar: ");
+    // Serial.print(incomingChar);
+    // Serial.print("| charDecimal: ");
+    // Serial.print(charDecimal);
+    // Serial.print("| address: ");
+    // Serial.print(address);
 
     writeCommand(address);
     // delay(8000);
+  }
+
+  if (altSerial.available()) {
+    Serial.print("| recv: ");
+    while (altSerial.available()) {
+      Serial.print(altSerial.read(), HEX);
+    }
+    Serial.println();
   }
 }
 
@@ -61,19 +68,18 @@ void prepareCommand(uint8_t address, byte* data) {
 
 void writeCommand(uint8_t addr) {
   byte command[20];
-
   prepareCommand(addr, command);
 
-  Serial.print("| command 0x");
-  Serial.print(addr < 0x10 ? "0" : "");
-  Serial.print(addr, HEX);
-  Serial.print(": ");
+  // Serial.print("| command 0x");
+  // Serial.print(addr < 0x10 ? "0" : "");
+  // Serial.print(addr, HEX);
+  // Serial.print(": ");
 
   for (int i = 0; i < 20; i++) {
-    Serial.print(command[i], HEX);
+    // Serial.print(command[i], HEX);
     altSerial.write(command[i]);
   }
-  Serial.println();
+  // Serial.println();
 }
 
 uint16_t calculateCRC16Modbus(byte* data, int length) {

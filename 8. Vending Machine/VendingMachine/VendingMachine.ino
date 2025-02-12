@@ -2,6 +2,7 @@
 
 #include "Kinematrix.h"
 #include "AltSoftSerial.h"
+#include "Config.h"
 
 AltSoftSerial altSerial;
 EEPROMLib eeprom;
@@ -12,7 +13,7 @@ void setup() {
   Serial.begin(9600);
   altSerial.begin(9600);
   eeprom.init();
-  // eeprom.writeString(0, "OT0001");
+  eeprom.writeString(0, "OT0001");
   int writeCount = eeprom.getWriteCount();
   OTAddress = eeprom.readString(0);
 
@@ -21,35 +22,90 @@ void setup() {
   // Serial.print("| OTAddress: ");
   // Serial.print(OTAddress);
   // Serial.println();
+
+  // for (int i = 0; i < 60; i++) {
+  //   writeCommand(i);
+  // }
 }
 
 void loop() {
   if (Serial.available()) {
     char incomingChar = Serial.read();
     if (incomingChar == '\n' || incomingChar == '\r') return;
-    if (incomingChar == 'x') Serial.println(OTAddress);
+    if (incomingChar == 'z') {
+      openLock();
+      return;
+    }
+    if (incomingChar == 'x') {
+      Serial.println(OTAddress);
+      return;
+    }
     int charDecimal = (int)incomingChar;
     if (charDecimal < 33 || charDecimal > 92) return;
     int address = charDecimal - 33;
 
-    // Serial.print("| incomingChar: ");
-    // Serial.print(incomingChar);
-    // Serial.print("| charDecimal: ");
-    // Serial.print(charDecimal);
-    // Serial.print("| address: ");
-    // Serial.print(address);
+    Serial.print("| incomingChar: ");
+    Serial.print(incomingChar);
+    Serial.print("| charDecimal: ");
+    Serial.print(charDecimal);
+    Serial.print("| address: ");
+    Serial.print(address);
+
+    if (address >= 20) return;
 
     writeCommand(address);
     // delay(8000);
   }
 
+  receiveData();
+}
+
+void receiveData() {
+  static byte receivedData[20];
+  static int index = 0;
+
   if (altSerial.available()) {
-    Serial.print("| recv: ");
-    while (altSerial.available()) {
-      Serial.print(altSerial.read(), HEX);
+    if (index == 0) Serial.print("| recv: ");
+    while (altSerial.available() && index < 20) {
+      receivedData[index] = altSerial.read();
+      index++;
+    }
+    if (index == 20) {
+      for (int i = 0; i < 20; i++) {
+        if (receivedData[i] < 0x10) Serial.print("0");
+        Serial.print(receivedData[i], HEX);
+      }
+      Serial.println();
+      index = 0;
+    }
+  }
+}
+
+
+void openLock() {
+  // for (int j = 0; j < 20; j++) {
+  //   Serial.print(lockDataArr[1][j], HEX);
+  //   altSerial.write(lockDataArr[1][j]);
+  // }
+  // Serial.println();
+
+  for (int i = 0; i < 2; i++) {
+    Serial.print("| open: ");
+    for (int j = 0; j < 20; j++) {
+      if (lockDataArr[i][j] < 0x10) Serial.print("0");
+      Serial.print(lockDataArr[i][j], HEX);
+      altSerial.write(lockDataArr[i][j]);
     }
     Serial.println();
+    delay(250);
   }
+
+  // for (int j = 0; j < 20; j++) {
+  //   Serial.print(lockDataArr[i][j], HEX);
+  //   altSerial.write(lockDataArr[i][j]);
+  // }
+  // Serial.println();
+  // delay(250);
 }
 
 void prepareCommand(uint8_t address, byte* data) {
@@ -70,16 +126,20 @@ void writeCommand(uint8_t addr) {
   byte command[20];
   prepareCommand(addr, command);
 
-  // Serial.print("| command 0x");
-  // Serial.print(addr < 0x10 ? "0" : "");
-  // Serial.print(addr, HEX);
-  // Serial.print(": ");
+  Serial.print("| addr: ");
+  Serial.print(addr < 10 ? "0" : "");
+  Serial.print(addr);
+  Serial.print("| command 0x");
+  Serial.print(addr < 0x10 ? "0" : "");
+  Serial.print(addr, HEX);
+  Serial.print(": ");
 
   for (int i = 0; i < 20; i++) {
-    // Serial.print(command[i], HEX);
+    if (command[i] < 0x10) Serial.print("0");
+    Serial.print(command[i], HEX);
     altSerial.write(command[i]);
   }
-  // Serial.println();
+  Serial.println();
 }
 
 uint16_t calculateCRC16Modbus(byte* data, int length) {

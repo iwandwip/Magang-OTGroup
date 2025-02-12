@@ -43,20 +43,8 @@ void loop() {
     int charDecimal = (int)incomingChar;
     if (charDecimal < 33 || charDecimal > 92) return;
     int address = charDecimal - 33;
-
-    Serial.print("| incomingChar: ");
-    Serial.print(incomingChar);
-    Serial.print("| charDecimal: ");
-    Serial.print(charDecimal);
-    Serial.print("| address: ");
-    Serial.print(address);
-
-    if (address >= 20) return;
-
     writeCommand(address);
-    // delay(8000);
   }
-
   receiveData();
 }
 
@@ -75,20 +63,15 @@ void receiveData() {
         if (receivedData[i] < 0x10) Serial.print("0");
         Serial.print(receivedData[i], HEX);
       }
-      Serial.println();
+      // Serial.println();
       index = 0;
+
+      decodeModbusData(receivedData);
     }
   }
 }
 
-
 void openLock() {
-  // for (int j = 0; j < 20; j++) {
-  //   Serial.print(lockDataArr[1][j], HEX);
-  //   altSerial.write(lockDataArr[1][j]);
-  // }
-  // Serial.println();
-
   for (int i = 0; i < 2; i++) {
     Serial.print("| open: ");
     for (int j = 0; j < 20; j++) {
@@ -99,13 +82,6 @@ void openLock() {
     Serial.println();
     delay(250);
   }
-
-  // for (int j = 0; j < 20; j++) {
-  //   Serial.print(lockDataArr[i][j], HEX);
-  //   altSerial.write(lockDataArr[i][j]);
-  // }
-  // Serial.println();
-  // delay(250);
 }
 
 void prepareCommand(uint8_t address, byte* data) {
@@ -126,14 +102,7 @@ void writeCommand(uint8_t addr) {
   byte command[20];
   prepareCommand(addr, command);
 
-  Serial.print("| addr: ");
-  Serial.print(addr < 10 ? "0" : "");
-  Serial.print(addr);
-  Serial.print("| command 0x");
-  Serial.print(addr < 0x10 ? "0" : "");
-  Serial.print(addr, HEX);
-  Serial.print(": ");
-
+  Serial.print("| comm: ");
   for (int i = 0; i < 20; i++) {
     if (command[i] < 0x10) Serial.print("0");
     Serial.print(command[i], HEX);

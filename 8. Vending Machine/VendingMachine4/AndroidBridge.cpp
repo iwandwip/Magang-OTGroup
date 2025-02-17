@@ -1,11 +1,10 @@
+// AndroidBridge.cpp
 #include "AndroidBridge.h"
 
 AndroidBridge::AndroidBridge(Stream* androidSerial, Stream* debugSerial)
   : android(androidSerial), debug(debugSerial), lastCommand(-1) {}
 
 void AndroidBridge::begin() {
-  // if (android) android->begin(9600);
-  // if (debug) debug->begin(9600);
 }
 
 void AndroidBridge::handleCommands() {

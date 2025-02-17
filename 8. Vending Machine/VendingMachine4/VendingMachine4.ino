@@ -1,3 +1,4 @@
+// VendingMachine.ino
 #include "AndroidBridge.h"
 #include "DriverBridge.h"
 #include "AltSoftSerial.h"
@@ -10,8 +11,6 @@ DriverBridge driverBridge(&altSerial, &Serial);
 void setup() {
   Serial.begin(9600);
   altSerial.begin(9600);
-  androidBridge.begin();
-  driverBridge.begin();
 }
 
 void loop() {

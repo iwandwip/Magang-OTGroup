@@ -1,3 +1,4 @@
+// DriverBridge.cpp
 #include "DriverBridge.h"
 
 const int DriverBridge::COMMAND_DELAYS[10] = { 75, 800, 1000, 900, 900, 900, 900, 900, 900, 900 };
@@ -8,8 +9,7 @@ DriverBridge::DriverBridge(Stream* motorSerial, Stream* debugSerial)
     messageCount(0), isNewSequence(false), lastFunction(0) {}
 
 void DriverBridge::begin() {
-  // if (motor) motor->begin(9600);
-  // if (debug) debug->begin(9600);
+  
 }
 
 bool DriverBridge::executeMotorCommand(int address) {

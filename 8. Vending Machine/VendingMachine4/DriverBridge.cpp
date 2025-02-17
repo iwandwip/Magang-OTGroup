@@ -9,7 +9,6 @@ DriverBridge::DriverBridge(Stream* motorSerial, Stream* debugSerial)
     messageCount(0), isNewSequence(false), lastFunction(0) {}
 
 void DriverBridge::begin() {
-  
 }
 
 bool DriverBridge::executeMotorCommand(int address) {
@@ -29,6 +28,8 @@ bool DriverBridge::executeMotorCommand(int address) {
 }
 
 void DriverBridge::receiveMotorResponse() {
+  if (!motor) return;
+
   if (index == 0 && !isWaiting) {
     startTime = millis();
     isWaiting = true;
@@ -36,7 +37,7 @@ void DriverBridge::receiveMotorResponse() {
 
   if (motor->available()) {
     if (index == 0) {
-      debug->print("| recv: ");
+      if (debug) debug->print("| recv: ");
     }
 
     while (motor->available() && index < FRAME_SIZE) {
@@ -45,9 +46,11 @@ void DriverBridge::receiveMotorResponse() {
     }
 
     if (index == FRAME_SIZE) {
-      for (int i = 0; i < FRAME_SIZE; i++) {
-        if (receivedData[i] < 0x10) debug->print("0");
-        debug->print(receivedData[i], HEX);
+      if (debug) {
+        for (int i = 0; i < FRAME_SIZE; i++) {
+          if (receivedData[i] < 0x10) debug->print("0");
+          debug->print(receivedData[i], HEX);
+        }
       }
 
       uint32_t currentTime = millis();
@@ -123,13 +126,15 @@ String DriverBridge::generateModbusFrame(uint8_t address) {
 bool DriverBridge::writeBytes(byte* data, int length) {
   if (data == nullptr || length <= 0 || !motor) return false;
 
-  debug->print("| send: ");
+  if (debug) debug->print("| send: ");
   for (int i = 0; i < length; i++) {
     motor->write(data[i]);
-    if (data[i] < 0x10) debug->print("0");
-    debug->print(data[i], HEX);
+    if (debug) {
+      if (data[i] < 0x10) debug->print("0");
+      debug->print(data[i], HEX);
+    }
   }
-  debug->println("");
+  if (debug) debug->println("");
   return true;
 }
 
@@ -152,7 +157,7 @@ void DriverBridge::decodeModbusData(byte* data) {
     messageCount = 1;
     isNewSequence = true;
     lastFunction = function;
-    debug->println("");
+    if (debug) debug->println("");
     return;
   } else {
     messageCount = (lastFunction == 0x05) ? 1 : messageCount + 1;
@@ -161,7 +166,7 @@ void DriverBridge::decodeModbusData(byte* data) {
 
   uint16_t crcCalculated = calculateCRC16(data, 18);
   if (crcReceived != crcCalculated) {
-    debug->println("| CRC Error: Data corrupted!");
+    if (debug) debug->println("| CRC Error: Data corrupted!");
     return;
   }
 
@@ -172,15 +177,15 @@ void DriverBridge::decodeModbusData(byte* data) {
 
   if (messageCount >= 3) {
     if (reg2 == 0 && reg3 == 0 && reg4 == 0) {
-      debug->print("| Status: Motor Tidak Berputar");
+      if (debug) debug->print("| Status: Motor Tidak Berputar");
     } else if (isContainsSuffix(data)) {
-      debug->print("| Status: Motor Berputar dengan Hambatan");
+      if (debug) debug->print("| Status: Motor Berputar dengan Hambatan");
     } else if (reg2 > 0 && reg3 <= 0x3E) {
-      debug->print("| Status: Motor Berputar Normal");
+      if (debug) debug->print("| Status: Motor Berputar Normal");
     }
   }
 
-  debug->println("");
+  if (debug) debug->println("");
 
   if (messageCount >= 9) {
     messageCount = 0;

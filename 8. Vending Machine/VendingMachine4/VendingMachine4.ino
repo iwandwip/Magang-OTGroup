@@ -5,19 +5,24 @@
 
 AltSoftSerial altSerial;
 
-AndroidBridge androidBridge(&Serial, &Serial);
-DriverBridge driverBridge(&altSerial, &Serial);
+AndroidBridge android(&Serial, &Serial);
+DriverBridge driver(&altSerial, &Serial);
 
 void setup() {
   Serial.begin(9600);
   altSerial.begin(9600);
+  android.writeOTAddress("OT0001");
 }
 
 void loop() {
-  androidBridge.handleCommands();
+  android.handleCommands();
 
-  int command = androidBridge.getReceivedCommand();
+  if (android.isUnlocking()) driver.openLock();
+
+  int command = android.getReceivedCommand();
   if (command >= 0) {
-    driverBridge.executeMotorCommand(command);
+    bool status = driver.executeMotorCommand(command);
+    if (status) android.sendResponse("a");
+    else android.sendResponse("b");
   }
 }

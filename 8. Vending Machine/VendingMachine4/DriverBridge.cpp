@@ -2,11 +2,19 @@
 #include "DriverBridge.h"
 
 const int DriverBridge::COMMAND_DELAYS[10] = { 75, 800, 1000, 900, 900, 900, 900, 900, 900, 900 };
+const String DriverBridge::DOOR_LOCKS[2] = {
+  "01053B030000000000000000000000000000236B",
+  "0105630300000000000000000000000000001891"
+};
 
 DriverBridge::DriverBridge(Stream* motorSerial, Stream* debugSerial)
   : motor(motorSerial), debug(debugSerial),
     index(0), startTime(0), lastEndTime(0), isWaiting(false),
-    messageCount(0), isNewSequence(false), lastFunction(0) {}
+    messageCount(0), isNewSequence(false), lastFunction(0),
+    lastDataHasSuffix(false) {
+  memset(receivedData, 0, FRAME_SIZE);
+  memset(lastReceivedData, 0, FRAME_SIZE);
+}
 
 void DriverBridge::begin() {
 }
@@ -16,15 +24,38 @@ bool DriverBridge::executeMotorCommand(int address) {
   const String MOTOR_COMMAND_DATA = "010300000000000000000000000000000000D0E8";
 
   for (int i = 0; i < MOTOR_COMMAND_LENGTH; i++) {
+    // Reset receive buffer untuk setiap command baru
+    memset(receivedData, 0, FRAME_SIZE);
+    index = 0;
+
     if (i == 0) {
       writeHexString(motorAddressFrame);
     } else {
       writeHexString(MOTOR_COMMAND_DATA);
     }
+
     delay(COMMAND_DELAYS[i]);
     receiveMotorResponse();
+
+    if (i == MOTOR_COMMAND_LENGTH - 1) {
+      memcpy(lastReceivedData, receivedData, FRAME_SIZE);
+      lastDataHasSuffix = isContainsSuffix(lastReceivedData);
+    }
   }
-  return true;
+
+  return lastDataHasSuffix;
+}
+
+bool DriverBridge::openLock() {
+  bool success = true;
+  for (int i = 0; i < 2; i++) {
+    if (!writeHexString(DOOR_LOCKS[i])) {
+      success = false;
+      if (debug) debug->println("Failed to send lock command " + String(i + 1));
+    }
+    delay(250);
+  }
+  return success;
 }
 
 void DriverBridge::receiveMotorResponse() {
@@ -51,19 +82,22 @@ void DriverBridge::receiveMotorResponse() {
           if (receivedData[i] < 0x10) debug->print("0");
           debug->print(receivedData[i], HEX);
         }
+        debug->println();
       }
 
       uint32_t currentTime = millis();
       uint32_t totalTime = currentTime - startTime;
       uint32_t timeSinceLastFrame = lastEndTime > 0 ? currentTime - lastEndTime : 0;
 
-      decodeModbusData(receivedData);
-
       index = 0;
       isWaiting = false;
       lastEndTime = currentTime;
     }
   }
+}
+
+bool DriverBridge::isContainsSuffix(byte* data) {
+  return data[11] > 0x00;
 }
 
 uint16_t DriverBridge::calculateCRC16(byte* data, int length) {
@@ -142,57 +176,8 @@ bool DriverBridge::writeHexString(const String& hexString) {
   byte buffer[32];
   int length;
   if (!hexStringToBytes(hexString, buffer, sizeof(buffer), &length)) {
-    debug->println("Error converting hex string");
+    if (debug) debug->println("Error converting hex string");
     return false;
   }
   return writeBytes(buffer, length);
-}
-
-void DriverBridge::decodeModbusData(byte* data) {
-  byte address = data[0];
-  byte function = data[1];
-  uint16_t crcReceived = (data[19] << 8) | data[18];
-
-  if (function == 0x05) {
-    messageCount = 1;
-    isNewSequence = true;
-    lastFunction = function;
-    if (debug) debug->println("");
-    return;
-  } else {
-    messageCount = (lastFunction == 0x05) ? 1 : messageCount + 1;
-    lastFunction = function;
-  }
-
-  uint16_t crcCalculated = calculateCRC16(data, 18);
-  if (crcReceived != crcCalculated) {
-    if (debug) debug->println("| CRC Error: Data corrupted!");
-    return;
-  }
-
-  uint16_t reg1 = (data[3] << 8) | data[4];
-  uint16_t reg2 = (data[5] << 8) | data[6];
-  uint16_t reg3 = (data[7] << 8) | data[8];
-  uint16_t reg4 = (data[9] << 8) | data[10];
-
-  if (messageCount >= 3) {
-    if (reg2 == 0 && reg3 == 0 && reg4 == 0) {
-      if (debug) debug->print("| Status: Motor Tidak Berputar");
-    } else if (isContainsSuffix(data)) {
-      if (debug) debug->print("| Status: Motor Berputar dengan Hambatan");
-    } else if (reg2 > 0 && reg3 <= 0x3E) {
-      if (debug) debug->print("| Status: Motor Berputar Normal");
-    }
-  }
-
-  if (debug) debug->println("");
-
-  if (messageCount >= 9) {
-    messageCount = 0;
-    isNewSequence = false;
-  }
-}
-
-bool DriverBridge::isContainsSuffix(byte* data) {
-  return data[11] > 0x00;
 }

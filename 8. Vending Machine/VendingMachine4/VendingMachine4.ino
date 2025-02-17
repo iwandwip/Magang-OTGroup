@@ -5,8 +5,8 @@
 
 AltSoftSerial altSerial;
 
-AndroidBridge android(&Serial, &Serial);
-DriverBridge driver(&altSerial, &Serial);
+AndroidBridge android(&Serial, nullptr);
+DriverBridge driver(&altSerial, nullptr);
 
 void setup() {
   Serial.begin(9600);

@@ -24,7 +24,6 @@ bool DriverBridge::executeMotorCommand(int address) {
   const String MOTOR_COMMAND_DATA = "010300000000000000000000000000000000D0E8";
 
   for (int i = 0; i < MOTOR_COMMAND_LENGTH; i++) {
-    // Reset receive buffer untuk setiap command baru
     memset(receivedData, 0, FRAME_SIZE);
     index = 0;
 
@@ -97,7 +96,7 @@ void DriverBridge::receiveMotorResponse() {
 }
 
 bool DriverBridge::isContainsSuffix(byte* data) {
-  return data[11] > 0x00;
+  return (data[11] >= 0xC0 && data[11] <= 0xC8);
 }
 
 uint16_t DriverBridge::calculateCRC16(byte* data, int length) {

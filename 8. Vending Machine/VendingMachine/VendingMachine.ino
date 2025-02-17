@@ -30,43 +30,83 @@ void setup() {
 
 void loop() {
   if (Serial.available()) {
-    char incomingChar = Serial.read();
-    if (incomingChar == '\n' || incomingChar == '\r') return;
-    if (incomingChar == 'z') {
-      openLock();
-      return;
+    int index = Serial.readStringUntil('\n').toInt();
+    if (index >= 10) {
+      for (int i = 0; i < 10; i++) {
+        writeHexString(testDataArr[i]);
+        delay(testDataDelay[i]);
+        receiveData();
+      }
+    } else {
+      writeHexString(testDataArr[index]);
     }
-    if (incomingChar == 'x') {
-      Serial.println(OTAddress);
-      return;
-    }
-    int charDecimal = (int)incomingChar;
-    if (charDecimal < 33 || charDecimal > 92) return;
-    int address = charDecimal - 33;
-    writeCommand(address);
   }
-  receiveData();
+
+  // if (Serial.available()) {
+  //   char incomingChar = Serial.read();
+  //   if (incomingChar == '\n' || incomingChar == '\r') return;
+  //   if (incomingChar == 'z') {
+  //     openLock();
+  //     return;
+  //   }
+  //   if (incomingChar == 'x') {
+  //     Serial.println(OTAddress);
+  //     return;
+  //   }
+  //   int charDecimal = (int)incomingChar;
+  //   if (charDecimal < 33 || charDecimal > 92) return;
+  //   int address = charDecimal - 33;
+  //   writeCommand(address);
+  // }
+
+  // receiveData();
 }
 
 void receiveData() {
   static byte receivedData[20];
   static int index = 0;
+  static uint32_t startTime = 0;
+  static uint32_t lastEndTime = 0;
+  static bool isWaiting = false;
+
+  if (index == 0 && !isWaiting) {
+    startTime = millis();
+    isWaiting = true;
+  }
 
   if (altSerial.available()) {
-    if (index == 0) Serial.print("| recv: ");
+    if (index == 0) {
+      Serial.print("| recv: ");
+    }
+
     while (altSerial.available() && index < 20) {
       receivedData[index] = altSerial.read();
       index++;
     }
+
     if (index == 20) {
       for (int i = 0; i < 20; i++) {
         if (receivedData[i] < 0x10) Serial.print("0");
         Serial.print(receivedData[i], HEX);
       }
-      // Serial.println();
-      index = 0;
 
+      uint32_t currentTime = millis();
+      uint32_t totalTime = currentTime - startTime;
+      uint32_t timeSinceLastFrame = lastEndTime > 0 ? currentTime - lastEndTime : 0;
+
+      // Serial.print("| totalTime: ");
+      // Serial.print(totalTime);
+      // Serial.print("ms");
+      // Serial.print("| timeSinceLastFrame: ");
+      // Serial.print(timeSinceLastFrame);
+      // Serial.print("ms");
+
+      // Serial.println();
       decodeModbusData(receivedData);
+
+      index = 0;
+      isWaiting = false;
+      lastEndTime = currentTime;
     }
   }
 }

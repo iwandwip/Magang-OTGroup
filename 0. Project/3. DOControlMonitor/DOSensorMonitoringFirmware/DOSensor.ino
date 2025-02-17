@@ -1,6 +1,6 @@
 #include "DOSensor.h"
 
-MovingAverageFilter filterAverageADC(70);
+MovingAverageFilter filterAverageADC(350);  // 70
 DynamicLerpFilter filterLerpADC(0.002, 0.2, 0.01);
 
 void initSensorDO() {

@@ -1,4 +1,6 @@
 void serialDebugging() {
+  Serial.print("| raw: ");
+  Serial.print(analogRead(DO_SENSOR_PIN));
   Serial.print("| adc: ");
   Serial.print(writeHoldingRegister[ADC_REGISTER]);
   Serial.print("| v: ");

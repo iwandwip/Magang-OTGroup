@@ -8,7 +8,7 @@ const uint16_t DISTANCE_RANGES[LED_INDICATOR_SIZE][2] = {
 };
 
 DigitalOut ledLevelIndicator[LED_INDICATOR_SIZE] = {
-  DigitalOut(2), DigitalOut(3), DigitalOut(4), DigitalOut(5)
+  DigitalOut(5), DigitalOut(4), DigitalOut(6), DigitalOut(7)
 };
 
 DistanceSensor distance_sensor(2000);

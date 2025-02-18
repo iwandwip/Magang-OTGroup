@@ -1,0 +1,59 @@
+response 1 itu motor berhasil memutar
+response 2 itu motor memutar tapi ada halangan
+response 3 itu motor tidak berputar
+
+tombol 1 kondisi response 1: harusnya berhasil memutar
+| recv: 00050000000000000000000000000000000062B5
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 000301000003A90000004800000000000000DF0C| Device addr: 0| Function: 3| Counter: 0x3A9| Data1: 0x0| Data2: 0x48| CRC: 0xCDF
+| recv: 000301000003A900000426000000000000006A68| Device addr: 0| Function: 3| Counter: 0x3A9| Data1: 0x0| Data2: 0x426| CRC: 0x686A
+| recv: 000301000003A90000081800000000000000BDF0| Device addr: 0| Function: 3| Counter: 0x3A9| Data1: 0x0| Data2: 0x818| CRC: 0xF0BD
+| recv: 000301000003A9003E0C0A000000000000006EEF| Device addr: 0| Function: 3| Counter: 0x3A9| Data1: 0x3E| Data2: 0xC0A| CRC: 0xEF6E
+| recv: 000301000003A9003E0FFC00000000000000F571| Device addr: 0| Function: 3| Counter: 0x3A9| Data1: 0x3E| Data2: 0xFFC| CRC: 0x71F5| Status: Motor Berputar dengan Hambatan
+| recv: 000301000003A9003E13F3000000000000002DF1| Device addr: 0| Function: 3| Counter: 0x3A9| Data1: 0x3E| Data2: 0x13F3| CRC: 0xF12D
+| recv: 000302000003A9003E1532000000000000008B3C| Device addr: 0| Function: 3| Counter: 0x3A9| Data1: 0x3E| Data2: 0x1532| CRC: 0x3C8B
+tombol 1 kondisi response 2: harusnya berputar dengan hambatan
+| recv: 00050000000000000000000000000000000062B5| 
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440| Status: Motor Tidak Berputar
+| recv: 00030100000446000003CCC8000000000000160E| Device addr: 0| Function: 3| Counter: 0x446| Data1: 0x0| Data2: 0x3CC| CRC: 0xE16| Status: Motor Berputar dengan Hambatan
+| recv: 00030100000446000007AFC800000000000062F3| Device addr: 0| Function: 3| Counter: 0x446| Data1: 0x0| Data2: 0x7AF| CRC: 0xF362
+| recv: 00030100000446003E0BA1C8000000000000D775| Device addr: 0| Function: 3| Counter: 0x446| Data1: 0x3E| Data2: 0xBA1| CRC: 0x75D7| Status: Motor Berputar Normal
+| recv: 00030100000446003E0F93C80000000000006778| Device addr: 0| Function: 3| Counter: 0x446| Data1: 0x3E| Data2: 0xF93| CRC: 0x7867| Status: Motor Berputar Normal
+| recv: 00030100000446003E1385C80000000000007E9E| Device addr: 0| Function: 3| Counter: 0x446| Data1: 0x3E| Data2: 0x1385| CRC: 0x9E7E| Status: Motor Berputar Normal
+| recv: 00030200000446003E152CC8000000000000DFDD| Device addr: 0| Function: 3| Counter: 0x446| Data1: 0x3E| Data2: 0x152C| CRC: 0xDDDF| Status: Motor Berputar Normal
+tombol 1 kondisi response 3: ini sudah benar berhenti
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440| Status: Motor Tidak Berputar
+| recv: 00030200040000000000000000000000000005B1| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0xB105| Status: Motor Tidak Berputar
+
+tombol 1 kondisi response 1:harusnya berhasil memutar
+| recv: 00050000000000000000000000000000000062B5
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 00030100000437000000250000000000000039AC| Device addr: 0| Function: 3| Counter: 0x437| Data1: 0x0| Data2: 0x25| CRC: 0xAC39
+| recv: 00030100000437000004170000000000000089A1| Device addr: 0| Function: 3| Counter: 0x437| Data1: 0x0| Data2: 0x417| CRC: 0xA189
+| recv: 0003010000043700000809000000000000005C21| Device addr: 0| Function: 3| Counter: 0x437| Data1: 0x0| Data2: 0x809| CRC: 0x215C
+| recv: 00030100000437003E0BFB00000000000000A746| Device addr: 0| Function: 3| Counter: 0x437| Data1: 0x3E| Data2: 0xBFB| CRC: 0x46A7| Status: Motor Berputar dengan Hambatan
+| recv: 00030100000437003E0FF20000000000000055EC| Device addr: 0| Function: 3| Counter: 0x437| Data1: 0x3E| Data2: 0xFF2| CRC: 0xEC55| Status: Motor Berputar Normal
+| recv: 00030100000437003E13E4000000000000004C0A| Device addr: 0| Function: 3| Counter: 0x437| Data1: 0x3E| Data2: 0x13E4| CRC: 0xA4C| Status: Motor Berputar Normal
+| recv: 00030200000437003E152F000000000000006AB8| Device addr: 0| Function: 3| Counter: 0x437| Data1: 0x3E| Data2: 0x152F| CRC: 0xB86A| Status: Motor Berputar Normal
+tombol 1 kondisi response 2: harusnya berputar dengan hambatan
+| recv: 00050000000000000000000000000000000062B5
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 000301000003A5000000250000000000000008AD| Device addr: 0| Function: 3| Counter: 0x3A5| Data1: 0x0| Data2: 0x25| CRC: 0xAD08
+| recv: 000301000003A500000417C8000000000000F16C| Device addr: 0| Function: 3| Counter: 0x3A5| Data1: 0x0| Data2: 0x417| CRC: 0x6CF1
+| recv: 000301000003A50000080EC8000000000000650A| Device addr: 0| Function: 3| Counter: 0x3A5| Data1: 0x0| Data2: 0x80E| CRC: 0xA65
+| recv: 000301000003A5003E0C05C80000000000007773| Device addr: 0| Function: 3| Counter: 0x3A5| Data1: 0x3E| Data2: 0xC05| CRC: 0x7377
+| recv: 000301000003A5003E0FF7C8000000000000ED1E| Device addr: 0| Function: 3| Counter: 0x3A5| Data1: 0x3E| Data2: 0xFF7| CRC: 0x1EED
+| recv: 000301000003A5003E13E9C8000000000000F55E| Device addr: 0| Function: 3| Counter: 0x3A5| Data1: 0x3E| Data2: 0x13E9| CRC: 0x5EF5| Status: Motor Berputar dengan Hambatan
+| recv: 000302000003A5003E152DC800000000000093AC| Device addr: 0| Function: 3| Counter: 0x3A5| Data1: 0x3E| Data2: 0x152D| CRC: 0xAC93
+tombol 1 kondisi response 3: ini sudah benar berhenti
+| recv: 00050000000000000000000000000000000062B5
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440| Status: Motor Tidak Berputar
+| recv: 00030200040000000000000000000000000005B1| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0xB105| Status: Motor Tidak Berputar

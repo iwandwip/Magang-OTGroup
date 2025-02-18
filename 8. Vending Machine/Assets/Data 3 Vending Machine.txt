@@ -1,0 +1,7 @@
+response 1 itu motor berhasil memutar
+response 2 itu motor memutar tapi ada halangan
+response 3 itu motor tidak berputar
+
+tombol 1 kondisi response 1: harusnya berhasil memutar
+tombol 1 kondisi response 2: harusnya berputar dengan hambatan
+tombol 1 kondisi response 3: ini sudah benar berhenti

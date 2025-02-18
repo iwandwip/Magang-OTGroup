@@ -1,0 +1,61 @@
+response 1 itu motor berhasil memutar
+response 2 itu motor memutar tapi ada halangan
+response 3 itu motor tidak berputar
+
+tombol 1 kondisi response 1:
+| recv: 00050000000000000000000000000000000062B5| Device addr: 0| Function: 5| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0xB562
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000044B0000002000000000000000A8FC| Device addr: 0| Function: 3| Counter: 0x44B| Data1: 0x0| Data2: 0x20| CRC: 0xFCA8
+| recv: 0003010000044B0000041700000000000000D8CE| Device addr: 0| Function: 3| Counter: 0x44B| Data1: 0x0| Data2: 0x417| CRC: 0xCED8
+| recv: 0003010000044B00000809000000000000000D4E| Device addr: 0| Function: 3| Counter: 0x44B| Data1: 0x0| Data2: 0x809| CRC: 0x4E0D
+| recv: 0003010000044B003F0BFB00000000000000A7EC| Device addr: 0| Function: 3| Counter: 0x44B| Data1: 0x3F| Data2: 0xBFB| CRC: 0xECA7
+| recv: 0003010000044B003F0FED00000000000000140A| Device addr: 0| Function: 3| Counter: 0x44B| Data1: 0x3F| Data2: 0xFED| CRC: 0xA14
+| recv: 0003010000044B003F13E4000000000000004CA0| Device addr: 0| Function: 3| Counter: 0x44B| Data1: 0x3F| Data2: 0x13E4| CRC: 0xA04C
+| recv: 0003020000044B003F153600000000000000AB74| Device addr: 0| Function: 3| Counter: 0x44B| Data1: 0x3F| Data2: 0x1536| CRC: 0x74AB
+tombol 1 kondisi response 2:
+| recv: 00050000000000000000000000000000000062B5| Device addr: 0| Function: 5| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0xB562
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 000301000003B400000025000000000000003491| Device addr: 0| Function: 3| Counter: 0x3B4| Data1: 0x0| Data2: 0x25| CRC: 0x9134
+| recv: 000301000003B400000417910000000000000455| Device addr: 0| Function: 3| Counter: 0x3B4| Data1: 0x0| Data2: 0x417| CRC: 0x5504
+| recv: 000301000003B4000007FAC80000000000001671| Device addr: 0| Function: 3| Counter: 0x3B4| Data1: 0x0| Data2: 0x7FA| CRC: 0x7116
+| recv: 000301000003B4003E0BECC8000000000000A35D| Device addr: 0| Function: 3| Counter: 0x3B4| Data1: 0x3E| Data2: 0xBEC| CRC: 0x5DA3
+| recv: 000301000003B4003E0FE3C8000000000000D1DD| Device addr: 0| Function: 3| Counter: 0x3B4| Data1: 0x3E| Data2: 0xFE3| CRC: 0xDDD1
+| recv: 000301000003B4003E13C6C80000000000008B3A| Device addr: 0| Function: 3| Counter: 0x3B4| Data1: 0x3E| Data2: 0x13C6| CRC: 0x3A8B
+| recv: 000302000003B4003E1533C80000000000002F10| Device addr: 0| Function: 3| Counter: 0x3B4| Data1: 0x3E| Data2: 0x1533| CRC: 0x102F
+tombol 1 kondisi response 3:
+| recv: 00050000000000000000000000000000000062B5| Device addr: 0| Function: 5| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0xB562
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 00030200040000000000000000000000000005B1| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0xB105
+
+tombol 1 kondisi response 1:
+| recv: 00050000000000000000000000000000000062B5| Device addr: 0| Function: 5| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0xB562
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000045B0000002A00000000000000E97C| Device addr: 0| Function: 3| Counter: 0x45B| Data1: 0x0| Data2: 0x2A| CRC: 0x7CE9
+| recv: 0003010000045B00000421000000000000009A0F| Device addr: 0| Function: 3| Counter: 0x45B| Data1: 0x0| Data2: 0x421| CRC: 0xF9A
+| recv: 0003010000045B00000813000000000000004DC2| Device addr: 0| Function: 3| Counter: 0x45B| Data1: 0x0| Data2: 0x813| CRC: 0xC24D
+| recv: 0003010000045B003E0C05000000000000009F2E| Device addr: 0| Function: 3| Counter: 0x45B| Data1: 0x3E| Data2: 0xC05| CRC: 0x2E9F
+| recv: 0003010000045B003E0FFC0000000000000044F0| Device addr: 0| Function: 3| Counter: 0x45B| Data1: 0x3E| Data2: 0xFFC| CRC: 0xF044
+| recv: 0003010000045B003E13E9000000000000001D03| Device addr: 0| Function: 3| Counter: 0x45B| Data1: 0x3E| Data2: 0x13E9| CRC: 0x31D
+| recv: 0003020000045B003E1532000000000000003ABD| Device addr: 0| Function: 3| Counter: 0x45B| Data1: 0x3E| Data2: 0x1532| CRC: 0xBD3A
+tombol 1 kondisi response 2:
+| recv: 00050000000000000000000000000000000062B5| Device addr: 0| Function: 5| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0xB562
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000043B000000250000000000000029BC| Device addr: 0| Function: 3| Counter: 0x43B| Data1: 0x0| Data2: 0x25| CRC: 0xBC29
+| recv: 0003010000043B00000417C8000000000000D07D| Device addr: 0| Function: 3| Counter: 0x43B| Data1: 0x0| Data2: 0x417| CRC: 0x7DD0
+| recv: 0003010000043B00000809C800000000000005FD| Device addr: 0| Function: 3| Counter: 0x43B| Data1: 0x0| Data2: 0x809| CRC: 0xFD05
+| recv: 0003010000043B003D0C00C80000000000006652| Device addr: 0| Function: 3| Counter: 0x43B| Data1: 0x3D| Data2: 0xC00| CRC: 0x5266
+| recv: 0003010000043B003D0FF2C8000000000000FC3F| Device addr: 0| Function: 3| Counter: 0x43B| Data1: 0x3D| Data2: 0xFF2| CRC: 0x3FFC
+| recv: 0003010000043B003D13E9C80000000000002440| Device addr: 0| Function: 3| Counter: 0x43B| Data1: 0x3D| Data2: 0x13E9| CRC: 0x4024
+| recv: 0003020000043B003D1532C800000000000003FE| Device addr: 0| Function: 3| Counter: 0x43B| Data1: 0x3D| Data2: 0x1532| CRC: 0xFE03
+tombol 1 kondisi response 3:
+| recv: 00050000000000000000000000000000000062B5| Device addr: 0| Function: 5| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0xB562
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 0003010000000000000000000000000000004084| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0x8440
+| recv: 00030200040000000000000000000000000005B1| Device addr: 0| Function: 3| Counter: 0x0| Data1: 0x0| Data2: 0x0| CRC: 0xB105

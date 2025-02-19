@@ -1,0 +1,281 @@
+#include "PIDSimulator.h"
+
+PIDSimulator::PIDSimulator(double kp, double ki, double kd, Stream* serialPort) {
+  // Parameter default
+  MIN_SETPOINT = 0.0;
+  MAX_SETPOINT = 100.0;
+  MOMENTUM_GAIN = 0.05;
+  INITIAL_MOMENTUM = 0.08;
+  MOMENTUM_DAMPING = 0.85;
+  MAX_MOMENTUM = 3.0;
+  NEAR_TARGET_DAMPING = 0.9;
+  AT_TARGET_DAMPING = 0.7;
+
+  // Inisialisasi variabel
+  Kp = kp;
+  Ki = ki;
+  Kd = kd;
+  Setpoint = 0.0;
+  Input = 0.0;
+  simulatedValue = 0.0;
+  momentum = 0.0;
+  noiseAmplitude = 0.5;
+
+  inputString = "";
+  stringComplete = false;
+
+  // Set the serial port
+  serial = serialPort;
+  hasSerialPort = (serial != nullptr);
+
+  // Default: Serial input diaktifkan jika serial port tersedia
+  serialInputEnabled = hasSerialPort;
+
+  // Inisialisasi PID
+  pid = new PID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
+  pid->SetOutputLimits(0, 255);
+  pid->SetMode(AUTOMATIC);
+}
+
+PIDSimulator::~PIDSimulator() {
+  delete pid;
+}
+
+void PIDSimulator::setSerialPort(Stream* serialPort) {
+  serial = serialPort;
+  hasSerialPort = (serial != nullptr);
+
+  // Disable serial input if serial port is null
+  if (!hasSerialPort) {
+    serialInputEnabled = false;
+  }
+}
+
+void PIDSimulator::setup() {
+  if (!hasSerialPort) {
+    return;  // No serial port available, skip setup messages
+  }
+
+  if (serialInputEnabled) {
+    serial->print("Masukkan nilai Setpoint (");
+    serial->print(MIN_SETPOINT);
+    serial->print(" - ");
+    serial->print(MAX_SETPOINT);
+    serial->println("):");
+  } else {
+    serial->println("Mode setpoint manual aktif. Serial input dinonaktifkan.");
+  }
+  delay(100);
+}
+
+void PIDSimulator::setTunings(double kp, double ki, double kd) {
+  Kp = kp;
+  Ki = ki;
+  Kd = kd;
+  pid->SetTunings(Kp, Ki, Kd);
+}
+
+void PIDSimulator::setKp(double kp) {
+  Kp = kp;
+  pid->SetTunings(Kp, Ki, Kd);
+}
+
+void PIDSimulator::setKi(double ki) {
+  Ki = ki;
+  pid->SetTunings(Kp, Ki, Kd);
+}
+
+void PIDSimulator::setKd(double kd) {
+  Kd = kd;
+  pid->SetTunings(Kp, Ki, Kd);
+}
+
+double PIDSimulator::getKp() {
+  return Kp;
+}
+
+double PIDSimulator::getKi() {
+  return Ki;
+}
+
+double PIDSimulator::getKd() {
+  return Kd;
+}
+
+void PIDSimulator::setSetpoint(double setpoint) {
+  // Validasi nilai setpoint
+  if (setpoint >= MIN_SETPOINT && setpoint <= MAX_SETPOINT) {
+    // Simpan setpoint sebelumnya
+    double oldSetpoint = Setpoint;
+
+    // Update setpoint
+    Setpoint = setpoint;
+
+    // Hitung perubahan dan tambahkan momentum
+    double change = Setpoint - oldSetpoint;
+    momentum += change * INITIAL_MOMENTUM;
+
+    // Nonaktifkan input serial secara otomatis
+    serialInputEnabled = false;
+  } else if (hasSerialPort) {
+    serial->print("Nilai setpoint tidak valid! Harus antara ");
+    serial->print(MIN_SETPOINT);
+    serial->print(" dan ");
+    serial->println(MAX_SETPOINT);
+  }
+}
+
+void PIDSimulator::enableSerialInput(bool enable) {
+  // Only enable serial input if we have a serial port
+  serialInputEnabled = enable && hasSerialPort;
+
+  if (!hasSerialPort) {
+    return;  // No serial port available, skip messages
+  }
+
+  if (serialInputEnabled) {
+    serial->print("Input serial diaktifkan. Masukkan nilai Setpoint (");
+    serial->print(MIN_SETPOINT);
+    serial->print(" - ");
+    serial->print(MAX_SETPOINT);
+    serial->println("):");
+  } else {
+    serial->println("Input serial dinonaktifkan. Menggunakan mode setpoint manual.");
+  }
+}
+
+bool PIDSimulator::isSerialInputEnabled() {
+  return serialInputEnabled;
+}
+
+void PIDSimulator::setSetpointRange(double minSP, double maxSP) {
+  MIN_SETPOINT = minSP;
+  MAX_SETPOINT = maxSP;
+}
+
+void PIDSimulator::setOvershootParams(double gain, double initial, double damping, double maxMom) {
+  MOMENTUM_GAIN = gain;
+  INITIAL_MOMENTUM = initial;
+  MOMENTUM_DAMPING = damping;
+  MAX_MOMENTUM = maxMom;
+}
+
+void PIDSimulator::setDampingParams(double nearTarget, double atTarget) {
+  NEAR_TARGET_DAMPING = nearTarget;
+  AT_TARGET_DAMPING = atTarget;
+}
+
+void PIDSimulator::setNoiseAmplitude(double amplitude) {
+  noiseAmplitude = amplitude;
+}
+
+void PIDSimulator::update(unsigned long interval) {
+  static unsigned long lastTime = 0;
+
+  if (millis() - lastTime >= interval) {
+    lastTime = millis();
+
+    simulateInput();
+    pid->Compute();
+
+    sendDataToPlotter();
+  }
+}
+
+void PIDSimulator::checkSerialInput() {
+  // Hanya periksa input serial jika mode diaktifkan dan serial port tersedia
+  if (!serialInputEnabled || !hasSerialPort) {
+    return;
+  }
+
+  while (serial->available()) {
+    char inChar = (char)serial->read();
+
+    if (inChar == '\n') {
+      stringComplete = true;
+    } else {
+      inputString += inChar;
+    }
+  }
+
+  if (stringComplete) {
+    double newSetpoint = inputString.toFloat();
+
+    if (newSetpoint >= MIN_SETPOINT && newSetpoint <= MAX_SETPOINT) {
+      double change = newSetpoint - Setpoint;
+      momentum += change * INITIAL_MOMENTUM;
+      Setpoint = newSetpoint;
+    } else {
+      serial->print("Nilai tidak valid! Masukkan nilai antara ");
+      serial->print(MIN_SETPOINT);
+      serial->print(" dan ");
+      serial->println(MAX_SETPOINT);
+    }
+
+    inputString = "";
+    stringComplete = false;
+  }
+}
+
+double PIDSimulator::getCurrentSetpoint() {
+  return Setpoint;
+}
+
+double PIDSimulator::getCurrentInput() {
+  return Input;
+}
+
+double PIDSimulator::getCurrentOutput() {
+  return Output;
+}
+
+void PIDSimulator::simulateInput() {
+  double rate;
+  double distance = Setpoint - Input;
+
+  if (abs(distance) > 0.1) {
+    // Make movement symmetric in both directions
+    if (distance > 0) {
+      rate = (Output / 255.0) * 1.2;
+      momentum += rate * MOMENTUM_GAIN;
+    } else {
+      // Scale negative movement similar to positive movement
+      rate = (Output / 255.0) * 1.2;
+      momentum -= rate * MOMENTUM_GAIN;
+    }
+
+    simulatedValue += rate * (distance > 0 ? 1 : -1) + momentum;
+
+    if (abs(distance) < 10) {
+      momentum *= NEAR_TARGET_DAMPING;
+    }
+  } else {
+    simulatedValue += momentum;
+    momentum *= AT_TARGET_DAMPING;
+  }
+
+  momentum *= MOMENTUM_DAMPING;
+
+  if (momentum > MAX_MOMENTUM) momentum = MAX_MOMENTUM;
+  if (momentum < -MAX_MOMENTUM) momentum = -MAX_MOMENTUM;
+
+  double noise = random(-100, 100) / 100.0 * noiseAmplitude;
+  Input = simulatedValue + noise;
+}
+
+void PIDSimulator::sendDataToPlotter() {
+  // Skip sending data if no serial port is available
+  if (!hasSerialPort) {
+    return;
+  }
+
+  serial->print("Lower:");
+  serial->print(-MAX_SETPOINT * 1.25, 2);
+  serial->print(" Upper:");
+  serial->print(MAX_SETPOINT * 1.25, 2);
+  serial->print(" Setpoint:");
+  serial->print(Setpoint, 2);
+  serial->print(" Input:");
+  serial->print(Input, 2);
+  serial->println();
+}

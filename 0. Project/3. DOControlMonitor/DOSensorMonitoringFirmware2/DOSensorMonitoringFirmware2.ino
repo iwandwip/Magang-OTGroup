@@ -154,9 +154,6 @@ void loop() {
   }
 
   if (isSystemInitialize) {
-    writeHoldingRegister[DO_REGISTER] = 2.53;
-    writeHoldingRegister[OUT_FREQUENCY_REGISTER] = 37.5;
-
     // static uint32_t systemTransitionTimer;
     // if (millis() - systemTransitionTimer >= readHoldingRegister[TRANSITION_TIME_REGISTER] * 1000) {
     //   systemTransitionTimer = millis();
@@ -172,6 +169,8 @@ void loop() {
     // }
   }
 
+  writeHoldingRegister[DO_REGISTER] = 2.53;
+  writeHoldingRegister[OUT_FREQUENCY_REGISTER] = 37.5;
   writeHoldingRegister[EEPROM_WRITE_COUNT_REGISTER] = eeprom.getWriteCount();
   writeMultipleFloatsToRegisters(writeHoldingRegister, 1, WRITE_HOLDING_REGISTER_LEN);
 #if !IS_ARDUINO_BOARD && ENABLE_FIREBASE

@@ -36,7 +36,7 @@ PIDSimulator::PIDSimulator(double kp, double ki, double kd, Stream* serialPort) 
 
   // Inisialisasi PID
   pid = new PID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT);
-  pid->SetOutputLimits(0, 255);
+  pid->SetOutputLimits(MIN_OUTPUT, MAX_OUTPUT);
   pid->SetMode(AUTOMATIC);
 }
 
@@ -260,36 +260,41 @@ double PIDSimulator::getMaxOutput() {
 }
 
 void PIDSimulator::simulateInput() {
-  double rate;
-  double distance = Setpoint - Input;
-  double outputRange = MAX_OUTPUT - MIN_OUTPUT;
+  // Hitung error
+  double error = Setpoint - Input;
 
-  if (abs(distance) > 0.1) {
-    // Make movement symmetric in both directions
-    if (distance > 0) {
-      rate = ((Output - MIN_OUTPUT) / outputRange) * 1.2;
-      momentum += rate * MOMENTUM_GAIN;
-    } else {
-      // Scale negative movement similar to positive movement
-      rate = ((Output - MIN_OUTPUT) / outputRange) * 1.2;
-      momentum -= rate * MOMENTUM_GAIN;
-    }
+  // Normalisasi output ke range 0-1 untuk perhitungan yang lebih konsisten
+  double normalizedOutput = map(Output, MIN_OUTPUT, MAX_OUTPUT, 0.0, 1.0);
 
-    simulatedValue += rate * (distance > 0 ? 1 : -1) + momentum;
+  // Hitung rate perubahan berdasarkan error dan output
+  double rate = 0;
+  if (abs(error) > 0.01) {  // Threshold untuk menghindari osilasi kecil
+    // Rate berbanding lurus dengan error dan output
+    rate = (normalizedOutput * 0.1) * (error > 0 ? 1 : -1);
 
-    if (abs(distance) < 10) {
+    // Update momentum berdasarkan error
+    momentum += rate * MOMENTUM_GAIN;
+
+    // Terapkan damping berdasarkan jarak ke target
+    if (abs(error) < 1.0) {
       momentum *= NEAR_TARGET_DAMPING;
     }
   } else {
-    simulatedValue += momentum;
+    // Jika sudah dekat target, kurangi momentum
     momentum *= AT_TARGET_DAMPING;
   }
 
+  // Batasi momentum
+  momentum = constrain(momentum, -MAX_MOMENTUM, MAX_MOMENTUM);
   momentum *= MOMENTUM_DAMPING;
 
-  if (momentum > MAX_MOMENTUM) momentum = MAX_MOMENTUM;
-  if (momentum < -MAX_MOMENTUM) momentum = -MAX_MOMENTUM;
+  // Update nilai simulasi
+  simulatedValue += rate + momentum;
 
+  // Batasi nilai simulasi ke range setpoint
+  simulatedValue = constrain(simulatedValue, MIN_SETPOINT, MAX_SETPOINT);
+
+  // Tambahkan sedikit noise untuk realisme
   double noise = random(-100, 100) / 100.0 * noiseAmplitude;
   Input = simulatedValue + noise;
 }

@@ -16,7 +16,6 @@ void AndroidBridge::begin() {
 void AndroidBridge::handleCommands() {
   if (android && android->available()) {
     char incomingChar = android->read();
-    flush();
 
     if (incomingChar == 'y') {
       unlockRequested = true;
@@ -83,11 +82,5 @@ void AndroidBridge::writeOTAddress(const String& address) {
   if (debug) {
     debug->print("New OT Address written: ");
     debug->println(address);
-  }
-}
-
-void AndroidBridge::flush() {
-  while (android->available() > 0) {
-    android->read();
   }
 }

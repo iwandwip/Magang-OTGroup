@@ -8,7 +8,7 @@ const String DriverBridge::DOOR_LOCKS[2] = {
 
 DriverBridge::DriverBridge(Stream* motorSerial, Stream* debugSerial)
   : motor(motorSerial), debug(debugSerial),
-    index(0), startTime(0), lastEndTime(0), isWaiting(false),
+    index(0), countIndex(0), startTime(0), lastEndTime(0), isWaiting(false),
     messageCount(0), isNewSequence(false), lastFunction(0),
     lastDataHasSuffix(false) {
   memset(receivedData, 0, FRAME_SIZE);
@@ -21,7 +21,6 @@ void DriverBridge::begin() {
 bool DriverBridge::executeMotorCommand(int address) {
   String motorAddressFrame = generateModbusFrame(address);
   const String MOTOR_COMMAND_DATA = "010300000000000000000000000000000000D0E8";
-  bool hasSuffix = false;
 
   for (int i = 0; i < MOTOR_COMMAND_LENGTH; i++) {
     memset(receivedData, 0, FRAME_SIZE);
@@ -32,16 +31,13 @@ bool DriverBridge::executeMotorCommand(int address) {
     } else {
       writeHexString(MOTOR_COMMAND_DATA);
     }
+
     delay(COMMAND_DELAYS[i]);
     receiveMotorResponse();
-    if (i >= 4 && i < MOTOR_COMMAND_LENGTH) {
-      if (isContainsSuffix(receivedData)) {
-        hasSuffix = true;
-      }
-    }
+
     if (i == MOTOR_COMMAND_LENGTH - 1) {
       memcpy(lastReceivedData, receivedData, FRAME_SIZE);
-      lastDataHasSuffix = hasSuffix;
+      lastDataHasSuffix = isContainsSuffix(lastReceivedData);
     }
   }
 
@@ -70,7 +66,14 @@ void DriverBridge::receiveMotorResponse() {
 
   if (motor->available()) {
     if (index == 0) {
-      if (debug) debug->print("| recv: ");
+      if (debug) {
+        if (countIndex == 0) {
+          debug->print("| nums: ");
+          debug->println(number);
+        }
+        debug->print("| recv: ");
+        countIndex++;
+      }
     }
 
     while (motor->available() && index < FRAME_SIZE) {
@@ -94,6 +97,16 @@ void DriverBridge::receiveMotorResponse() {
       index = 0;
       isWaiting = false;
       lastEndTime = currentTime;
+
+      if (countIndex == 10) {
+        memcpy(lastReceivedData, receivedData, FRAME_SIZE);
+        lastDataHasSuffix = isContainsSuffix(lastReceivedData);
+        Serial.println(lastDataHasSuffix ? "| stat: Berhasil" : "| stat: Gagal");
+        Serial.println();
+        Serial.println();
+        countIndex = 0;
+        number++;
+      }
     }
   }
 }

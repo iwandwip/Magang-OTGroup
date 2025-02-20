@@ -35,6 +35,10 @@ private:
   bool hasSerialPort;
   Stream* serial;
 
+  const double EXP_FACTOR = -3.0;
+  const double SMOOTHING_FACTOR = 0.3;
+  double lastSmoothOutput;
+
   void simulateInput();
   void sendDataToPlotter();
 
@@ -62,6 +66,7 @@ public:
   double getCurrentSetpoint();
   double getCurrentInput();
   double getCurrentOutput();
+  double getSmoothOutput();
   double getMinOutput();
   double getMaxOutput();
   double getKp();

@@ -27,6 +27,7 @@ private:
   byte receivedData[20];
   byte lastReceivedData[20];
   int index;
+  int countIndex;
   uint32_t startTime;
   uint32_t lastEndTime;
   bool isWaiting;

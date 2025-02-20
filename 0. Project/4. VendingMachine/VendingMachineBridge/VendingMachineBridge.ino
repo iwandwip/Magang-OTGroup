@@ -15,7 +15,6 @@ void setup() {
 
 void loop() {
   android.handleCommands();
-
   if (android.isUnlocking()) driver.openLock();
 
   int command = android.getReceivedCommand();
@@ -23,5 +22,6 @@ void loop() {
     bool status = driver.executeMotorCommand(command);
     if (status) android.sendResponse("a");
     else android.sendResponse("b");
+    android.flush();
   }
 }

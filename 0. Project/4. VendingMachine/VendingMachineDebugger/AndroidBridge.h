@@ -13,7 +13,6 @@ public:
   bool isUnlocking();
   String getOTAddress();
   void writeOTAddress(const String& address);
-  void flush();
 
 private:
   Stream* android;

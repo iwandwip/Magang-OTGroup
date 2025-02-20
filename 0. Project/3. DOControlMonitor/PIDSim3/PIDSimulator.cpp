@@ -23,6 +23,7 @@ PIDSimulator::PIDSimulator(double kp, double ki, double kd, Stream* serialPort) 
   simulatedValue = 0.0;
   momentum = 0.0;
   noiseAmplitude = 0.5;
+  lastSmoothOutput = 0.0; 
 
   inputString = "";
   stringComplete = false;
@@ -249,6 +250,27 @@ double PIDSimulator::getCurrentInput() {
 
 double PIDSimulator::getCurrentOutput() {
   return Output;
+}
+
+double PIDSimulator::getSmoothOutput() {
+  double error = Setpoint - Input;
+  double output;
+
+  if (error > 0) {
+    double normalizedError = error / MAX_SETPOINT;
+    output = MAX_OUTPUT * (1.0 - exp(EXP_FACTOR * normalizedError));
+  } else if (error < 0) {
+    output = MIN_OUTPUT;
+  } else {
+    output = MIN_OUTPUT;
+  }
+
+  output = (SMOOTHING_FACTOR * output) + ((1 - SMOOTHING_FACTOR) * lastSmoothOutput);
+  lastSmoothOutput = output;
+
+
+  output = constrain(output, MIN_OUTPUT, MAX_OUTPUT);
+  return output;
 }
 
 double PIDSimulator::getMinOutput() {

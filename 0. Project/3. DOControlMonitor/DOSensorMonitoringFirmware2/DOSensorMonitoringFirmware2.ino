@@ -154,19 +154,22 @@ void loop() {
   }
 
   if (isSystemInitialize) {
-    static uint32_t systemTransitionTimer;
-    if (millis() - systemTransitionTimer >= readHoldingRegister[TRANSITION_TIME_REGISTER] * 1000) {
-      systemTransitionTimer = millis();
-      if (writeHoldingRegister[DO_REGISTER] > readHoldingRegister[DO_THRESHOLD_REGISTER]) {
-        pwmOutput = map(readHoldingRegister[ABOVE_THESHOLD_REGISTER], 0, 50, 0, 255);
-        writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[ABOVE_THESHOLD_REGISTER];
-      } else {
-        pwmOutput = map(readHoldingRegister[BELOW_THESHOLD_REGISTER], 0, 50, 0, 255);
-        writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[BELOW_THESHOLD_REGISTER];
-      }
-      writeHoldingRegister[PWM_OUT_REGISTER] = pwmOutput;
-      analogWrite(PWM_OUTPUT_PIN, pwmOutput);
-    }
+    writeHoldingRegister[DO_REGISTER] = 2.53;
+    writeHoldingRegister[OUT_FREQUENCY_REGISTER] = 37.5;
+
+    // static uint32_t systemTransitionTimer;
+    // if (millis() - systemTransitionTimer >= readHoldingRegister[TRANSITION_TIME_REGISTER] * 1000) {
+    //   systemTransitionTimer = millis();
+    //   if (writeHoldingRegister[DO_REGISTER] > readHoldingRegister[DO_THRESHOLD_REGISTER]) {
+    //     pwmOutput = map(readHoldingRegister[ABOVE_THESHOLD_REGISTER], 0, 50, 0, 255);
+    //     writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[ABOVE_THESHOLD_REGISTER];
+    //   } else {
+    //     pwmOutput = map(readHoldingRegister[BELOW_THESHOLD_REGISTER], 0, 50, 0, 255);
+    //     writeHoldingRegister[OUT_FREQUENCY_REGISTER] = readHoldingRegister[BELOW_THESHOLD_REGISTER];
+    //   }
+    //   writeHoldingRegister[PWM_OUT_REGISTER] = pwmOutput;
+    //   analogWrite(PWM_OUTPUT_PIN, pwmOutput);
+    // }
   }
 
   writeHoldingRegister[EEPROM_WRITE_COUNT_REGISTER] = eeprom.getWriteCount();

@@ -10,6 +10,8 @@ DriverBridge driver(&altSerial, nullptr);
 void setup() {
   Serial.begin(9600);
   altSerial.begin(9600);
+  driver.begin();
+  android.begin();
   android.writeOTAddress("OT0001");
 }
 

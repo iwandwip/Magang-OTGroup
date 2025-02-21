@@ -16,12 +16,14 @@ DriverBridge::DriverBridge(Stream* motorSerial, Stream* debugSerial)
 }
 
 void DriverBridge::begin() {
+  pinMode(SENSOR_PIN, INPUT);
 }
 
 bool DriverBridge::executeMotorCommand(int address) {
   String motorAddressFrame = generateModbusFrame(address);
   const String MOTOR_COMMAND_DATA = "010300000000000000000000000000000000D0E8";
   bool hasSuffix = false;
+  bool voltageStatus = false;  // Added variable to track voltage status
 
   for (int i = 0; i < MOTOR_COMMAND_LENGTH; i++) {
     memset(receivedData, 0, FRAME_SIZE);
@@ -34,6 +36,12 @@ bool DriverBridge::executeMotorCommand(int address) {
     }
     delay(COMMAND_DELAYS[i]);
     receiveMotorResponse();
+
+    float voltage = readSensorVoltage();
+    if (voltage > VOLTAGE_THRESH) {
+      voltageStatus = true;
+    }
+
     if (i >= 4 && i < MOTOR_COMMAND_LENGTH) {
       if (isContainsSuffix(receivedData)) {
         hasSuffix = true;
@@ -45,7 +53,7 @@ bool DriverBridge::executeMotorCommand(int address) {
     }
   }
 
-  return lastDataHasSuffix;
+  return lastDataHasSuffix || voltageStatus;
 }
 
 bool DriverBridge::openLock() {
@@ -98,8 +106,32 @@ void DriverBridge::receiveMotorResponse() {
   }
 }
 
-bool DriverBridge::isContainsSuffix(byte* data) {
-  return data[11] > 0x00;
+float DriverBridge::readSensorVoltage() {
+  return ((float)analogRead(SENSOR_PIN) * 5.0) / 1024.0;
+}
+
+String DriverBridge::generateModbusFrame(uint8_t address) {
+  byte data[20];
+  String result = "";
+  data[0] = 0x01;                 // Device address
+  data[1] = 0x05;                 // Function code
+  data[2] = address;              // Parameter address
+  data[3] = 0x03;                 // Operand 1
+  data[4] = 0x01;                 // Operand 2
+  for (int i = 5; i < 18; i++) {  // Padding 14 bytes
+    data[i] = 0x00;
+  }
+  uint16_t crc = calculateCRC16(data, 18);
+  data[19] = crc >> 8;    // High byte
+  data[18] = crc & 0xFF;  // Low byte
+
+  for (int i = 0; i < 20; i++) {
+    if (data[i] < 0x10) {
+      result += "0";
+    }
+    result += String(data[i], HEX);
+  }
+  return result;
 }
 
 uint16_t DriverBridge::calculateCRC16(byte* data, int length) {
@@ -135,28 +167,14 @@ bool DriverBridge::hexStringToBytes(String hexString, byte* outputBuffer, int bu
   return true;
 }
 
-String DriverBridge::generateModbusFrame(uint8_t address) {
-  byte data[20];
-  String result = "";
-  data[0] = 0x01;                 // Device address
-  data[1] = 0x05;                 // Function code
-  data[2] = address;              // Parameter address
-  data[3] = 0x03;                 // Operand 1
-  data[4] = 0x01;                 // Operand 2
-  for (int i = 5; i < 18; i++) {  // Padding 14 bytes
-    data[i] = 0x00;
+bool DriverBridge::writeHexString(const String& hexString) {
+  byte buffer[32];
+  int length;
+  if (!hexStringToBytes(hexString, buffer, sizeof(buffer), &length)) {
+    if (debug) debug->println("Error converting hex string");
+    return false;
   }
-  uint16_t crc = calculateCRC16(data, 18);
-  data[19] = crc >> 8;    // High byte
-  data[18] = crc & 0xFF;  // Low byte
-
-  for (int i = 0; i < 20; i++) {
-    if (data[i] < 0x10) {
-      result += "0";
-    }
-    result += String(data[i], HEX);
-  }
-  return result;
+  return writeBytes(buffer, length);
 }
 
 bool DriverBridge::writeBytes(byte* data, int length) {
@@ -174,12 +192,6 @@ bool DriverBridge::writeBytes(byte* data, int length) {
   return true;
 }
 
-bool DriverBridge::writeHexString(const String& hexString) {
-  byte buffer[32];
-  int length;
-  if (!hexStringToBytes(hexString, buffer, sizeof(buffer), &length)) {
-    if (debug) debug->println("Error converting hex string");
-    return false;
-  }
-  return writeBytes(buffer, length);
+bool DriverBridge::isContainsSuffix(byte* data) {
+  return data[11] > 0x00;
 }

@@ -8,12 +8,14 @@ public:
   bool executeMotorCommand(int address);
   bool openLock();
 
+  void receiveMotorResponse();
+  float readSensorVoltage();
+  String generateModbusFrame(uint8_t address);
+
   uint16_t calculateCRC16(byte* data, int length);
   bool hexStringToBytes(String hexString, byte* outputBuffer, int bufferSize, int* outputLength);
-  String generateModbusFrame(uint8_t address);
   bool writeHexString(const String& hexString);
   bool writeBytes(byte* data, int length);
-  void receiveMotorResponse();
   bool isContainsSuffix(byte* data);
 private:
   Stream* motor;
@@ -23,6 +25,8 @@ private:
   static const int FRAME_SIZE = 20;
   static const int COMMAND_DELAYS[10];
   static const String DOOR_LOCKS[2];
+  static const int SENSOR_PIN = A0;
+  static const float VOLTAGE_THRESH = 3.3;
 
   byte receivedData[20];
   byte lastReceivedData[20];

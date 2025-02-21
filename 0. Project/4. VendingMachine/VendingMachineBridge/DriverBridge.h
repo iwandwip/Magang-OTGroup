@@ -26,7 +26,7 @@ private:
   static const int COMMAND_DELAYS[10];
   static const String DOOR_LOCKS[2];
   static const int SENSOR_PIN = A0;
-  static const float VOLTAGE_THRESH = 3.3;
+  static const float VOLTAGE_THRESH = 2.0;
 
   byte receivedData[20];
   byte lastReceivedData[20];

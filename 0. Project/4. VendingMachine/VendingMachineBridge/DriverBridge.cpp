@@ -23,34 +23,45 @@ bool DriverBridge::executeMotorCommand(int address) {
   String motorAddressFrame = generateModbusFrame(address);
   const String MOTOR_COMMAND_DATA = "010300000000000000000000000000000000D0E8";
   bool hasSuffix = false;
-  bool voltageStatus = false;  // Added variable to track voltage status
+  bool voltageStatus = false;
+  int currentStep = 0;
+  unsigned long stepStartTime = millis();
 
-  for (int i = 0; i < MOTOR_COMMAND_LENGTH; i++) {
-    memset(receivedData, 0, FRAME_SIZE);
-    index = 0;
+  memset(receivedData, 0, FRAME_SIZE);
+  index = 0;
+  writeHexString(motorAddressFrame);
 
-    if (i == 0) {
-      writeHexString(motorAddressFrame);
-    } else {
-      writeHexString(MOTOR_COMMAND_DATA);
-    }
-    delay(COMMAND_DELAYS[i]);
-    receiveMotorResponse();
-
+  while (currentStep < MOTOR_COMMAND_LENGTH) {
     float voltage = readSensorVoltage();
-    if (voltage > VOLTAGE_THRESH) {
+    if (voltage > VOLTAGE_THRESH && currentStep > 2) {
       voltageStatus = true;
     }
 
-    if (i >= 4 && i < MOTOR_COMMAND_LENGTH) {
-      if (isContainsSuffix(receivedData)) {
-        hasSuffix = true;
+    receiveMotorResponse();
+
+    if (millis() - stepStartTime >= COMMAND_DELAYS[currentStep]) {
+      if (currentStep >= 4 && currentStep < MOTOR_COMMAND_LENGTH) {
+        if (isContainsSuffix(receivedData)) {
+          hasSuffix = true;
+        }
+      }
+
+      if (currentStep == MOTOR_COMMAND_LENGTH - 1) {
+        memcpy(lastReceivedData, receivedData, FRAME_SIZE);
+        lastDataHasSuffix = hasSuffix;
+        currentStep++;
+      } else {
+        currentStep++;
+        memset(receivedData, 0, FRAME_SIZE);
+        index = 0;
+
+        if (currentStep > 0) {
+          writeHexString(MOTOR_COMMAND_DATA);
+        }
+        stepStartTime = millis();
       }
     }
-    if (i == MOTOR_COMMAND_LENGTH - 1) {
-      memcpy(lastReceivedData, receivedData, FRAME_SIZE);
-      lastDataHasSuffix = hasSuffix;
-    }
+    delayMicroseconds(10);
   }
 
   return lastDataHasSuffix || voltageStatus;

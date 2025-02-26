@@ -3,7 +3,7 @@
 #include "TimerOne.h"
 
 const uint8_t LED_INDICATOR_SIZE = 4;
-const uint16_t DISTANCE_RANGES[LED_INDICATOR_SIZE][2] = {
+const float DISTANCE_RANGES[LED_INDICATOR_SIZE][2] = {
   { 1, 5 }, { 6, 10 }, { 11, 15 }, { 16, 20 }
 };
 
@@ -40,7 +40,7 @@ void loop() {
   //   return;
   // }
 
-  uint16_t distance = distance_sensor.getLastDistance() / 10;  // toCM
+  float distance = distance_sensor.getLastDistance() / 10.0;  // toCM
   uint32_t ledDelay = getLedDelay(distance, 1, 10, 75, 375, true);
   Timer1.setPeriod(ledDelay * 1000);
   updateLEDs(distance);

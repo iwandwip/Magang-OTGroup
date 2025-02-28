@@ -1,16 +1,19 @@
 #include "DigitalOut.h"
 #include "DistanceSensor.h"
 #include "TimerOne.h"
+#include "Filter.h"
 
 const uint8_t LED_INDICATOR_SIZE = 4;
 const float DISTANCE_RANGES[LED_INDICATOR_SIZE][2] = {
-  { 1, 5 }, { 6, 10 }, { 11, 15 }, { 16, 20 }
+  { 25.2, 26.2 }, { 33.0, 34.0 }, { 38.3, 39.3 }, { 47.0, 48.0 }
 };
+const float MAX_DISTANCE[2] = { 74.0, 74.6 };
 
 DigitalOut ledLevelIndicator[LED_INDICATOR_SIZE] = {
   DigitalOut(5), DigitalOut(4), DigitalOut(6), DigitalOut(7)
 };
 
+MovingAverageFilter sensorFilter(10);
 DistanceSensor distance_sensor(2000);
 
 void setup() {
@@ -40,12 +43,21 @@ void loop() {
   //   return;
   // }
 
-  float distance = distance_sensor.getLastDistance() / 10.0;  // toCM
+  static float distance = 0.0;
+  static uint32_t sensorTimer;
+
+  if (millis() - sensorTimer >= 50) {
+    distance = distance_sensor.getLastDistance() / 10.0;  // toCM
+    sensorFilter.addMeasurement(distance);
+    distance = sensorFilter.getFilteredValue();
+    sensorTimer = millis();
+  }
+
   uint32_t ledDelay = getLedDelay(distance, 1, 10, 75, 375, true);
   Timer1.setPeriod(ledDelay * 1000);
   updateLEDs(distance);
-  // printDistance("| mm: %4d | cm: %4d| delay: %lu", distance * 10, distance, ledDelay);
-  printDistance("| cm: %4d| delay: %lu", distance, ledDelay);
+
+  Serial.println(distance);
 
   for (int j = 0; j < LED_INDICATOR_SIZE; j++) {
     ledLevelIndicator[j].update();
@@ -78,10 +90,18 @@ void handleSensorError() {
   }
 }
 
-void updateLEDs(uint16_t distance) {
+void updateLEDs(float distance) {
   for (int i = 0; i < LED_INDICATOR_SIZE; i++) {
     ledLevelIndicator[i].off();
   }
+
+  if (distance >= MAX_DISTANCE[0] && distance <= MAX_DISTANCE[1]) {
+    for (int i = 0; i < LED_INDICATOR_SIZE; i++) {
+      ledLevelIndicator[i].on();
+    }
+    return;
+  }
+
 
   for (int i = 0; i < LED_INDICATOR_SIZE; i++) {
     if (distance >= DISTANCE_RANGES[i][0] && distance <= DISTANCE_RANGES[i][1]) {
@@ -101,24 +121,13 @@ void printDistance(const char *format, ...) {
 }
 
 uint32_t getLedDelay(uint16_t distance, uint16_t minDist, uint16_t maxDist, uint32_t delayMin, uint32_t delayMax, bool inverse) {
-  if (minDist >= maxDist) {
-    return delayMin;
-  }
+  if (minDist >= maxDist) return delayMin;
 
-  if (distance < minDist) {
-    distance = minDist;
-  } else if (distance > maxDist) {
-    distance = maxDist;
-  }
-
+  if (distance < minDist) distance = minDist;
+  else if (distance > maxDist) distance = maxDist;
   float normalizedDistance = (float)(distance - minDist) / (maxDist - minDist);
   float factor = pow(normalizedDistance, 3);
 
-  if (inverse) {
-    // Semakin jauh, delay semakin besar (delayMin ke delayMax)
-    return delayMin + (uint32_t)((delayMax - delayMin) * factor);
-  } else {
-    // Semakin jauh, delay semakin kecil (delayMax ke delayMin)
-    return delayMax - (uint32_t)((delayMax - delayMin) * factor);
-  }
+  if (inverse) return delayMin + (uint32_t)((delayMax - delayMin) * factor);  // Semakin jauh, delay semakin besar (delayMin ke delayMax)
+  else return delayMax - (uint32_t)((delayMax - delayMin) * factor);          // Semakin jauh, delay semakin kecil (delayMax ke delayMin)
 }

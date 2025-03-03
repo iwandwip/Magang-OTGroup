@@ -113,34 +113,41 @@ class SlaveControlPanel(QWidget):
         # Command controls
         command_layout = QGridLayout()
 
-        # Button 1: Home (CMD_ZERO)
+        # Button 1: Start (CMD_START)
+        self.start_btn = QPushButton("Start")
+        self.start_btn.clicked.connect(self.on_start_clicked)
+        self.start_btn.setToolTip("Start movement (CMD_START)")
+        self.start_btn.setStyleSheet("background-color: #ccffcc; font-weight: bold;")
+
+        # Button 2: Home (CMD_ZERO)
         self.home_btn = QPushButton("Home")
         self.home_btn.clicked.connect(self.on_home_clicked)
         self.home_btn.setToolTip("Home/Zero the axis (CMD_ZERO)")
 
-        # Button 2: Pause (CMD_PAUSE)
+        # Button 3: Pause (CMD_PAUSE)
         self.pause_btn = QPushButton("Pause")
         self.pause_btn.clicked.connect(self.on_pause_clicked)
         self.pause_btn.setToolTip("Pause movement (CMD_PAUSE)")
         self.pause_btn.setStyleSheet("background-color: #ffffcc;")
 
-        # Button 3: Resume (CMD_RESUME)
+        # Button 4: Resume (CMD_RESUME)
         self.resume_btn = QPushButton("Resume")
         self.resume_btn.clicked.connect(self.on_resume_clicked)
         self.resume_btn.setToolTip("Resume movement (CMD_RESUME)")
         self.resume_btn.setStyleSheet("background-color: #ccffcc;")
 
-        # Button 4: Reset/Stop (CMD_RESET)
+        # Button 5: Reset/Stop (CMD_RESET)
         self.stop_btn = QPushButton("Stop/Reset")
         self.stop_btn.clicked.connect(self.on_stop_clicked)
         self.stop_btn.setToolTip("Stop all movement and reset (CMD_RESET)")
         self.stop_btn.setStyleSheet("background-color: #ffcccc;")
 
         # Add command buttons to layout
-        command_layout.addWidget(self.home_btn, 0, 0)
-        command_layout.addWidget(self.pause_btn, 0, 1)
-        command_layout.addWidget(self.resume_btn, 1, 0)
-        command_layout.addWidget(self.stop_btn, 1, 1)
+        command_layout.addWidget(self.start_btn, 0, 0, 1, 2)  # span 2 columns
+        command_layout.addWidget(self.home_btn, 1, 0)
+        command_layout.addWidget(self.pause_btn, 1, 1)
+        command_layout.addWidget(self.resume_btn, 2, 0)
+        command_layout.addWidget(self.stop_btn, 2, 1)
 
         # Movement controls
         movement_layout = QGridLayout()
@@ -159,11 +166,12 @@ class SlaveControlPanel(QWidget):
         self.speed_spinbox.setRange(10, 5000)
         self.speed_spinbox.setValue(500)
         self.speed_spinbox.setSingleStep(50)
+        self.speed_spinbox.setEnabled(False)  # Disable because speed is constant
 
         # Tambahkan widget ke layout
         movement_layout.addWidget(QLabel("Steps:"), 0, 0)
         movement_layout.addWidget(self.steps_spinbox, 0, 1)
-        movement_layout.addWidget(QLabel("Speed:"), 1, 0)
+        movement_layout.addWidget(QLabel("Speed (Konstan):"), 1, 0)
         movement_layout.addWidget(self.speed_spinbox, 1, 1)
         movement_layout.addWidget(self.move_positive_btn, 2, 0)
         movement_layout.addWidget(self.move_negative_btn, 2, 1)
@@ -191,46 +199,62 @@ class SlaveControlPanel(QWidget):
         # Tambahkan group box ke layout utama
         layout.addWidget(group_box)
 
+    def on_start_clicked(self):
+        # Sesuai dengan format yang diharapkan master (START)
+        self.command_request.emit("START")
+        self.status_value.setText("Starting...")
+        self.status_value.setStyleSheet("color: green; font-weight: bold;")
+
     def on_home_clicked(self):
-        self.command_request.emit(f"{self.slave_id};{2}")  # 2 = CMD_ZERO
+        # Sesuai dengan format yang diharapkan master (ZERO)
+        self.command_request.emit("ZERO")
         self.status_value.setText("Homing...")
         self.status_value.setStyleSheet("color: orange; font-weight: bold;")
 
     def on_pause_clicked(self):
-        self.command_request.emit(f"{self.slave_id};{3}")  # 3 = CMD_PAUSE
+        # Sesuai dengan format yang diharapkan master (PAUSE)
+        self.command_request.emit("PAUSE")
         self.status_value.setText("Paused")
         self.status_value.setStyleSheet("color: orange; font-weight: bold;")
 
     def on_resume_clicked(self):
-        self.command_request.emit(f"{self.slave_id};{4}")  # 4 = CMD_RESUME
+        # Sesuai dengan format yang diharapkan master (RESUME)
+        self.command_request.emit("RESUME")
         self.status_value.setText("Resuming")
         self.status_value.setStyleSheet("color: green; font-weight: bold;")
 
     def on_stop_clicked(self):
-        self.command_request.emit(f"{self.slave_id};{5}")  # 5 = CMD_RESET
+        # Sesuai dengan format yang diharapkan master (RESET)
+        self.command_request.emit("RESET")
         self.status_value.setText("Stopped")
         self.status_value.setStyleSheet("color: red; font-weight: bold;")
 
     def on_move_positive(self):
         steps = self.steps_spinbox.value()
-        speed = self.speed_spinbox.value()
-        # Format: slave_id;START;steps;speed
-        self.command_request.emit(f"{self.slave_id};{1};{steps};{speed}")
+
+        # Format untuk gerakan koordinat setelah START
+        # Format: x(position) - tanpa kecepatan karena konstan
+        move_cmd = f"{self.slave_id}({steps})"
+
+        self.command_request.emit(move_cmd)
         self.status_value.setText("Moving +")
         self.status_value.setStyleSheet("color: green; font-weight: bold;")
 
     def on_move_negative(self):
         steps = -self.steps_spinbox.value()  # Negative steps for opposite direction
-        speed = self.speed_spinbox.value()
-        # Format: slave_id;START;steps;speed
-        self.command_request.emit(f"{self.slave_id};{1};{steps};{speed}")
+
+        # Format untuk gerakan koordinat setelah START
+        # Format: x(-position) - tanpa kecepatan karena konstan
+        move_cmd = f"{self.slave_id}({steps})"
+
+        self.command_request.emit(move_cmd)
         self.status_value.setText("Moving -")
         self.status_value.setStyleSheet("color: green; font-weight: bold;")
 
     def on_send_custom(self):
         command = self.custom_command.text().strip()
         if command:
-            self.command_request.emit(f"{self.slave_id};{command}")
+            self.command_request.emit(command)
             self.custom_command.clear()
 
     def update_status(self, message):
@@ -319,12 +343,19 @@ class SequencePanel(QWidget):
         sequence_group = QGroupBox("Sequence Control")
         sequence_layout = QVBoxLayout()
 
+        # Informasi format sequence
+        info_label = QLabel(
+            "Format Sequence: slave_id(position1,position2,position3,position4,position5)\n"
+            "Maksimal 5 parameter per slave. Kecepatan motor ditentukan oleh konfigurasi konstan (MAX_SPEED=2000)."
+        )
+        info_label.setStyleSheet("color: #555555; font-style: italic;")
+
         # Text editor untuk sekuens
         self.sequence_editor = QTextEdit()
         self.sequence_editor.setPlaceholderText(
             "Masukkan sekuens gerakan di sini. Format: slave_id(parameter1,parameter2,...)\n"
-            "Contoh: x(1000,500), y(2000,700), z(d3000), t(-500,300), g(0)\n"
-            "* Angka pertama adalah posisi target, angka kedua adalah kecepatan\n"
+            "Contoh: x(1000,500,0), y(2000,1500,1000,500), z(d3000), t(-500,0), g(100,0)\n"
+            "* Parameter adalah posisi target berurutan (maksimal 5 posisi per slave)\n"
             "* Prefix 'd' berarti delay (dalam ms), contoh: z(d3000) = delay 3 detik"
         )
 
@@ -361,6 +392,7 @@ class SequencePanel(QWidget):
         sample_layout.addStretch()
 
         # Add all to sequence group layout
+        sequence_layout.addWidget(info_label)
         sequence_layout.addLayout(sample_layout)
         sequence_layout.addWidget(self.sequence_editor)
         sequence_layout.addLayout(button_layout)
@@ -390,34 +422,36 @@ class SequencePanel(QWidget):
 
         if index == 1:  # Basic Movement
             sample = (
-                "x(1000,500), y(1000,500),\n"
+                "# Gerakan dasar urutan posisi\n"
+                "x(1000,500,0),\n"
+                "y(1000,500,0),\n"
                 "z(d2000),\n"  # Wait 2 seconds
-                "x(0,500), y(0,500)"
+                "g(100,0)"  # Open/close gripper
             )
         elif index == 2:  # Rectangle Pattern
             sample = (
-                "x(0,800), y(0,800), z(0,800), t(0,800),\n"
-                "x(1000,800), y(0,800),\n"  # Move X
-                "x(1000,800), y(1000,800),\n"  # Move Y
-                "x(0,800), y(1000,800),\n"  # Move X back
-                "x(0,800), y(0,800)"  # Move Y back
+                "# Pola persegi - urutan posisi untuk tiap slave\n"
+                "x(0,1000,1000,0,0),\n"
+                "y(0,0,1000,1000,0),\n"
+                "z(0),\n"
+                "t(0)"
             )
         elif index == 3:  # Pick and Place
             sample = (
-                "# Home all axes\n"
-                "x(0,500), y(0,500), z(0,500), g(0,500),\n"
-                "# Move to pick position\n"
-                "x(1000,800), y(500,800),\n"
-                "z(500,400),\n"  # Lower Z
-                "g(100,300),\n"  # Close gripper
-                "z(0,400),\n"  # Raise Z
-                "# Move to place position\n"
-                "x(500,800), y(1500,800),\n"
-                "z(500,400),\n"  # Lower Z
-                "g(0,300),\n"  # Open gripper
-                "z(0,400),\n"  # Raise Z
-                "# Return home\n"
-                "x(0,800), y(0,800)"
+                "# Posisi awal\n"
+                "x(0), y(0), z(0), g(0),\n"
+                "# Posisi pengambilan\n"
+                "x(1000), y(500),\n"
+                "z(500),\n"  # Lower Z
+                "g(100),\n"  # Close gripper
+                "z(0),\n"  # Raise Z
+                "# Posisi penempatan\n"
+                "x(500), y(1500),\n"
+                "z(500),\n"  # Lower Z
+                "g(0),\n"  # Open gripper
+                "z(0),\n"  # Raise Z
+                "# Kembali ke posisi awal\n"
+                "x(0), y(0)"
             )
 
         self.sequence_editor.setText(sample)

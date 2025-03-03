@@ -110,21 +110,46 @@ class SlaveControlPanel(QWidget):
         position_layout.addWidget(self.position_value)
         position_layout.addStretch()
 
-        # Movement controls
-        movement_layout = QGridLayout()
+        # Command controls
+        command_layout = QGridLayout()
 
+        # Button 1: Home (CMD_ZERO)
         self.home_btn = QPushButton("Home")
         self.home_btn.clicked.connect(self.on_home_clicked)
+        self.home_btn.setToolTip("Home/Zero the axis (CMD_ZERO)")
+
+        # Button 2: Pause (CMD_PAUSE)
+        self.pause_btn = QPushButton("Pause")
+        self.pause_btn.clicked.connect(self.on_pause_clicked)
+        self.pause_btn.setToolTip("Pause movement (CMD_PAUSE)")
+        self.pause_btn.setStyleSheet("background-color: #ffffcc;")
+
+        # Button 3: Resume (CMD_RESUME)
+        self.resume_btn = QPushButton("Resume")
+        self.resume_btn.clicked.connect(self.on_resume_clicked)
+        self.resume_btn.setToolTip("Resume movement (CMD_RESUME)")
+        self.resume_btn.setStyleSheet("background-color: #ccffcc;")
+
+        # Button 4: Reset/Stop (CMD_RESET)
+        self.stop_btn = QPushButton("Stop/Reset")
+        self.stop_btn.clicked.connect(self.on_stop_clicked)
+        self.stop_btn.setToolTip("Stop all movement and reset (CMD_RESET)")
+        self.stop_btn.setStyleSheet("background-color: #ffcccc;")
+
+        # Add command buttons to layout
+        command_layout.addWidget(self.home_btn, 0, 0)
+        command_layout.addWidget(self.pause_btn, 0, 1)
+        command_layout.addWidget(self.resume_btn, 1, 0)
+        command_layout.addWidget(self.stop_btn, 1, 1)
+
+        # Movement controls
+        movement_layout = QGridLayout()
 
         self.move_positive_btn = QPushButton("Move +")
         self.move_positive_btn.clicked.connect(self.on_move_positive)
 
         self.move_negative_btn = QPushButton("Move -")
         self.move_negative_btn.clicked.connect(self.on_move_negative)
-
-        self.stop_btn = QPushButton("Stop")
-        self.stop_btn.setStyleSheet("background-color: #ffcccc;")
-        self.stop_btn.clicked.connect(self.on_stop_clicked)
 
         self.steps_spinbox = QSpinBox()
         self.steps_spinbox.setRange(1, 10000)
@@ -140,10 +165,8 @@ class SlaveControlPanel(QWidget):
         movement_layout.addWidget(self.steps_spinbox, 0, 1)
         movement_layout.addWidget(QLabel("Speed:"), 1, 0)
         movement_layout.addWidget(self.speed_spinbox, 1, 1)
-        movement_layout.addWidget(self.home_btn, 2, 0)
-        movement_layout.addWidget(self.stop_btn, 2, 1)
-        movement_layout.addWidget(self.move_positive_btn, 3, 0)
-        movement_layout.addWidget(self.move_negative_btn, 3, 1)
+        movement_layout.addWidget(self.move_positive_btn, 2, 0)
+        movement_layout.addWidget(self.move_negative_btn, 2, 1)
 
         # Custom command
         custom_layout = QHBoxLayout()
@@ -158,6 +181,7 @@ class SlaveControlPanel(QWidget):
         # Tambahkan semua sub-layout ke group layout
         group_layout.addLayout(status_layout)
         group_layout.addLayout(position_layout)
+        group_layout.addLayout(command_layout)
         group_layout.addLayout(movement_layout)
         group_layout.addLayout(custom_layout)
 
@@ -168,30 +192,40 @@ class SlaveControlPanel(QWidget):
         layout.addWidget(group_box)
 
     def on_home_clicked(self):
-        self.command_request.emit(f"{self.slave_id};{1}")  # 1 = ZERO command
+        self.command_request.emit(f"{self.slave_id};{2}")  # 2 = CMD_ZERO
         self.status_value.setText("Homing...")
         self.status_value.setStyleSheet("color: orange; font-weight: bold;")
+
+    def on_pause_clicked(self):
+        self.command_request.emit(f"{self.slave_id};{3}")  # 3 = CMD_PAUSE
+        self.status_value.setText("Paused")
+        self.status_value.setStyleSheet("color: orange; font-weight: bold;")
+
+    def on_resume_clicked(self):
+        self.command_request.emit(f"{self.slave_id};{4}")  # 4 = CMD_RESUME
+        self.status_value.setText("Resuming")
+        self.status_value.setStyleSheet("color: green; font-weight: bold;")
+
+    def on_stop_clicked(self):
+        self.command_request.emit(f"{self.slave_id};{5}")  # 5 = CMD_RESET
+        self.status_value.setText("Stopped")
+        self.status_value.setStyleSheet("color: red; font-weight: bold;")
 
     def on_move_positive(self):
         steps = self.steps_spinbox.value()
         speed = self.speed_spinbox.value()
-        # Format: slave_id;START;steps with speed parameter
-        self.command_request.emit(f"{self.slave_id};{0};{steps}")
+        # Format: slave_id;START;steps;speed
+        self.command_request.emit(f"{self.slave_id};{1};{steps};{speed}")
         self.status_value.setText("Moving +")
         self.status_value.setStyleSheet("color: green; font-weight: bold;")
 
     def on_move_negative(self):
         steps = -self.steps_spinbox.value()  # Negative steps for opposite direction
         speed = self.speed_spinbox.value()
-        # Format: slave_id;START;steps with speed parameter
-        self.command_request.emit(f"{self.slave_id};{0};{steps}")
+        # Format: slave_id;START;steps;speed
+        self.command_request.emit(f"{self.slave_id};{1};{steps};{speed}")
         self.status_value.setText("Moving -")
         self.status_value.setStyleSheet("color: green; font-weight: bold;")
-
-    def on_stop_clicked(self):
-        self.command_request.emit(f"{self.slave_id};{4}")  # 4 = RESET command
-        self.status_value.setText("Stopped")
-        self.status_value.setStyleSheet("color: red; font-weight: bold;")
 
     def on_send_custom(self):
         command = self.custom_command.text().strip()
@@ -210,6 +244,15 @@ class SlaveControlPanel(QWidget):
         if "ZERO DONE" in message:
             self.status_value.setText("Homed")
             self.status_value.setStyleSheet("color: blue; font-weight: bold;")
+        elif "PAUSE DONE" in message:
+            self.status_value.setText("Paused")
+            self.status_value.setStyleSheet("color: orange; font-weight: bold;")
+        elif "RESUME DONE" in message:
+            self.status_value.setText("Resumed")
+            self.status_value.setStyleSheet("color: green; font-weight: bold;")
+        elif "RESET DONE" in message:
+            self.status_value.setText("Reset")
+            self.status_value.setStyleSheet("color: blue; font-weight: bold;")
         elif "SEQUENCE COMPLETED" in message:
             self.status_value.setText("Idle")
             self.status_value.setStyleSheet("color: blue; font-weight: bold;")
@@ -224,6 +267,7 @@ class SlaveControlPanel(QWidget):
 class SequencePanel(QWidget):
     """Panel untuk mengatur dan menjalankan sekuens gerakan"""
     sequence_command = pyqtSignal(str)
+    global_command = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -232,9 +276,48 @@ class SequencePanel(QWidget):
     def setup_ui(self):
         layout = QVBoxLayout(self)
 
-        # Group box untuk sekuens
-        group_box = QGroupBox("Sequence Control")
-        group_layout = QVBoxLayout()
+        # Global command buttons
+        global_group = QGroupBox("Global Commands")
+        global_layout = QGridLayout()
+
+        # START button
+        self.start_btn = QPushButton("START")
+        self.start_btn.clicked.connect(lambda: self.global_command.emit("START"))
+        self.start_btn.setStyleSheet("background-color: #ccffcc; font-weight: bold;")
+        self.start_btn.setMinimumHeight(40)
+
+        # ZERO button
+        self.zero_btn = QPushButton("ZERO")
+        self.zero_btn.clicked.connect(lambda: self.global_command.emit("ZERO"))
+        self.zero_btn.setStyleSheet("background-color: #ffffcc; font-weight: bold;")
+
+        # PAUSE button
+        self.pause_btn = QPushButton("PAUSE")
+        self.pause_btn.clicked.connect(lambda: self.global_command.emit("PAUSE"))
+        self.pause_btn.setStyleSheet("background-color: #ffcc99; font-weight: bold;")
+
+        # RESUME button
+        self.resume_btn = QPushButton("RESUME")
+        self.resume_btn.clicked.connect(lambda: self.global_command.emit("RESUME"))
+        self.resume_btn.setStyleSheet("background-color: #ccffcc; font-weight: bold;")
+
+        # RESET button
+        self.reset_btn = QPushButton("RESET")
+        self.reset_btn.clicked.connect(lambda: self.global_command.emit("RESET"))
+        self.reset_btn.setStyleSheet("background-color: #ffcccc; font-weight: bold;")
+
+        # Add buttons to layout
+        global_layout.addWidget(self.start_btn, 0, 0, 1, 2)  # span 2 columns
+        global_layout.addWidget(self.zero_btn, 1, 0)
+        global_layout.addWidget(self.pause_btn, 1, 1)
+        global_layout.addWidget(self.resume_btn, 2, 0)
+        global_layout.addWidget(self.reset_btn, 2, 1)
+
+        global_group.setLayout(global_layout)
+
+        # Sequence editor group box
+        sequence_group = QGroupBox("Sequence Control")
+        sequence_layout = QVBoxLayout()
 
         # Text editor untuk sekuens
         self.sequence_editor = QTextEdit()
@@ -277,28 +360,29 @@ class SequencePanel(QWidget):
         sample_layout.addWidget(self.sample_combo)
         sample_layout.addStretch()
 
-        # Add all to group layout
-        group_layout.addLayout(sample_layout)
-        group_layout.addWidget(self.sequence_editor)
-        group_layout.addLayout(button_layout)
+        # Add all to sequence group layout
+        sequence_layout.addLayout(sample_layout)
+        sequence_layout.addWidget(self.sequence_editor)
+        sequence_layout.addLayout(button_layout)
 
-        # Set group layout
-        group_box.setLayout(group_layout)
+        # Set sequence group layout
+        sequence_group.setLayout(sequence_layout)
 
-        # Add to main layout
-        layout.addWidget(group_box)
+        # Add both group boxes to main layout
+        layout.addWidget(global_group)
+        layout.addWidget(sequence_group)
 
     def on_run_sequence(self):
         sequence = self.sequence_editor.toPlainText().strip()
         if sequence:
             # Send START command first
-            self.sequence_command.emit("START")
+            self.global_command.emit("START")
             # Then send the sequence
             self.sequence_command.emit(sequence)
 
     def on_stop_all(self):
         # Send RESET command to all slaves
-        self.sequence_command.emit("RESET")
+        self.global_command.emit("RESET")
 
     def on_sample_selected(self, index):
         if index == 0:  # "Select a sample..."
@@ -344,6 +428,7 @@ class SequencePanel(QWidget):
 class MonitorPanel(QWidget):
     """Panel untuk memonitor komunikasi dan log"""
     clear_logs = pyqtSignal()
+    send_command = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -421,8 +506,7 @@ class MonitorPanel(QWidget):
             return
 
         # Emit signal with command data
-        # This will be connected to appropriate handler
-        self.send_btn.emit(Qt.Key_Enter)
+        self.send_command.emit(command)
         self.command_input.clear()
 
 
@@ -498,11 +582,12 @@ class PalletizerControlApp(QMainWindow):
         # Sequence control panel
         self.sequence_panel = SequencePanel()
         self.sequence_panel.sequence_command.connect(self.handle_sequence_command)
+        self.sequence_panel.global_command.connect(self.handle_global_command)
         self.tab_widget.addTab(self.sequence_panel, "Sequence Control")
 
         # Monitor panel
         self.monitor_panel = MonitorPanel()
-        self.monitor_panel.send_btn.clicked.connect(self.handle_manual_command)
+        self.monitor_panel.send_command.connect(self.handle_manual_command)
         self.tab_widget.addTab(self.monitor_panel, "Monitor")
 
         # Add main components to layout
@@ -534,6 +619,7 @@ class PalletizerControlApp(QMainWindow):
             # Disconnect
             self.serial_thread.disconnect()
             self.connect_btn.setText("Connect")
+            self.statusBar().showMessage("Disconnected")
         else:
             # Connect
             if not self.available_ports:
@@ -545,11 +631,12 @@ class PalletizerControlApp(QMainWindow):
 
             if self.serial_thread.connect(port, baudrate):
                 self.connect_btn.setText("Disconnect")
+                self.statusBar().showMessage(f"Connected to {port} at {baudrate} baud")
 
     def update_connection_status(self, connected, message):
         if connected:
             self.status_label.setText(f"Status: {message}")
-            self.status_label.setStyleSheet("color: green;")
+            self.status_label.setStyleSheet("color: green; font-weight: bold;")
         else:
             self.status_label.setText(f"Status: {message}")
             self.status_label.setStyleSheet("color: red;")
@@ -567,21 +654,31 @@ class PalletizerControlApp(QMainWindow):
             self.serial_thread.send_command(command)
             self.monitor_panel.add_log(command, "TX")
 
-    def handle_manual_command(self):
+    def handle_global_command(self, command):
+        """Handle global commands like START, ZERO, PAUSE, etc."""
+        if self.serial_thread.is_connected:
+            self.serial_thread.send_command(command)
+            self.monitor_panel.add_log(f"Global command: {command}", "TX")
+            self.statusBar().showMessage(f"Sent global command: {command}")
+
+    def handle_manual_command(self, command):
         """Handle commands from manual command input"""
-        command = self.monitor_panel.command_input.text().strip()
         if command and self.serial_thread.is_connected:
             self.serial_thread.send_command(command)
             self.monitor_panel.add_log(command, "TX")
-            self.monitor_panel.command_input.clear()
 
     def handle_received_data(self, data):
         """Handle data received from serial port"""
         self.monitor_panel.add_log(data, "RX")
 
+        # Update status bar with latest feedback
+        if data.startswith("[FEEDBACK]"):
+            feedback_msg = data[11:].strip()  # Remove [FEEDBACK] prefix
+            self.statusBar().showMessage(f"Feedback: {feedback_msg}")
+
         # Determine message type and route to appropriate handler
         if data.startswith("[FEEDBACK]"):
-            # Feedback from master
+            # Feedback from master - already handled above
             pass
         elif data.startswith("[SLAVE]"):
             # Message from slave via master

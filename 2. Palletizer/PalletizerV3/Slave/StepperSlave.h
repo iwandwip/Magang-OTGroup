@@ -18,7 +18,8 @@ public:
     CMD_RESET
   };
 
-  StepperSlave(char slaveId, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin);
+  StepperSlave(char slaveId, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin, int brakePin = -1, bool invertBrakeLogic = false);
+
   void begin();
   void update();
   static void onMasterDataWrapper(const String& data);
@@ -42,12 +43,15 @@ private:
 
   int enPin;
   int sensorPin;
+  int brakePin;
+  bool invertBrakeLogic;
 
-  const float MAX_SPEED = 2000.0;
-  const float SPEED_RATIO = 0.6;
-  const float ACCELERATION = MAX_SPEED * SPEED_RATIO;
-  const float HOMING_SPEED = 250.0;
-  const float HOMING_ACCEL = 125.0;
+  const float SPEED_RATIO = 0.5;
+  const float MAX_SPEED = 1000.0;
+  const float ACCELERATION = 100;
+  // const float ACCELERATION = MAX_SPEED * SPEED_RATIO;
+  const float HOMING_SPEED = 200.0;
+  const float HOMING_ACCEL = 100.0;
 
   bool isPaused = false;
   bool isHoming = false;
@@ -73,6 +77,7 @@ private:
   void sendFeedback(const String& message);
   void checkPositionReached();
   void performHoming();
+  void setBrake(bool engaged);
 };
 
 #endif

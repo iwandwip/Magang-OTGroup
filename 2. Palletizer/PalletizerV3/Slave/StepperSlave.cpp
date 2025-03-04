@@ -2,12 +2,15 @@
 
 StepperSlave* StepperSlave::instance = nullptr;
 
-StepperSlave::StepperSlave(char id, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin)
+StepperSlave::StepperSlave(char id, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin,
+                           int brakePin, bool invertBrakeLogic)
   : slaveId(id),
     masterCommSerial(rxPin, txPin),
     stepper(AccelStepper::DRIVER, clkPin, cwPin),
     enPin(enPin),
-    sensorPin(sensorPin) {
+    sensorPin(sensorPin),
+    brakePin(brakePin),
+    invertBrakeLogic(invertBrakeLogic) {
   instance = this;
 }
 
@@ -20,12 +23,18 @@ void StepperSlave::begin() {
 
   masterSerial.setDataCallback(onMasterDataWrapper);
 
-  pinMode(enPin, OUTPUT);
+  // pinMode(enPin, OUTPUT);
   pinMode(sensorPin, INPUT);
-  digitalWrite(enPin, LOW);
+  // digitalWrite(enPin, LOW);
+
+  if (brakePin != -1) {
+    pinMode(brakePin, OUTPUT);
+    setBrake(true);
+  }
 
   stepper.setMaxSpeed(MAX_SPEED);
   stepper.setAcceleration(ACCELERATION);
+  stepper.setCurrentPosition(0);
 
   debugSerial.println("SLAVE " + String(slaveId) + ": System initialized");
 }
@@ -35,7 +44,13 @@ void StepperSlave::update() {
   handleMotion();
 
   if (!isPaused && !isDelaying) {
+    if (stepper.isRunning()) {
+      setBrake(false);
+    }
     stepper.run();
+    if (!stepper.isRunning() && stepper.distanceToGo() == 0) {
+      setBrake(true);
+    }
   }
 
   checkPositionReached();
@@ -100,6 +115,7 @@ void StepperSlave::performHoming() {
 
   stepper.setMaxSpeed(HOMING_SPEED);
   stepper.setAcceleration(HOMING_ACCEL);
+  setBrake(false);
 
   long distance = 0;
   int count = 20000;
@@ -146,6 +162,7 @@ void StepperSlave::performHoming() {
 
   stepper.setMaxSpeed(originalSpeed);
   stepper.setAcceleration(originalAccel);
+  setBrake(true);
 
   debugSerial.println("SLAVE " + String(slaveId) + ": Homing completed");
 }
@@ -165,12 +182,16 @@ void StepperSlave::handleZeroCommand() {
 void StepperSlave::handlePauseCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing PAUSE");
   isPaused = true;
+  setBrake(true);
   sendFeedback("PAUSE DONE");
 }
 
 void StepperSlave::handleResumeCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing RESUME");
   isPaused = false;
+  if (stepper.distanceToGo() != 0) {
+    setBrake(false);
+  }
   sendFeedback("RESUME DONE");
 }
 
@@ -181,6 +202,7 @@ void StepperSlave::handleResetCommand() {
   queuedMotionsCount = 0;
   currentMotionIndex = 0;
   stepper.stop();
+  setBrake(true);
   sendFeedback("RESET DONE");
 }
 
@@ -194,6 +216,7 @@ void StepperSlave::startNextMotion() {
       currentMotionIndex++;
       startNextMotion();
     } else {
+      setBrake(false);
       stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
       stepper.moveTo(motionQueue[currentMotionIndex].position);
       sendFeedback("MOVING");
@@ -212,6 +235,7 @@ void StepperSlave::handleMotion() {
         currentMotionIndex++;
         startNextMotion();
       } else {
+        setBrake(false);
         stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
         stepper.moveTo(motionQueue[currentMotionIndex].position);
         sendFeedback("MOVING");
@@ -221,6 +245,8 @@ void StepperSlave::handleMotion() {
   }
 
   if (stepper.distanceToGo() == 0 && !stepper.isRunning() && !isDelaying && !isPaused) {
+    setBrake(true);
+
     if (currentMotionIndex < queuedMotionsCount - 1) {
       currentMotionIndex++;
       startNextMotion();
@@ -295,7 +321,7 @@ void StepperSlave::checkPositionReached() {
   static unsigned long lastReportTime = 0;
   static long lastReportedPosition = -999999;
 
-  if ((millis() - lastReportTime > 2000) || (abs(stepper.currentPosition() - lastReportedPosition) > 100)) {
+  if ((millis() - lastReportTime > 2000) || (abs(stepper.currentPosition() - lastReportedPosition) > 50)) {
     if (stepper.isRunning() || abs(stepper.currentPosition() - lastReportedPosition) > 10) {
       lastReportTime = millis();
       lastReportedPosition = stepper.currentPosition();
@@ -303,5 +329,16 @@ void StepperSlave::checkPositionReached() {
       String positionUpdate = "POS:" + String(stepper.currentPosition()) + " TARGET:" + String(stepper.targetPosition());
       sendFeedback(positionUpdate);
     }
+  }
+}
+
+void StepperSlave::setBrake(bool engaged) {
+  if (brakePin != -1) {
+    bool brakeState = engaged;
+    if (invertBrakeLogic) {
+      brakeState = !brakeState;
+    }
+    digitalWrite(brakePin, brakeState ? HIGH : LOW);
+    // debugSerial.println("SLAVE " + String(slaveId) + ": Brake " + (engaged ? "engaged" : "released"));
   }
 }

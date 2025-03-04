@@ -8,8 +8,19 @@
 #define RX_PIN 8
 #define TX_PIN 9
 #define SENSOR_PIN 6
+#define BRAKE_PIN -1
+#define INVERT_BRAKE false
 
-StepperSlave slave('x', RX_PIN, TX_PIN, CLK_PIN, CW_PIN, EN_PIN, SENSOR_PIN);  // x;1;5000;d5000;2000;7000;0
+StepperSlave slave('g', RX_PIN, TX_PIN, CLK_PIN, CW_PIN, EN_PIN, SENSOR_PIN, BRAKE_PIN, INVERT_BRAKE);
+
+// Example command format:
+// x;1;5000;d5000;2000;7000;0
+// x;1;200
+
+// g;1;0
+// g;1;2000;d2000;0
+// g;1;2000;0;3000;0;4000
+
 void setup() {
   slave.begin();
 }

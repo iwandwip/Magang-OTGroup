@@ -8,9 +8,10 @@ AccelStepper stepper(AccelStepper::DRIVER, clkPin, cwPin);
 
 void setup() {
   Serial.begin(9600);
-  stepper.setMaxSpeed(200.0);
-  stepper.setAcceleration(100.0);
+  stepper.setMaxSpeed(1000.0);
+  stepper.setAcceleration(500.0);
   stepper.setCurrentPosition(0);
+  pinMode(6, INPUT_PULLUP);
 }
 
 void loop() {
@@ -22,5 +23,12 @@ void loop() {
     stepper.moveTo(pos);
   }
 
+  int sensor = digitalRead(6);
+  int pos = stepper.currentPosition();
+  Serial.print("| sensor: ");
+  Serial.print(sensor);
+  Serial.print("| pos: ");
+  Serial.print(pos);
+  Serial.println();
   stepper.run();
 }

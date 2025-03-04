@@ -19,7 +19,7 @@ public:
     CMD_SETSPEED
   };
 
-  StepperSlave(char slaveId, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin, int brakePin = -1, bool invertBrakeLogic = false);
+  StepperSlave(char slaveId, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin, int brakePin = -1, bool invertBrakeLogic = false, int indicatorPin = -1);
 
   void begin();
   void update();
@@ -45,6 +45,7 @@ private:
   int enPin;
   int sensorPin;
   int brakePin;
+  int indicatorPin;
   bool invertBrakeLogic;
 
   const float SPEED_RATIO = 0.5;
@@ -79,6 +80,7 @@ private:
   void checkPositionReached();
   void performHoming();
   void setBrake(bool engaged);
+  void setIndicator(bool active);
 };
 
 #endif

@@ -10,8 +10,9 @@
 #define SENSOR_PIN 6
 #define BRAKE_PIN -1
 #define INVERT_BRAKE false
+#define INDICATOR_PIN 13
 
-StepperSlave slave('g', RX_PIN, TX_PIN, CLK_PIN, CW_PIN, EN_PIN, SENSOR_PIN, BRAKE_PIN, INVERT_BRAKE);
+StepperSlave slave('g', RX_PIN, TX_PIN, CLK_PIN, CW_PIN, EN_PIN, SENSOR_PIN, BRAKE_PIN, INVERT_BRAKE, INDICATOR_PIN);
 
 // Example command format:
 // x;1;5000;d5000;2000;7000;0

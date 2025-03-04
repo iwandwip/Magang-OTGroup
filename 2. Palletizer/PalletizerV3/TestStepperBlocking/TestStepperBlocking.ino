@@ -10,6 +10,12 @@ void setup() {
   Serial.begin(9600);
   stepper.setMaxSpeed(200.0);
   stepper.setAcceleration(100.0);
+
+  // pinMode(clkPin, OUTPUT);
+  // pinMode(cwPin, OUTPUT);
+
+  // digitalWrite(clkPin, LOW);
+  // digitalWrite(cwPin, LOW);
 }
 
 void loop() {

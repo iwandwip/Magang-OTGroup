@@ -3,13 +3,14 @@
 StepperSlave* StepperSlave::instance = nullptr;
 
 StepperSlave::StepperSlave(char id, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin,
-                           int brakePin, bool invertBrakeLogic)
+                           int brakePin, bool invertBrakeLogic, int indicatorPin)
   : slaveId(id),
     masterCommSerial(rxPin, txPin),
     stepper(AccelStepper::DRIVER, clkPin, cwPin),
     enPin(enPin),
     sensorPin(sensorPin),
     brakePin(brakePin),
+    indicatorPin(indicatorPin),
     invertBrakeLogic(invertBrakeLogic) {
   instance = this;
 }
@@ -30,6 +31,12 @@ void StepperSlave::begin() {
   if (brakePin != -1) {
     pinMode(brakePin, OUTPUT);
     setBrake(true);
+  }
+
+  // Initialize indicator pin
+  if (indicatorPin != -1) {
+    pinMode(indicatorPin, OUTPUT);
+    setIndicator(false);  // Start with LOW (inactive)
   }
 
   stepper.setMaxSpeed(MAX_SPEED);
@@ -137,6 +144,7 @@ void StepperSlave::handleSetSpeedCommand(const String& params) {
 
 void StepperSlave::performHoming() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Starting homing sequence");
+  setIndicator(true);
 
   float originalSpeed = stepper.maxSpeed();
   float originalAccel = stepper.acceleration();
@@ -150,29 +158,26 @@ void StepperSlave::performHoming() {
 
   if (digitalRead(sensorPin) == HIGH) {
     debugSerial.println("SLAVE " + String(slaveId) + ": Already in sensor area, moving out first");
-
     stepper.move(count);
-    do {
+    while (digitalRead(sensorPin) == HIGH && stepper.distanceToGo() != 0) {
       stepper.run();
-    } while (digitalRead(sensorPin) == HIGH && stepper.distanceToGo() != 0);
+    }
 
     if (stepper.distanceToGo() != 0) {
       stepper.stop();
       stepper.setCurrentPosition(stepper.currentPosition());
-
       debugSerial.println("SLAVE " + String(slaveId) + ": Moving back to sensor");
       stepper.move(-count);
-      do {
+      while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
         stepper.run();
-      } while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0);
+      }
     }
   } else {
     debugSerial.println("SLAVE " + String(slaveId) + ": Outside sensor area, moving to sensor");
-
     stepper.move(-count);
-    do {
+    while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
       stepper.run();
-    } while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0);
+    }
   }
 
   stepper.stop();
@@ -192,6 +197,8 @@ void StepperSlave::performHoming() {
   stepper.setAcceleration(originalAccel);
   setBrake(true);
 
+  setIndicator(false);
+
   debugSerial.println("SLAVE " + String(slaveId) + ": Homing completed");
 }
 
@@ -202,6 +209,9 @@ void StepperSlave::handleZeroCommand() {
   queuedMotionsCount = 0;
   currentMotionIndex = 0;
 
+  // Turn off indicator during command reset
+  setIndicator(false);
+
   performHoming();
 
   sendFeedback("ZERO DONE");
@@ -211,6 +221,9 @@ void StepperSlave::handlePauseCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing PAUSE");
   isPaused = true;
   setBrake(true);
+
+  // Keep indicator ON when paused - sequence isn't completed yet
+
   sendFeedback("PAUSE DONE");
 }
 
@@ -220,6 +233,12 @@ void StepperSlave::handleResumeCommand() {
   if (stepper.distanceToGo() != 0) {
     setBrake(false);
   }
+
+  // Turn indicator back ON if we have motions to complete
+  if (queuedMotionsCount > 0 && currentMotionIndex < queuedMotionsCount) {
+    setIndicator(true);
+  }
+
   sendFeedback("RESUME DONE");
 }
 
@@ -231,11 +250,18 @@ void StepperSlave::handleResetCommand() {
   currentMotionIndex = 0;
   stepper.stop();
   setBrake(true);
+
+  // Turn off indicator when reset
+  setIndicator(false);
+
   sendFeedback("RESET DONE");
 }
 
 void StepperSlave::startNextMotion() {
   if (currentMotionIndex < queuedMotionsCount) {
+    // Turn on indicator as we're starting motion
+    setIndicator(true);
+
     if (motionQueue[currentMotionIndex].delayBeforeMove > 0) {
       isDelaying = true;
       delayStartTime = millis();
@@ -279,6 +305,9 @@ void StepperSlave::handleMotion() {
       currentMotionIndex++;
       startNextMotion();
     } else if (currentMotionIndex == queuedMotionsCount - 1 && !hasReportedCompletion) {
+      // Turn off indicator when sequence is completed
+      setIndicator(false);
+
       sendFeedback("SEQUENCE COMPLETED");
       hasReportedCompletion = true;
     }
@@ -337,6 +366,11 @@ void StepperSlave::parsePositionSequence(const String& params) {
 void StepperSlave::handleMoveCommand(const String& params) {
   parsePositionSequence(params);
   hasReportedCompletion = false;
+
+  // Turn on indicator if we have motions to perform
+  if (queuedMotionsCount > 0) {
+    setIndicator(true);
+  }
 }
 
 void StepperSlave::sendFeedback(const String& message) {
@@ -368,5 +402,12 @@ void StepperSlave::setBrake(bool engaged) {
     }
     digitalWrite(brakePin, brakeState ? HIGH : LOW);
     // debugSerial.println("SLAVE " + String(slaveId) + ": Brake " + (engaged ? "engaged" : "released"));
+  }
+}
+
+void StepperSlave::setIndicator(bool active) {
+  if (indicatorPin != -1) {
+    digitalWrite(indicatorPin, active ? LOW : HIGH);
+    // debugSerial.println("SLAVE " + String(slaveId) + ": Indicator " + (active ? "ON" : "OFF"));
   }
 }

@@ -80,6 +80,7 @@ class SlaveControlPanel(QWidget):
     def __init__(self, slave_id, parent=None):
         super().__init__(parent)
         self.slave_id = slave_id
+        self.current_speed = 1000.0  # Default speed
         self.setup_ui()
 
     def setup_ui(self):
@@ -109,6 +110,31 @@ class SlaveControlPanel(QWidget):
         position_layout.addWidget(self.position_label)
         position_layout.addWidget(self.position_value)
         position_layout.addStretch()
+
+        # Speed control - NEW SECTION
+        speed_layout = QHBoxLayout()
+        speed_layout.addWidget(QLabel("Speed:"))
+
+        self.speed_slider = QSlider(Qt.Horizontal)
+        self.speed_slider.setMinimum(100)
+        self.speed_slider.setMaximum(2000)
+        self.speed_slider.setValue(1000)
+        self.speed_slider.setTickPosition(QSlider.TicksBelow)
+        self.speed_slider.setTickInterval(100)
+        self.speed_slider.valueChanged.connect(self.update_speed_display)
+
+        self.speed_spinbox = QSpinBox()
+        self.speed_spinbox.setRange(100, 2000)
+        self.speed_spinbox.setValue(1000)
+        self.speed_spinbox.valueChanged.connect(self.update_speed_slider)
+
+        self.set_speed_btn = QPushButton("Set")
+        self.set_speed_btn.clicked.connect(self.on_set_speed)
+        self.set_speed_btn.setStyleSheet("background-color: #e0e0ff;")
+
+        speed_layout.addWidget(self.speed_slider)
+        speed_layout.addWidget(self.speed_spinbox)
+        speed_layout.addWidget(self.set_speed_btn)
 
         # Command controls
         command_layout = QGridLayout()
@@ -162,19 +188,11 @@ class SlaveControlPanel(QWidget):
         self.steps_spinbox.setRange(1, 10000)
         self.steps_spinbox.setValue(100)
 
-        self.speed_spinbox = QSpinBox()
-        self.speed_spinbox.setRange(10, 5000)
-        self.speed_spinbox.setValue(500)
-        self.speed_spinbox.setSingleStep(50)
-        self.speed_spinbox.setEnabled(False)  # Disable because speed is constant
-
         # Tambahkan widget ke layout
         movement_layout.addWidget(QLabel("Steps:"), 0, 0)
         movement_layout.addWidget(self.steps_spinbox, 0, 1)
-        movement_layout.addWidget(QLabel("Speed (Konstan):"), 1, 0)
-        movement_layout.addWidget(self.speed_spinbox, 1, 1)
-        movement_layout.addWidget(self.move_positive_btn, 2, 0)
-        movement_layout.addWidget(self.move_negative_btn, 2, 1)
+        movement_layout.addWidget(self.move_positive_btn, 1, 0)
+        movement_layout.addWidget(self.move_negative_btn, 1, 1)
 
         # Custom command
         custom_layout = QHBoxLayout()
@@ -189,6 +207,7 @@ class SlaveControlPanel(QWidget):
         # Tambahkan semua sub-layout ke group layout
         group_layout.addLayout(status_layout)
         group_layout.addLayout(position_layout)
+        group_layout.addLayout(speed_layout)  # Add the new speed control
         group_layout.addLayout(command_layout)
         group_layout.addLayout(movement_layout)
         group_layout.addLayout(custom_layout)
@@ -198,6 +217,21 @@ class SlaveControlPanel(QWidget):
 
         # Tambahkan group box ke layout utama
         layout.addWidget(group_box)
+
+    def update_speed_display(self, value):
+        self.speed_spinbox.setValue(value)
+        self.current_speed = float(value)
+
+    def update_speed_slider(self, value):
+        self.speed_slider.setValue(value)
+        self.current_speed = float(value)
+
+    def on_set_speed(self):
+        # Format: SPEED;<slave_id>;<speed_value>
+        command = f"SPEED;{self.slave_id};{self.current_speed}"
+        self.command_request.emit(command)
+        self.status_value.setText(f"Setting Speed: {self.current_speed}")
+        self.status_value.setStyleSheet("color: purple; font-weight: bold;")
 
     def on_start_clicked(self):
         # Sesuai dengan format yang diharapkan master (START)
@@ -286,177 +320,643 @@ class SlaveControlPanel(QWidget):
         elif "DELAYING" in message:
             self.status_value.setText("Delaying")
             self.status_value.setStyleSheet("color: purple; font-weight: bold;")
+        elif "SPEED SET TO" in message:
+            speed_value = message.split("TO ")[1].strip()
+            self.status_value.setText(f"Speed: {speed_value}")
+            self.status_value.setStyleSheet("color: blue; font-weight: bold;")
+            # Update sliders and spinbox to match the confirmation
+            try:
+                speed_float = float(speed_value)
+                self.speed_slider.setValue(int(speed_float))
+                self.speed_spinbox.setValue(int(speed_float))
+                self.current_speed = speed_float
+            except ValueError:
+                pass
 
 
 class SequencePanel(QWidget):
-    """Panel untuk mengatur dan menjalankan sekuens gerakan"""
+    """Panel untuk mengatur dan menjalankan sekuens gerakan dengan sistem row dan sequence"""
     sequence_command = pyqtSignal(str)
     global_command = pyqtSignal(str)
+    speed_command = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.sequence_rows = []  # List of rows, each row is a dict with axis sequences
+        self.current_row = {}    # Current row being edited
+        self.selected_row_index = -1  # Currently selected row for editing or running
         self.setup_ui()
 
     def setup_ui(self):
-        layout = QVBoxLayout(self)
+        main_layout = QVBoxLayout(self)
 
-        # Global command buttons
+        # ======== Global Controls Section ========
         global_group = QGroupBox("Global Commands")
-        global_layout = QGridLayout()
+        global_layout = QHBoxLayout()
 
-        # START button
+        # Global command buttons in a row
         self.start_btn = QPushButton("START")
         self.start_btn.clicked.connect(lambda: self.global_command.emit("START"))
         self.start_btn.setStyleSheet("background-color: #ccffcc; font-weight: bold;")
         self.start_btn.setMinimumHeight(40)
 
-        # ZERO button
-        self.zero_btn = QPushButton("ZERO")
+        self.zero_btn = QPushButton("HOME")
         self.zero_btn.clicked.connect(lambda: self.global_command.emit("ZERO"))
         self.zero_btn.setStyleSheet("background-color: #ffffcc; font-weight: bold;")
+        self.zero_btn.setMinimumHeight(40)
 
-        # PAUSE button
         self.pause_btn = QPushButton("PAUSE")
         self.pause_btn.clicked.connect(lambda: self.global_command.emit("PAUSE"))
         self.pause_btn.setStyleSheet("background-color: #ffcc99; font-weight: bold;")
+        self.pause_btn.setMinimumHeight(40)
 
-        # RESUME button
         self.resume_btn = QPushButton("RESUME")
         self.resume_btn.clicked.connect(lambda: self.global_command.emit("RESUME"))
         self.resume_btn.setStyleSheet("background-color: #ccffcc; font-weight: bold;")
+        self.resume_btn.setMinimumHeight(40)
 
-        # RESET button
-        self.reset_btn = QPushButton("RESET")
+        self.reset_btn = QPushButton("STOP/RESET")
         self.reset_btn.clicked.connect(lambda: self.global_command.emit("RESET"))
         self.reset_btn.setStyleSheet("background-color: #ffcccc; font-weight: bold;")
+        self.reset_btn.setMinimumHeight(40)
 
-        # Add buttons to layout
-        global_layout.addWidget(self.start_btn, 0, 0, 1, 2)  # span 2 columns
-        global_layout.addWidget(self.zero_btn, 1, 0)
-        global_layout.addWidget(self.pause_btn, 1, 1)
-        global_layout.addWidget(self.resume_btn, 2, 0)
-        global_layout.addWidget(self.reset_btn, 2, 1)
+        # Add buttons to global layout
+        global_layout.addWidget(self.start_btn)
+        global_layout.addWidget(self.zero_btn)
+        global_layout.addWidget(self.pause_btn)
+        global_layout.addWidget(self.resume_btn)
+        global_layout.addWidget(self.reset_btn)
 
         global_group.setLayout(global_layout)
+        main_layout.addWidget(global_group)
 
-        # Sequence editor group box
-        sequence_group = QGroupBox("Sequence Control")
-        sequence_layout = QVBoxLayout()
+        # ======== Speed Control Section ========
+        speed_group = QGroupBox("Global Speed Control")
+        speed_layout = QHBoxLayout()
 
-        # Informasi format sequence
-        info_label = QLabel(
-            "Format Sequence: slave_id(position1,position2,position3,position4,position5)\n"
-            "Maksimal 5 parameter per slave. Kecepatan motor ditentukan oleh konfigurasi konstan (MAX_SPEED=2000)."
-        )
-        info_label.setStyleSheet("color: #555555; font-style: italic;")
+        speed_layout.addWidget(QLabel("Set Speed for All Motors:"))
 
-        # Text editor untuk sekuens
-        self.sequence_editor = QTextEdit()
-        self.sequence_editor.setPlaceholderText(
-            "Masukkan sekuens gerakan di sini. Format: slave_id(parameter1,parameter2,...)\n"
-            "Contoh: x(1000,500,0), y(2000,1500,1000,500), z(d3000), t(-500,0), g(100,0)\n"
-            "* Parameter adalah posisi target berurutan (maksimal 5 posisi per slave)\n"
-            "* Prefix 'd' berarti delay (dalam ms), contoh: z(d3000) = delay 3 detik"
-        )
+        self.global_speed_spinbox = QSpinBox()
+        self.global_speed_spinbox.setRange(100, 2000)
+        self.global_speed_spinbox.setValue(1000)
+        self.global_speed_spinbox.setSingleStep(50)
 
-        # Tombol kontrol
-        button_layout = QHBoxLayout()
+        self.set_global_speed_btn = QPushButton("Apply Speed")
+        self.set_global_speed_btn.clicked.connect(self.on_set_global_speed)
+        self.set_global_speed_btn.setStyleSheet("background-color: #e0e0ff;")
 
-        self.run_btn = QPushButton("Run Sequence")
-        self.run_btn.clicked.connect(self.on_run_sequence)
-        self.run_btn.setStyleSheet("background-color: #ccffcc;")
+        speed_layout.addWidget(self.global_speed_spinbox)
+        speed_layout.addWidget(self.set_global_speed_btn)
+        speed_layout.addStretch()
 
-        self.stop_all_btn = QPushButton("Stop All")
-        self.stop_all_btn.clicked.connect(self.on_stop_all)
-        self.stop_all_btn.setStyleSheet("background-color: #ffcccc;")
+        speed_group.setLayout(speed_layout)
+        main_layout.addWidget(speed_group)
 
-        self.clear_btn = QPushButton("Clear")
-        self.clear_btn.clicked.connect(self.sequence_editor.clear)
+        # ======== Main Sequence Section ========
+        sequence_container = QWidget()
+        sequence_layout = QHBoxLayout(sequence_container)
 
-        button_layout.addWidget(self.run_btn)
-        button_layout.addWidget(self.stop_all_btn)
-        button_layout.addWidget(self.clear_btn)
+        # Left side - Row list and sequence editor
+        left_panel = QWidget()
+        left_layout = QVBoxLayout(left_panel)
 
-        # Sample sequences dropdown
-        sample_layout = QHBoxLayout()
-        sample_layout.addWidget(QLabel("Sample Sequences:"))
+        # Row list section
+        row_list_group = QGroupBox("Sequence Rows")
+        row_list_layout = QVBoxLayout()
 
-        self.sample_combo = QComboBox()
-        self.sample_combo.addItem("Select a sample...")
-        self.sample_combo.addItem("Basic Movement")
-        self.sample_combo.addItem("Rectangle Pattern")
-        self.sample_combo.addItem("Pick and Place")
-        self.sample_combo.currentIndexChanged.connect(self.on_sample_selected)
+        # Row list widget
+        self.row_list = QTextEdit()
+        self.row_list.setReadOnly(True)
+        self.row_list.setPlaceholderText("No sequences added yet...")
+        self.row_list.setMinimumHeight(150)
 
-        sample_layout.addWidget(self.sample_combo)
-        sample_layout.addStretch()
+        # Row control buttons
+        row_control_layout = QHBoxLayout()
 
-        # Add all to sequence group layout
-        sequence_layout.addWidget(info_label)
-        sequence_layout.addLayout(sample_layout)
-        sequence_layout.addWidget(self.sequence_editor)
-        sequence_layout.addLayout(button_layout)
+        self.run_all_btn = QPushButton("Run All Rows")
+        self.run_all_btn.clicked.connect(self.run_all_rows)
+        self.run_all_btn.setStyleSheet("background-color: #ccffcc; font-weight: bold;")
 
-        # Set sequence group layout
-        sequence_group.setLayout(sequence_layout)
+        self.run_selected_btn = QPushButton("Run Selected Row")
+        self.run_selected_btn.clicked.connect(self.run_selected_row)
+        self.run_selected_btn.setStyleSheet("background-color: #ccffdd;")
 
-        # Add both group boxes to main layout
-        layout.addWidget(global_group)
-        layout.addWidget(sequence_group)
+        self.clear_all_rows_btn = QPushButton("Clear All")
+        self.clear_all_rows_btn.clicked.connect(self.clear_all_rows)
+        self.clear_all_rows_btn.setStyleSheet("background-color: #ffcccc;")
 
-    def on_run_sequence(self):
-        sequence = self.sequence_editor.toPlainText().strip()
-        if sequence:
-            # Send START command first
-            self.global_command.emit("START")
-            # Then send the sequence
-            self.sequence_command.emit(sequence)
+        row_control_layout.addWidget(self.run_all_btn)
+        row_control_layout.addWidget(self.run_selected_btn)
+        row_control_layout.addWidget(self.clear_all_rows_btn)
 
-    def on_stop_all(self):
-        # Send RESET command to all slaves
-        self.global_command.emit("RESET")
+        row_list_layout.addWidget(self.row_list)
+        row_list_layout.addLayout(row_control_layout)
 
-    def on_sample_selected(self, index):
-        if index == 0:  # "Select a sample..."
+        row_list_group.setLayout(row_list_layout)
+        left_layout.addWidget(row_list_group)
+
+        # Sequence Builder Section
+        builder_group = QGroupBox("Edit Sequence")
+        builder_layout = QVBoxLayout()
+
+        # Tabs for each axis
+        self.axis_tabs = QTabWidget()
+
+        # Create tabs for each axis
+        axes = ['X', 'Y', 'Z', 'T', 'G']
+        self.axis_inputs = {}
+
+        for axis in axes:
+            axis_tab = QWidget()
+            axis_layout = QVBoxLayout(axis_tab)
+
+            # Create 5 step input rows for this axis
+            step_inputs = []
+            steps_layout = QGridLayout()
+
+            for i in range(5):
+                step_layout = QHBoxLayout()
+
+                # Step checkbox and value
+                step_check = QCheckBox(f"Step {i+1}:")
+                step_value = QSpinBox()
+                step_value.setRange(-10000, 10000)
+                step_value.setSingleStep(100)
+                step_value.setEnabled(False)  # Disabled until checked
+
+                # Connect checkbox to enable/disable input
+                step_check.stateChanged.connect(
+                    lambda state, val=step_value: val.setEnabled(state == Qt.Checked)
+                )
+
+                # Delay checkbox for this step
+                delay_check = QCheckBox("Delay")
+                delay_value = QSpinBox()
+                delay_value.setRange(0, 10000)
+                delay_value.setSingleStep(100)
+                delay_value.setValue(500)
+                delay_value.setEnabled(False)  # Disabled until checked
+
+                # Connect checkbox to enable/disable delay input
+                delay_check.stateChanged.connect(
+                    lambda state, val=delay_value: val.setEnabled(state == Qt.Checked)
+                )
+
+                # Add to grid layout
+                steps_layout.addWidget(step_check, i, 0)
+                steps_layout.addWidget(step_value, i, 1)
+                steps_layout.addWidget(delay_check, i, 2)
+                steps_layout.addWidget(delay_value, i, 3)
+
+                # Save references to inputs
+                step_inputs.append({
+                    'step_check': step_check,
+                    'step_value': step_value,
+                    'delay_check': delay_check,
+                    'delay_value': delay_value
+                })
+
+            # Add steps layout to tab
+            axis_layout.addLayout(steps_layout)
+            axis_layout.addStretch()
+
+            # Add to tabs
+            self.axis_tabs.addTab(axis_tab, axis)
+
+            # Save references to all inputs for this axis
+            self.axis_inputs[axis.lower()] = step_inputs
+
+        builder_layout.addWidget(self.axis_tabs)
+
+        # Row control buttons
+        row_action_layout = QHBoxLayout()
+
+        self.add_row_btn = QPushButton("Add as New Row")
+        self.add_row_btn.clicked.connect(self.add_new_row)
+        self.add_row_btn.setStyleSheet("background-color: #ccffcc; font-weight: bold;")
+
+        self.update_row_btn = QPushButton("Update Selected Row")
+        self.update_row_btn.clicked.connect(self.update_selected_row)
+        self.update_row_btn.setEnabled(False)  # Initially disabled
+
+        self.clear_form_btn = QPushButton("Clear Form")
+        self.clear_form_btn.clicked.connect(self.clear_form)
+
+        row_action_layout.addWidget(self.add_row_btn)
+        row_action_layout.addWidget(self.update_row_btn)
+        row_action_layout.addWidget(self.clear_form_btn)
+
+        builder_layout.addLayout(row_action_layout)
+        builder_group.setLayout(builder_layout)
+
+        left_layout.addWidget(builder_group)
+
+        # Right side - Row testing and preview
+        right_panel = QWidget()
+        right_layout = QVBoxLayout(right_panel)
+
+        # Row selection and editing
+        selection_group = QGroupBox("Row Selection")
+        selection_layout = QVBoxLayout()
+
+        selection_row_layout = QHBoxLayout()
+        selection_row_layout.addWidget(QLabel("Select Row:"))
+
+        self.row_selector = QComboBox()
+        self.row_selector.addItem("-- None --")
+        self.row_selector.currentIndexChanged.connect(self.on_row_selected)
+
+        self.edit_row_btn = QPushButton("Edit Selected")
+        self.edit_row_btn.clicked.connect(self.edit_selected_row)
+        self.edit_row_btn.setEnabled(False)  # Initially disabled
+
+        self.delete_row_btn = QPushButton("Delete Selected")
+        self.delete_row_btn.clicked.connect(self.delete_selected_row)
+        self.delete_row_btn.setEnabled(False)  # Initially disabled
+
+        selection_row_layout.addWidget(self.row_selector)
+        selection_row_layout.addWidget(self.edit_row_btn)
+        selection_row_layout.addWidget(self.delete_row_btn)
+
+        selection_layout.addLayout(selection_row_layout)
+
+        # Run specific axis
+        axis_run_layout = QHBoxLayout()
+        axis_run_layout.addWidget(QLabel("Run Single Axis:"))
+
+        for axis in axes:
+            axis_btn = QPushButton(f"Run {axis}")
+            axis_btn.clicked.connect(lambda checked, a=axis.lower(): self.run_single_axis(a))
+            axis_btn.setStyleSheet("background-color: #e0e0ff;")
+            axis_run_layout.addWidget(axis_btn)
+
+        selection_layout.addLayout(axis_run_layout)
+        selection_group.setLayout(selection_layout)
+
+        # Command preview
+        preview_group = QGroupBox("Command Preview")
+        preview_layout = QVBoxLayout()
+
+        self.command_preview = QTextEdit()
+        self.command_preview.setReadOnly(True)
+        self.command_preview.setPlaceholderText("Command preview will appear here...")
+
+        preview_layout.addWidget(self.command_preview)
+        preview_group.setLayout(preview_layout)
+
+        right_layout.addWidget(selection_group)
+        right_layout.addWidget(preview_group)
+
+        # Add both panels to main layout
+        sequence_layout.addWidget(left_panel, 3)  # 3 parts width
+        sequence_layout.addWidget(right_panel, 2)  # 2 parts width
+
+        main_layout.addWidget(sequence_container, 1)  # Give more space to sequence container
+
+    def on_set_global_speed(self):
+        speed_value = self.global_speed_spinbox.value()
+        # Format for all slaves: SPEED;value
+        speed_cmd = f"SPEED;{speed_value}"
+        self.global_command.emit(speed_cmd)
+
+    def create_sequence_from_inputs(self):
+        """Create sequence strings for each axis based on current inputs"""
+        sequences = {}
+
+        for axis, steps in self.axis_inputs.items():
+            sequence_parts = []
+
+            for step in steps:
+                if step['delay_check'].isChecked():
+                    delay_val = step['delay_value'].value()
+                    sequence_parts.append(f"d{delay_val}")
+
+                if step['step_check'].isChecked():
+                    value = step['step_value'].value()
+                    sequence_parts.append(str(value))
+
+            if sequence_parts:
+                # Create sequence string: "x(100,d500,200)" or "z(d500)"
+                sequences[axis] = f"{axis}({','.join(sequence_parts)})"
+
+        return sequences
+
+    def add_new_row(self):
+        """Add current inputs as a new row"""
+        sequences = self.create_sequence_from_inputs()
+
+        if not sequences:
+            QMessageBox.warning(self, "Empty Sequence", "No sequence steps have been checked.")
             return
 
-        if index == 1:  # Basic Movement
-            sample = (
-                "# Gerakan dasar urutan posisi\n"
-                "x(1000,500,0),\n"
-                "y(1000,500,0),\n"
-                "z(d2000),\n"  # Wait 2 seconds
-                "g(100,0)"  # Open/close gripper
-            )
-        elif index == 2:  # Rectangle Pattern
-            sample = (
-                "# Pola persegi - urutan posisi untuk tiap slave\n"
-                "x(0,1000,1000,0,0),\n"
-                "y(0,0,1000,1000,0),\n"
-                "z(0),\n"
-                "t(0)"
-            )
-        elif index == 3:  # Pick and Place
-            sample = (
-                "# Posisi awal\n"
-                "x(0), y(0), z(0), g(0),\n"
-                "# Posisi pengambilan\n"
-                "x(1000), y(500),\n"
-                "z(500),\n"  # Lower Z
-                "g(100),\n"  # Close gripper
-                "z(0),\n"  # Raise Z
-                "# Posisi penempatan\n"
-                "x(500), y(1500),\n"
-                "z(500),\n"  # Lower Z
-                "g(0),\n"  # Open gripper
-                "z(0),\n"  # Raise Z
-                "# Kembali ke posisi awal\n"
-                "x(0), y(0)"
-            )
+        # Add to rows list
+        self.sequence_rows.append(sequences)
 
-        self.sequence_editor.setText(sample)
-        # Reset combobox to index 0
-        self.sample_combo.setCurrentIndex(0)
+        # Update UI
+        self.update_row_list()
+        self.update_row_selector()
+        self.clear_form()
+
+        # Show success message
+        QMessageBox.information(self, "Row Added", f"Row {len(self.sequence_rows)} has been added.")
+
+    def update_selected_row(self):
+        """Update the selected row with current inputs"""
+        if self.selected_row_index < 0:
+            return
+
+        sequences = self.create_sequence_from_inputs()
+
+        if not sequences:
+            QMessageBox.warning(self, "Empty Sequence", "No sequence steps have been checked.")
+            return
+
+        # Update row
+        self.sequence_rows[self.selected_row_index] = sequences
+
+        # Update UI
+        self.update_row_list()
+        self.update_command_preview()
+
+        # Show success message
+        QMessageBox.information(self, "Row Updated", f"Row {self.selected_row_index + 1} has been updated.")
+
+    def clear_form(self):
+        """Clear all inputs in the sequence builder"""
+        for axis, steps in self.axis_inputs.items():
+            for step in steps:
+                step['step_check'].setChecked(False)
+                step['step_value'].setValue(0)
+                step['delay_check'].setChecked(False)
+                step['delay_value'].setValue(500)
+
+        # Reset selected row
+        self.selected_row_index = -1
+        self.update_row_btn.setEnabled(False)
+
+    def update_row_list(self):
+        """Update the row list display with current rows"""
+        text = ""
+
+        for i, row in enumerate(self.sequence_rows):
+            row_text = f"Row {i+1}: "
+            row_parts = []
+
+            for axis, sequence in row.items():
+                row_parts.append(sequence)
+
+            row_text += ", ".join(row_parts)
+            text += row_text + "\n"
+
+        self.row_list.setPlainText(text)
+        self.update_command_preview()
+
+    def update_row_selector(self):
+        """Update the row selector dropdown"""
+        self.row_selector.clear()
+        self.row_selector.addItem("-- None --")
+
+        for i in range(len(self.sequence_rows)):
+            self.row_selector.addItem(f"Row {i+1}")
+
+    def on_row_selected(self, index):
+        """Handle row selection from dropdown"""
+        if index == 0:  # None
+            self.selected_row_index = -1
+            self.edit_row_btn.setEnabled(False)
+            self.delete_row_btn.setEnabled(False)
+        else:
+            self.selected_row_index = index - 1
+            self.edit_row_btn.setEnabled(True)
+            self.delete_row_btn.setEnabled(True)
+
+            # Update command preview for selected row
+            self.update_command_preview()
+
+    def edit_selected_row(self):
+        """Load the selected row into the editor"""
+        if self.selected_row_index < 0:
+            return
+
+        # Clear form first
+        self.clear_form()
+
+        # Load row data
+        row = self.sequence_rows[self.selected_row_index]
+
+        for axis, sequence in row.items():
+            # Parse sequence: "x(100,d500,200)" -> [100, d500, 200]
+            if '(' in sequence and ')' in sequence:
+                steps_str = sequence.split('(')[1].split(')')[0]
+                steps = steps_str.split(',')
+
+                step_index = 0
+                i = 0
+
+                while i < len(steps) and step_index < 5:
+                    step = steps[i]
+
+                    if step.startswith('d'):
+                        # It's a delay
+                        if step_index < 5:
+                            delay_value = int(step[1:])
+                            self.axis_inputs[axis][step_index]['delay_check'].setChecked(True)
+                            self.axis_inputs[axis][step_index]['delay_value'].setValue(delay_value)
+
+                        # Don't increment step_index yet, delay is part of the next position
+                        i += 1
+
+                        if i < len(steps):
+                            # Get the position value that follows
+                            position = int(steps[i])
+                            self.axis_inputs[axis][step_index]['step_check'].setChecked(True)
+                            self.axis_inputs[axis][step_index]['step_value'].setValue(position)
+
+                            step_index += 1
+                            i += 1
+                    else:
+                        # Regular position
+                        position = int(step)
+                        self.axis_inputs[axis][step_index]['step_check'].setChecked(True)
+                        self.axis_inputs[axis][step_index]['step_value'].setValue(position)
+
+                        step_index += 1
+                        i += 1
+
+        # Enable update button
+        self.update_row_btn.setEnabled(True)
+
+        # Switch to first tab
+        self.axis_tabs.setCurrentIndex(0)
+
+    def delete_selected_row(self):
+        """Delete the selected row"""
+        if self.selected_row_index < 0:
+            return
+
+        # Confirm deletion
+        reply = QMessageBox.question(
+            self,
+            "Delete Row",
+            f"Are you sure you want to delete Row {self.selected_row_index + 1}?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            # Delete row
+            del self.sequence_rows[self.selected_row_index]
+
+            # Update UI
+            self.update_row_list()
+            self.update_row_selector()
+
+            # Reset selection
+            self.selected_row_index = -1
+            self.row_selector.setCurrentIndex(0)
+
+    def clear_all_rows(self):
+        """Clear all rows"""
+        if not self.sequence_rows:
+            return
+
+        # Confirm deletion
+        reply = QMessageBox.question(
+            self,
+            "Clear All Rows",
+            "Are you sure you want to delete all rows?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            # Clear rows
+            self.sequence_rows = []
+
+            # Update UI
+            self.update_row_list()
+            self.update_row_selector()
+
+            # Reset selection
+            self.selected_row_index = -1
+
+    def update_command_preview(self):
+        """Update the command preview based on selected row or all rows"""
+        if self.selected_row_index >= 0:
+            # Show preview for selected row
+            row = self.sequence_rows[self.selected_row_index]
+            cmd_parts = []
+
+            for axis, sequence in row.items():
+                cmd_parts.append(sequence)
+
+            self.command_preview.setPlainText("Selected Row Command:\n" + ", ".join(cmd_parts))
+        else:
+            # Show preview for all rows
+            if not self.sequence_rows:
+                self.command_preview.clear()
+                return
+
+            preview = "All Rows Commands:\n\n"
+
+            for i, row in enumerate(self.sequence_rows):
+                cmd_parts = []
+
+                for axis, sequence in row.items():
+                    cmd_parts.append(sequence)
+
+                preview += f"Row {i+1}:\n" + ", ".join(cmd_parts) + "\n\n"
+
+            self.command_preview.setPlainText(preview)
+
+    def run_all_rows(self):
+        """Run all sequence rows in order"""
+        if not self.sequence_rows:
+            QMessageBox.warning(self, "No Rows", "No sequence rows to run.")
+            return
+
+        # Confirm run
+        reply = QMessageBox.question(
+            self,
+            "Run All Rows",
+            f"Are you sure you want to run all {len(self.sequence_rows)} rows in sequence?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            # First send START command
+            self.global_command.emit("START")
+
+            # Then send each row command
+            for i, row in enumerate(self.sequence_rows):
+                cmd_parts = []
+
+                for axis, sequence in row.items():
+                    cmd_parts.append(sequence)
+
+                full_command = ", ".join(cmd_parts)
+
+                # Wait for previous command to complete before sending the next one
+                QApplication.processEvents()
+                QThread.msleep(500)  # Small delay between rows
+
+                self.sequence_command.emit(full_command)
+
+                # Show message in popup instead of status bar
+                msg = QMessageBox()
+                msg.setIcon(QMessageBox.Information)
+                msg.setWindowTitle("Running Sequence")
+                msg.setText(f"Running Row {i+1} of {len(self.sequence_rows)}")
+                msg.setStandardButtons(QMessageBox.NoButton)
+                msg.show()
+                QApplication.processEvents()
+                QTimer.singleShot(1000, msg.close)  # Close after 1 second
+
+    def run_selected_row(self):
+        """Run only the selected row"""
+        if self.selected_row_index < 0:
+            QMessageBox.warning(self, "No Selection", "No row selected to run.")
+            return
+
+        # Get selected row
+        row = self.sequence_rows[self.selected_row_index]
+        cmd_parts = []
+
+        for axis, sequence in row.items():
+            cmd_parts.append(sequence)
+
+        # Send START command first
+        self.global_command.emit("START")
+
+        # Then send row command
+        full_command = ", ".join(cmd_parts)
+        self.sequence_command.emit(full_command)
+
+        # Show status message
+        QMessageBox.information(self, "Running Sequence", f"Running Row {self.selected_row_index + 1}")
+
+    def run_single_axis(self, axis):
+        """Run only a specific axis from the selected row"""
+        if self.selected_row_index < 0:
+            QMessageBox.warning(self, "No Selection", "No row selected to run a single axis from.")
+            return
+
+        # Get selected row
+        row = self.sequence_rows[self.selected_row_index]
+
+        if axis not in row:
+            QMessageBox.warning(self, "No Axis", f"Selected row does not contain a sequence for axis {axis.upper()}.")
+            return
+
+        # Send START command first
+        self.global_command.emit("START")
+
+        # Then send axis command
+        self.sequence_command.emit(row[axis])
+
+        # Show status message
+        QMessageBox.information(self, "Running Sequence", f"Running Axis {axis.upper()} from Row {self.selected_row_index + 1}")
 
 
 class MonitorPanel(QWidget):

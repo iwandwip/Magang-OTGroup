@@ -69,6 +69,33 @@ void PalletizerMaster::onBluetoothData(const String& data) {
     sendCommandToAllSlaves(CMD_RESET);
     currentCommand = CMD_NONE;
     bluetoothSerial.println("[FEEDBACK] RESET DONE");
+  } else if (upperData.startsWith("SPEED;")) {
+    // Handle the speed command format: SPEED;slaveID;value OR SPEED;value
+    String params = data.substring(6);  // Remove "SPEED;"
+
+    // Check if we have a specific slave ID or should send to all
+    int separatorPos = params.indexOf(';');
+    if (separatorPos != -1) {
+      // Format: SPEED;slaveID;value - send to specific slave
+      String slaveId = params.substring(0, separatorPos);
+      String speedValue = params.substring(separatorPos + 1);
+
+      slaveId.toLowerCase();  // Convert to lowercase for consistency
+      String command = slaveId + ";" + String(CMD_SETSPEED) + ";" + speedValue;
+
+      slaveSerial.println(command);
+      debugSerial.println("MASTER→SLAVE: " + command);
+      bluetoothSerial.println("[FEEDBACK] SPEED COMMAND SENT TO " + slaveId);
+    } else {
+      // Format: SPEED;value - send to all slaves
+      const char* slaveIds[] = { "x", "y", "z", "t", "g" };
+      for (int i = 0; i < 5; i++) {
+        String command = String(slaveIds[i]) + ";" + String(CMD_SETSPEED) + ";" + params;
+        slaveSerial.println(command);
+        debugSerial.println("MASTER→SLAVE: " + command);
+      }
+      bluetoothSerial.println("[FEEDBACK] SPEED COMMAND SENT TO ALL SLAVES");
+    }
   } else if (currentCommand == CMD_START) {
     debugSerial.println("MASTER: Processing coordinates");
     parseCoordinateData(data);

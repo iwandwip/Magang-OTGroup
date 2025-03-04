@@ -15,7 +15,8 @@ public:
     CMD_ZERO,
     CMD_PAUSE,
     CMD_RESUME,
-    CMD_RESET
+    CMD_RESET,
+    CMD_SETSPEED
   };
 
   StepperSlave(char slaveId, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin, int brakePin = -1, bool invertBrakeLogic = false);
@@ -47,9 +48,8 @@ private:
   bool invertBrakeLogic;
 
   const float SPEED_RATIO = 0.5;
-  const float MAX_SPEED = 1000.0;
-  const float ACCELERATION = 100;
-  // const float ACCELERATION = MAX_SPEED * SPEED_RATIO;
+  float MAX_SPEED = 200.0;
+  float ACCELERATION = MAX_SPEED * SPEED_RATIO;
   const float HOMING_SPEED = 200.0;
   const float HOMING_ACCEL = 100.0;
 
@@ -71,6 +71,7 @@ private:
   void handleResumeCommand();
   void handleResetCommand();
   void handleMoveCommand(const String& params);
+  void handleSetSpeedCommand(const String& params);
   void parsePositionSequence(const String& params);
   void handleMotion();
   void startNextMotion();

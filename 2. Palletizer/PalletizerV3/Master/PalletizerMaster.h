@@ -14,7 +14,8 @@ public:
     CMD_ZERO,
     CMD_PAUSE,
     CMD_RESUME,
-    CMD_RESET
+    CMD_RESET,
+    CMD_SETSPEED  // New command
   };
 
   PalletizerMaster(int rxPin, int txPin);

@@ -96,6 +96,11 @@ void StepperSlave::processCommand(const String& data) {
     case CMD_RESET:
       handleResetCommand();
       break;
+    case CMD_SETSPEED:
+      if (secondSeparator != -1) {
+        handleSetSpeedCommand(data.substring(secondSeparator + 1));
+      }
+      break;
     case CMD_START:
       if (secondSeparator != -1) {
         handleMoveCommand(data.substring(secondSeparator + 1));
@@ -104,6 +109,29 @@ void StepperSlave::processCommand(const String& data) {
     default:
       debugSerial.println("SLAVE " + String(slaveId) + ": Unknown command " + String(cmdCode));
       break;
+  }
+}
+
+void StepperSlave::handleSetSpeedCommand(const String& params) {
+  float newSpeed = params.toFloat();
+  if (newSpeed > 0) {
+    debugSerial.print("SLAVE ");
+    debugSerial.print(slaveId);
+    debugSerial.print(": Setting speed to ");
+    debugSerial.println(newSpeed);
+
+    MAX_SPEED = newSpeed;
+    stepper.setMaxSpeed(MAX_SPEED);
+
+    ACCELERATION = MAX_SPEED * SPEED_RATIO;
+    stepper.setAcceleration(ACCELERATION);
+
+    sendFeedback("SPEED SET TO " + String(MAX_SPEED));
+  } else {
+    debugSerial.print("SLAVE ");
+    debugSerial.print(slaveId);
+    debugSerial.println(": Invalid speed value");
+    sendFeedback("INVALID SPEED VALUE");
   }
 }
 

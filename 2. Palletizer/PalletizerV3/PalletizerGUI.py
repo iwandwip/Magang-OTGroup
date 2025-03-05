@@ -1,13 +1,17 @@
 import sys
 import time
+import yaml
+import os
 import serial
 import serial.tools.list_ports
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout,
                              QHBoxLayout, QGridLayout, QLabel, QPushButton,
                              QComboBox, QTabWidget, QGroupBox, QLineEdit,
                              QTextEdit, QSpinBox, QDoubleSpinBox, QCheckBox,
-                             QFrame, QProgressBar, QMessageBox, QSlider)
-from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QThread
+                             QFrame, QProgressBar, QMessageBox, QSlider,
+                             QFileDialog, QInputDialog, QListWidget,
+                             QScrollArea, QSizePolicy, QSplitter)
+from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QThread, QSize
 from PyQt5.QtGui import QFont, QIcon, QColor
 
 
@@ -86,10 +90,12 @@ class SlaveControlPanel(QWidget):
     def setup_ui(self):
         # Main layout
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
 
         # Group box untuk mengelompokkan kontrol
         group_box = QGroupBox(f"Slave {self.slave_id.upper()}")
         group_layout = QVBoxLayout()
+        group_layout.setSpacing(5)  # Tighter spacing
 
         # Status indicator
         status_layout = QHBoxLayout()
@@ -138,6 +144,7 @@ class SlaveControlPanel(QWidget):
 
         # Command controls
         command_layout = QGridLayout()
+        command_layout.setSpacing(5)  # Tighter spacing
 
         # Button 1: Start (CMD_START)
         self.start_btn = QPushButton("Start")
@@ -177,6 +184,7 @@ class SlaveControlPanel(QWidget):
 
         # Movement controls
         movement_layout = QGridLayout()
+        movement_layout.setSpacing(5)  # Tighter spacing
 
         self.move_positive_btn = QPushButton("Move +")
         self.move_positive_btn.clicked.connect(self.on_move_positive)
@@ -214,6 +222,9 @@ class SlaveControlPanel(QWidget):
 
         # Set group layout ke group box
         group_box.setLayout(group_layout)
+
+        # Set size policy to allow expansion
+        group_box.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
         # Tambahkan group box ke layout utama
         layout.addWidget(group_box)
@@ -345,14 +356,26 @@ class SequencePanel(QWidget):
         self.sequence_rows = []  # List of rows, each row is a dict with axis sequences
         self.current_row = {}    # Current row being edited
         self.selected_row_index = -1  # Currently selected row for editing or running
+
+        # Variables for sequence step-by-step execution
+        self.current_sequence_index = -1  # Index of the current row being executed
+        self.sequence_execution_active = False  # Flag to track if sequence execution is in progress
+
+        # Variables for saved sequences
+        self.saved_sequences = {}  # Dictionary to store named sequences
+        self.current_sequence_name = "Default"
+
         self.setup_ui()
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
+        main_layout.setSpacing(5)  # Tighter spacing
 
-        # ======== Global Controls Section ========
+        # ======== Global Commands Section ========
         global_group = QGroupBox("Global Commands")
         global_layout = QHBoxLayout()
+        global_layout.setSpacing(5)  # Tighter spacing
 
         # Global command buttons in a row
         self.start_btn = QPushButton("START")
@@ -393,6 +416,7 @@ class SequencePanel(QWidget):
         # ======== Speed Control Section ========
         speed_group = QGroupBox("Global Speed Control")
         speed_layout = QHBoxLayout()
+        speed_layout.setSpacing(5)  # Tighter spacing
 
         speed_layout.addWidget(QLabel("Set Speed for All Motors:"))
 
@@ -413,25 +437,82 @@ class SequencePanel(QWidget):
         main_layout.addWidget(speed_group)
 
         # ======== Main Sequence Section ========
-        sequence_container = QWidget()
-        sequence_layout = QHBoxLayout(sequence_container)
+        # Using QSplitter for better resizing control
+        sequence_splitter = QSplitter(Qt.Horizontal)
+        sequence_splitter.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        # Left side - Row list and sequence editor
+        # Left side - Sequence management and row list
         left_panel = QWidget()
         left_layout = QVBoxLayout(left_panel)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(5)  # Tighter spacing
+
+        # ======== Sequence File Management Section ========
+        file_group = QGroupBox("Sequence File Management")
+        file_layout = QVBoxLayout()
+        file_layout.setSpacing(5)  # Tighter spacing
+
+        # Current sequence name display
+        sequence_name_layout = QHBoxLayout()
+        sequence_name_layout.addWidget(QLabel("Current Sequence:"))
+        self.sequence_name_label = QLabel(self.current_sequence_name)
+        self.sequence_name_label.setStyleSheet("font-weight: bold;")
+        sequence_name_layout.addWidget(self.sequence_name_label)
+        sequence_name_layout.addStretch()
+
+        # Saved sequences selection
+        self.saved_sequences_list = QListWidget()
+        self.saved_sequences_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self.saved_sequences_list.setMinimumHeight(80)  # Give it some minimum height
+        self.saved_sequences_list.itemDoubleClicked.connect(self.on_sequence_selected)
+
+        # File operation buttons
+        file_buttons_layout = QHBoxLayout()
+        file_buttons_layout.setSpacing(5)  # Tighter spacing
+
+        self.new_sequence_btn = QPushButton("New Sequence")
+        self.new_sequence_btn.clicked.connect(self.on_new_sequence)
+        self.new_sequence_btn.setStyleSheet("background-color: #e0e0ff;")
+
+        self.save_sequence_btn = QPushButton("Save Sequence")
+        self.save_sequence_btn.clicked.connect(self.on_save_sequence)
+        self.save_sequence_btn.setStyleSheet("background-color: #e0ffea;")
+
+        self.save_as_sequence_btn = QPushButton("Save As...")
+        self.save_as_sequence_btn.clicked.connect(self.on_save_as_sequence)
+        self.save_as_sequence_btn.setStyleSheet("background-color: #e0ffea;")
+
+        self.load_sequence_btn = QPushButton("Load From File")
+        self.load_sequence_btn.clicked.connect(self.on_load_sequence)
+        self.load_sequence_btn.setStyleSheet("background-color: #fff9e0;")
+
+        file_buttons_layout.addWidget(self.new_sequence_btn)
+        file_buttons_layout.addWidget(self.save_sequence_btn)
+        file_buttons_layout.addWidget(self.save_as_sequence_btn)
+        file_buttons_layout.addWidget(self.load_sequence_btn)
+
+        file_layout.addLayout(sequence_name_layout)
+        file_layout.addWidget(self.saved_sequences_list)
+        file_layout.addLayout(file_buttons_layout)
+
+        file_group.setLayout(file_layout)
+        left_layout.addWidget(file_group)
 
         # Row list section
         row_list_group = QGroupBox("Sequence Rows")
         row_list_layout = QVBoxLayout()
+        row_list_layout.setSpacing(5)  # Tighter spacing
 
         # Row list widget
         self.row_list = QTextEdit()
         self.row_list.setReadOnly(True)
         self.row_list.setPlaceholderText("No sequences added yet...")
-        self.row_list.setMinimumHeight(150)
+        self.row_list.setMinimumHeight(120)
+        self.row_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # Row control buttons
         row_control_layout = QHBoxLayout()
+        row_control_layout.setSpacing(5)  # Tighter spacing
 
         self.run_all_btn = QPushButton("Run All Rows")
         self.run_all_btn.clicked.connect(self.run_all_rows)
@@ -441,12 +522,19 @@ class SequencePanel(QWidget):
         self.run_selected_btn.clicked.connect(self.run_selected_row)
         self.run_selected_btn.setStyleSheet("background-color: #ccffdd;")
 
+        # Add a Next button for step-by-step execution
+        self.next_btn = QPushButton("Next Row")
+        self.next_btn.clicked.connect(self.run_next_row)
+        self.next_btn.setEnabled(False)  # Disabled by default
+        self.next_btn.setStyleSheet("background-color: #ffddaa; font-weight: bold;")
+
         self.clear_all_rows_btn = QPushButton("Clear All")
         self.clear_all_rows_btn.clicked.connect(self.clear_all_rows)
         self.clear_all_rows_btn.setStyleSheet("background-color: #ffcccc;")
 
         row_control_layout.addWidget(self.run_all_btn)
         row_control_layout.addWidget(self.run_selected_btn)
+        row_control_layout.addWidget(self.next_btn)  # Add the Next button
         row_control_layout.addWidget(self.clear_all_rows_btn)
 
         row_list_layout.addWidget(self.row_list)
@@ -458,9 +546,21 @@ class SequencePanel(QWidget):
         # Sequence Builder Section
         builder_group = QGroupBox("Edit Sequence")
         builder_layout = QVBoxLayout()
+        builder_layout.setSpacing(5)  # Tighter spacing
+
+        # Create a scroll area for the sequence builder
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setFrameShape(QFrame.NoFrame)
+
+        # Widget to contain all tabs
+        tab_container = QWidget()
+        tab_layout = QVBoxLayout(tab_container)
+        tab_layout.setContentsMargins(0, 0, 0, 0)
 
         # Tabs for each axis
         self.axis_tabs = QTabWidget()
+        self.axis_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         # Create tabs for each axis
         axes = ['X', 'Y', 'Z', 'T', 'G']
@@ -469,10 +569,13 @@ class SequencePanel(QWidget):
         for axis in axes:
             axis_tab = QWidget()
             axis_layout = QVBoxLayout(axis_tab)
+            axis_layout.setSpacing(5)  # Tighter spacing
 
             # Create 5 step input rows for this axis
             step_inputs = []
             steps_layout = QGridLayout()
+            steps_layout.setSpacing(5)  # Tighter spacing
+            steps_layout.setVerticalSpacing(10)  # Slightly more vertical space
 
             for i in range(5):
                 step_layout = QHBoxLayout()
@@ -526,10 +629,18 @@ class SequencePanel(QWidget):
             # Save references to all inputs for this axis
             self.axis_inputs[axis.lower()] = step_inputs
 
-        builder_layout.addWidget(self.axis_tabs)
+        # Add axis tabs to the container
+        tab_layout.addWidget(self.axis_tabs)
+
+        # Set the container as the scroll area widget
+        scroll_area.setWidget(tab_container)
+
+        # Add the scroll area to the builder layout
+        builder_layout.addWidget(scroll_area)
 
         # Row control buttons
         row_action_layout = QHBoxLayout()
+        row_action_layout.setSpacing(5)  # Tighter spacing
 
         self.add_row_btn = QPushButton("Add as New Row")
         self.add_row_btn.clicked.connect(self.add_new_row)
@@ -554,10 +665,13 @@ class SequencePanel(QWidget):
         # Right side - Row testing and preview
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(5)  # Tighter spacing
 
         # Row selection and editing
         selection_group = QGroupBox("Row Selection")
         selection_layout = QVBoxLayout()
+        selection_layout.setSpacing(5)  # Tighter spacing
 
         selection_row_layout = QHBoxLayout()
         selection_row_layout.addWidget(QLabel("Select Row:"))
@@ -582,6 +696,7 @@ class SequencePanel(QWidget):
 
         # Run specific axis
         axis_run_layout = QHBoxLayout()
+        axis_run_layout.setSpacing(5)  # Tighter spacing
         axis_run_layout.addWidget(QLabel("Run Single Axis:"))
 
         for axis in axes:
@@ -596,10 +711,12 @@ class SequencePanel(QWidget):
         # Command preview
         preview_group = QGroupBox("Command Preview")
         preview_layout = QVBoxLayout()
+        preview_layout.setSpacing(5)  # Tighter spacing
 
         self.command_preview = QTextEdit()
         self.command_preview.setReadOnly(True)
         self.command_preview.setPlaceholderText("Command preview will appear here...")
+        self.command_preview.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         preview_layout.addWidget(self.command_preview)
         preview_group.setLayout(preview_layout)
@@ -607,11 +724,14 @@ class SequencePanel(QWidget):
         right_layout.addWidget(selection_group)
         right_layout.addWidget(preview_group)
 
-        # Add both panels to main layout
-        sequence_layout.addWidget(left_panel, 3)  # 3 parts width
-        sequence_layout.addWidget(right_panel, 2)  # 2 parts width
+        # Add both panels to the splitter
+        sequence_splitter.addWidget(left_panel)
+        sequence_splitter.addWidget(right_panel)
 
-        main_layout.addWidget(sequence_container, 1)  # Give more space to sequence container
+        # Set initial sizes for the splitter (approximately 60% / 40%)
+        sequence_splitter.setSizes([600, 400])
+
+        main_layout.addWidget(sequence_splitter, 1)  # Give more space to sequence container
 
     def on_set_global_speed(self):
         speed_value = self.global_speed_spinbox.value()
@@ -766,7 +886,7 @@ class SequencePanel(QWidget):
                         # Don't increment step_index yet, delay is part of the next position
                         i += 1
 
-                        if i < len(steps):
+                        if i < len(steps) and step_index < 5:
                             # Get the position value that follows
                             position = int(steps[i])
                             self.axis_inputs[axis][step_index]['step_check'].setChecked(True)
@@ -869,8 +989,63 @@ class SequencePanel(QWidget):
 
             self.command_preview.setPlainText(preview)
 
+    def run_next_row(self):
+        """Run the next row in the sequence"""
+        if not self.sequence_rows:
+            QMessageBox.warning(self, "No Rows", "No sequence rows to run.")
+            return
+
+        if self.current_sequence_index >= len(self.sequence_rows) - 1:
+            # We're at the end of the sequence
+            QMessageBox.information(self, "Sequence Complete", "All rows have been executed.")
+            self.sequence_execution_active = False
+            self.current_sequence_index = -1
+            self.next_btn.setEnabled(False)
+            return
+
+        # Move to the next row
+        self.current_sequence_index += 1
+        row_index = self.current_sequence_index
+
+        # Update the row selector to show the current row
+        self.row_selector.setCurrentIndex(row_index + 1)  # +1 because index 0 is "-- None --"
+
+        # Run the current row
+        row = self.sequence_rows[row_index]
+        cmd_parts = []
+
+        for axis, sequence in row.items():
+            cmd_parts.append(sequence)
+
+        # Only send START command if this is the first row or after a reset
+        if row_index == 0 or not self.sequence_execution_active:
+            self.global_command.emit("START")
+            self.sequence_execution_active = True
+
+        # Send row command
+        full_command = ", ".join(cmd_parts)
+        self.sequence_command.emit(full_command)
+
+        # Disable the Next button until we receive completion feedback
+        self.next_btn.setEnabled(False)
+
+        # Show status message
+        QMessageBox.information(self, "Running Sequence", f"Running Row {row_index + 1}")
+
+    # Handle slave completion feedback
+    def handle_slave_completion(self):
+        """Called when all slaves have completed their tasks"""
+        # Re-enable the Next button if we're in sequence execution mode
+        if self.sequence_execution_active:
+            self.next_btn.setEnabled(True)
+
+            # Get the parent window to access statusBar
+            parent_window = self.window()
+            if parent_window and hasattr(parent_window, 'statusBar'):
+                parent_window.statusBar().showMessage("Sequence step completed. Ready for next row.")
+
     def run_all_rows(self):
-        """Run all sequence rows in order"""
+        """Start running the sequence row by row"""
         if not self.sequence_rows:
             QMessageBox.warning(self, "No Rows", "No sequence rows to run.")
             return
@@ -885,33 +1060,12 @@ class SequencePanel(QWidget):
         )
 
         if reply == QMessageBox.Yes:
-            # First send START command
-            self.global_command.emit("START")
+            # Reset sequence execution state
+            self.current_sequence_index = -1
+            self.sequence_execution_active = False
 
-            # Then send each row command
-            for i, row in enumerate(self.sequence_rows):
-                cmd_parts = []
-
-                for axis, sequence in row.items():
-                    cmd_parts.append(sequence)
-
-                full_command = ", ".join(cmd_parts)
-
-                # Wait for previous command to complete before sending the next one
-                QApplication.processEvents()
-                QThread.msleep(500)  # Small delay between rows
-
-                self.sequence_command.emit(full_command)
-
-                # Show message in popup instead of status bar
-                msg = QMessageBox()
-                msg.setIcon(QMessageBox.Information)
-                msg.setWindowTitle("Running Sequence")
-                msg.setText(f"Running Row {i+1} of {len(self.sequence_rows)}")
-                msg.setStandardButtons(QMessageBox.NoButton)
-                msg.show()
-                QApplication.processEvents()
-                QTimer.singleShot(1000, msg.close)  # Close after 1 second
+            # Start with the first row
+            self.run_next_row()
 
     def run_selected_row(self):
         """Run only the selected row"""
@@ -958,6 +1112,217 @@ class SequencePanel(QWidget):
         # Show status message
         QMessageBox.information(self, "Running Sequence", f"Running Axis {axis.upper()} from Row {self.selected_row_index + 1}")
 
+    # ========== Methods for file operations ==========
+
+    def on_new_sequence(self):
+        """Create a new, empty sequence"""
+        if self.sequence_rows:
+            # Ask if user wants to save current sequence
+            reply = QMessageBox.question(
+                self,
+                "Save Current Sequence?",
+                "Do you want to save the current sequence before creating a new one?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+                QMessageBox.Yes
+            )
+
+            if reply == QMessageBox.Cancel:
+                return
+
+            if reply == QMessageBox.Yes:
+                self.on_save_sequence()
+
+        # Create new sequence
+        name, ok = QInputDialog.getText(
+            self, "New Sequence", "Enter name for new sequence:",
+            text="New Sequence"
+        )
+
+        if ok and name:
+            self.sequence_rows = []
+            self.current_sequence_name = name
+            self.sequence_name_label.setText(name)
+            self.update_row_list()
+            self.update_row_selector()
+            self.selected_row_index = -1
+
+            # Add to saved sequences
+            self.saved_sequences[name] = []
+            self.update_saved_sequences_list()
+
+    def on_save_sequence(self):
+        """Save the current sequence to the saved sequences list"""
+        if not self.sequence_rows:
+            QMessageBox.warning(self, "Empty Sequence", "No sequence rows to save.")
+            return
+
+        # Save to current sequence name
+        self.saved_sequences[self.current_sequence_name] = self.sequence_rows.copy()
+
+        # Update the list
+        self.update_saved_sequences_list()
+
+        # Offer to save to file
+        reply = QMessageBox.question(
+            self,
+            "Save to File?",
+            "Do you want to save this sequence to a file?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.Yes
+        )
+
+        if reply == QMessageBox.Yes:
+            self.save_sequence_to_file()
+        else:
+            QMessageBox.information(self, "Sequence Saved", f"Sequence '{self.current_sequence_name}' saved in memory.")
+
+    def on_save_as_sequence(self):
+        """Save the current sequence with a new name"""
+        if not self.sequence_rows:
+            QMessageBox.warning(self, "Empty Sequence", "No sequence rows to save.")
+            return
+
+        # Ask for new name
+        name, ok = QInputDialog.getText(
+            self, "Save Sequence As", "Enter name for sequence:",
+            text=self.current_sequence_name + "_copy"
+        )
+
+        if ok and name:
+            self.current_sequence_name = name
+            self.sequence_name_label.setText(name)
+
+            # Save with new name
+            self.saved_sequences[name] = self.sequence_rows.copy()
+            self.update_saved_sequences_list()
+
+            # Save to file
+            self.save_sequence_to_file()
+
+    def on_load_sequence(self):
+        """Load a sequence from a file"""
+        # Ask if user wants to save current sequence
+        if self.sequence_rows:
+            reply = QMessageBox.question(
+                self,
+                "Save Current Sequence?",
+                "Do you want to save the current sequence before loading a new one?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+                QMessageBox.Yes
+            )
+
+            if reply == QMessageBox.Cancel:
+                return
+
+            if reply == QMessageBox.Yes:
+                self.on_save_sequence()
+
+        # Show file dialog to select a YAML file
+        file_path, _ = QFileDialog.getOpenFileName(
+            self, "Load Sequence", "", "YAML Files (*.yaml *.yml);;All Files (*)"
+        )
+
+        if file_path:
+            self.load_sequence_from_file(file_path)
+
+    def on_sequence_selected(self, item):
+        """Handle selection of a saved sequence from the list"""
+        name = item.text()
+
+        # Ask if user wants to save current sequence
+        if self.sequence_rows and name != self.current_sequence_name:
+            reply = QMessageBox.question(
+                self,
+                "Save Current Sequence?",
+                f"Do you want to save the current sequence '{self.current_sequence_name}' before loading '{name}'?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+                QMessageBox.Yes
+            )
+
+            if reply == QMessageBox.Cancel:
+                return
+
+            if reply == QMessageBox.Yes:
+                # Save current sequence
+                self.saved_sequences[self.current_sequence_name] = self.sequence_rows.copy()
+
+        # Load selected sequence
+        self.sequence_rows = self.saved_sequences[name].copy()
+        self.current_sequence_name = name
+        self.sequence_name_label.setText(name)
+
+        # Update UI
+        self.update_row_list()
+        self.update_row_selector()
+        self.selected_row_index = -1
+
+    def save_sequence_to_file(self):
+        """Save the current sequence to a YAML file"""
+        suggested_filename = self.current_sequence_name.replace(" ", "_") + ".yaml"
+
+        file_path, _ = QFileDialog.getSaveFileName(
+            self, "Save Sequence", suggested_filename, "YAML Files (*.yaml *.yml);;All Files (*)"
+        )
+
+        if file_path:
+            try:
+                # Prepare data for YAML
+                sequence_data = {
+                    'name': self.current_sequence_name,
+                    'rows': []
+                }
+
+                for row in self.sequence_rows:
+                    sequence_data['rows'].append(row)
+
+                # Write to file
+                with open(file_path, 'w') as f:
+                    yaml.dump(sequence_data, f, default_flow_style=False)
+
+                QMessageBox.information(self, "Save Successful", f"Sequence saved to {file_path}")
+            except Exception as e:
+                QMessageBox.critical(self, "Save Failed", f"Failed to save sequence: {str(e)}")
+
+    def load_sequence_from_file(self, file_path):
+        """Load a sequence from a YAML file"""
+        try:
+            # Read YAML file
+            with open(file_path, 'r') as f:
+                sequence_data = yaml.safe_load(f)
+
+            # Extract data
+            name = sequence_data.get('name', os.path.basename(file_path).split('.')[0])
+            rows = sequence_data.get('rows', [])
+
+            # Update current sequence
+            self.sequence_rows = rows
+            self.current_sequence_name = name
+            self.sequence_name_label.setText(name)
+
+            # Add to saved sequences if not already there
+            if name not in self.saved_sequences:
+                self.saved_sequences[name] = rows.copy()
+                self.update_saved_sequences_list()
+
+            # Update UI
+            self.update_row_list()
+            self.update_row_selector()
+            self.selected_row_index = -1
+
+            QMessageBox.information(self, "Load Successful", f"Loaded sequence '{name}' from {file_path}")
+        except Exception as e:
+            QMessageBox.critical(self, "Load Failed", f"Failed to load sequence: {str(e)}")
+
+    def update_saved_sequences_list(self):
+        """Update the list of saved sequences"""
+        self.saved_sequences_list.clear()
+        for name in sorted(self.saved_sequences.keys()):
+            self.saved_sequences_list.addItem(name)
+
+            # Select the current sequence
+            if name == self.current_sequence_name:
+                self.saved_sequences_list.setCurrentRow(self.saved_sequences_list.count() - 1)
+
 
 class MonitorPanel(QWidget):
     """Panel untuk memonitor komunikasi dan log"""
@@ -970,13 +1335,17 @@ class MonitorPanel(QWidget):
 
     def setup_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
+        layout.setSpacing(5)  # Tighter spacing
 
         # Communication log
         log_group = QGroupBox("Communication Log")
         log_layout = QVBoxLayout()
+        log_layout.setSpacing(5)  # Tighter spacing
 
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
+        self.log_text.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         log_button_layout = QHBoxLayout()
         self.clear_log_btn = QPushButton("Clear Log")
@@ -997,6 +1366,7 @@ class MonitorPanel(QWidget):
         # Manual command
         command_group = QGroupBox("Manual Command")
         command_layout = QHBoxLayout()
+        command_layout.setSpacing(5)  # Tighter spacing
 
         self.command_input = QLineEdit()
         self.command_input.setPlaceholderText("Enter command to send to master")
@@ -1059,13 +1429,19 @@ class PalletizerControlApp(QMainWindow):
         self.setWindowTitle("Palletizer Control System")
         self.setGeometry(100, 100, 1280, 720)
 
+        # Set window to start maximized
+        self.showMaximized()
+
         # Main widget and layout
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
+        main_layout.setSpacing(5)  # Tighter spacing
 
         # Connection controls at top
         connection_layout = QHBoxLayout()
+        connection_layout.setSpacing(5)  # Tighter spacing
 
         connection_layout.addWidget(QLabel("Port:"))
         self.port_combo = QComboBox()
@@ -1094,10 +1470,16 @@ class PalletizerControlApp(QMainWindow):
 
         # Tab widget for different panels
         self.tab_widget = QTabWidget()
+        self.tab_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        # Control panel with all slave controls
+        # Control panel with all slave controls - use QScrollArea
+        slave_scroll = QScrollArea()
+        slave_scroll.setWidgetResizable(True)
+
         control_widget = QWidget()
         control_layout = QGridLayout(control_widget)
+        control_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
+        control_layout.setSpacing(5)  # Tighter spacing
 
         # Create control panels for each slave
         slave_ids = ['x', 'y', 'z', 't', 'g']
@@ -1110,8 +1492,14 @@ class PalletizerControlApp(QMainWindow):
             # Connect panel's command_request signal to handle_slave_command
             panel.command_request.connect(self.handle_slave_command)
 
+        # Add stretches to make the layout flexible
+        for i in range(3):  # 3 columns
+            control_layout.setColumnStretch(i, 1)
+
+        slave_scroll.setWidget(control_widget)
+
         # Tabs
-        self.tab_widget.addTab(control_widget, "Individual Control")
+        self.tab_widget.addTab(slave_scroll, "Individual Control")
 
         # Sequence control panel
         self.sequence_panel = SequencePanel()
@@ -1210,6 +1598,11 @@ class PalletizerControlApp(QMainWindow):
             feedback_msg = data[11:].strip()  # Remove [FEEDBACK] prefix
             self.statusBar().showMessage(f"Feedback: {feedback_msg}")
 
+            # Check for ALL_SLAVES_COMPLETED feedback and handle it
+            if feedback_msg == "ALL_SLAVES_COMPLETED":
+                # Notify the sequence panel that all slaves have completed
+                self.sequence_panel.handle_slave_completion()
+
         # Determine message type and route to appropriate handler
         if data.startswith("[FEEDBACK]"):
             # Feedback from master - already handled above
@@ -1230,6 +1623,11 @@ class PalletizerControlApp(QMainWindow):
         # Stop the serial thread properly
         self.serial_thread.stop()
         event.accept()
+
+    def resizeEvent(self, event):
+        """Handle window resize event"""
+        # Make any adjustments needed when window is resized
+        super().resizeEvent(event)
 
 
 if __name__ == "__main__":

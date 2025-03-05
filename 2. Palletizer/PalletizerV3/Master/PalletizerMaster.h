@@ -18,7 +18,7 @@ public:
     CMD_SETSPEED  // New command
   };
 
-  PalletizerMaster(int rxPin, int txPin);
+  PalletizerMaster(int rxPin, int txPin, int indicatorPin = -1);  // Added indicator pin parameter with default -1
   void begin();
   void update();
   static void onBluetoothDataWrapper(const String& data);
@@ -34,10 +34,17 @@ private:
 
   Command currentCommand = CMD_NONE;
 
+  int indicatorPin;                   // Indicator pin to monitor all slaves
+  bool indicatorEnabled;              // Flag to check if indicator is enabled
+  bool waitingForCompletion = false;  // Flag to track if we're waiting for slaves to complete
+  bool sequenceRunning = false;       // Flag to track if a sequence is running
+  unsigned long lastCheckTime = 0;    // For timing indicator checks
+
   void onBluetoothData(const String& data);
   void onSlaveData(const String& data);
   void sendCommandToAllSlaves(Command cmd);
   void parseCoordinateData(const String& data);
+  bool checkAllSlavesCompleted();  // Method to check if all slaves are completed
 };
 
 #endif

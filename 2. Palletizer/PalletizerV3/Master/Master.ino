@@ -4,8 +4,9 @@
 
 #define RX_PIN 8
 #define TX_PIN 9
+#define INDICATOR_PIN -1
 
-PalletizerMaster master(RX_PIN, TX_PIN);
+PalletizerMaster master(RX_PIN, TX_PIN, INDICATOR_PIN);
 
 void setup() {
   master.begin();

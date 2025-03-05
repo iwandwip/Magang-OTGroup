@@ -1,3 +1,4 @@
+#include "Arduino.h"
 #include "StepperSlave.h"
 
 StepperSlave* StepperSlave::instance = nullptr;
@@ -25,7 +26,7 @@ void StepperSlave::begin() {
   masterSerial.setDataCallback(onMasterDataWrapper);
 
   // pinMode(enPin, OUTPUT);
-  pinMode(sensorPin, INPUT);
+  pinMode(sensorPin, INPUT_PULLUP);
   // digitalWrite(enPin, LOW);
 
   if (brakePin != -1) {
@@ -170,6 +171,7 @@ void StepperSlave::performHoming() {
       stepper.move(-count);
       while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
         stepper.run();
+        Serial.println(digitalRead(sensorPin));
       }
     }
   } else {
@@ -177,6 +179,7 @@ void StepperSlave::performHoming() {
     stepper.move(-count);
     while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
       stepper.run();
+      Serial.println(digitalRead(sensorPin));
     }
   }
 

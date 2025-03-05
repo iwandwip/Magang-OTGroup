@@ -12,6 +12,7 @@ void setup() {
   stepper.setAcceleration(500.0);
   stepper.setCurrentPosition(0);
   pinMode(6, INPUT_PULLUP);
+  pinMode(13, OUTPUT);
 }
 
 void loop() {
@@ -24,6 +25,7 @@ void loop() {
   }
 
   int sensor = digitalRead(6);
+  digitalWrite(13, sensor);
   int pos = stepper.currentPosition();
   Serial.print("| sensor: ");
   Serial.print(sensor);
@@ -32,3 +34,6 @@ void loop() {
   Serial.println();
   stepper.run();
 }
+
+// X G Z T Y
+// T Y Z X G

@@ -162,6 +162,9 @@ void StepperSlave::performHoming() {
     stepper.move(count);
     while (digitalRead(sensorPin) == HIGH && stepper.distanceToGo() != 0) {
       stepper.run();
+      Serial.print("| sensorPin: ");
+      Serial.print(digitalRead(sensorPin));
+      Serial.println();
     }
 
     if (stepper.distanceToGo() != 0) {
@@ -171,7 +174,9 @@ void StepperSlave::performHoming() {
       stepper.move(-count);
       while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
         stepper.run();
-        Serial.println(digitalRead(sensorPin));
+        Serial.print("| sensorPin: ");
+        Serial.print(digitalRead(sensorPin));
+        Serial.println();
       }
     }
   } else {
@@ -179,7 +184,9 @@ void StepperSlave::performHoming() {
     stepper.move(-count);
     while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
       stepper.run();
-      Serial.println(digitalRead(sensorPin));
+      Serial.print("| sensorPin: ");
+      Serial.print(digitalRead(sensorPin));
+      Serial.println();
     }
   }
 

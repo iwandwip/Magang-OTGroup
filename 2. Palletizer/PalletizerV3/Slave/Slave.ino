@@ -2,20 +2,13 @@
 
 #include "StepperSlave.h"
 
-#define SLAVE_ADDR 'x'
 #define CLK_PIN 10
 #define CW_PIN 11
 #define EN_PIN 12
 #define RX_PIN 8
 #define TX_PIN 9
 #define SENSOR_PIN 6
-
-#if SLAVE_ADDR == 't'
-#define BRAKE_PIN -1  // 12
-#else
 #define BRAKE_PIN -1
-#endif
-
 #define INVERT_BRAKE false
 #define INDICATOR_PIN 13
 

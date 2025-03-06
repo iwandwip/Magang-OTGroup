@@ -43,6 +43,7 @@ void StepperSlave::begin() {
   stepper.setMaxSpeed(MAX_SPEED);
   stepper.setAcceleration(ACCELERATION);
   stepper.setCurrentPosition(0);
+  stepper.setMinPulseWidth(100);
 
   debugSerial.println("SLAVE " + String(slaveId) + ": System initialized");
 }

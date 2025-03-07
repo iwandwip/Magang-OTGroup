@@ -2,8 +2,8 @@
 
 #include "StepperSlave.h"
 
-#define CLK_PIN 10  // 10(X,Y,Z,G), 11(T)
-#define CW_PIN 11   // 11(X,Y,Z,G), 10(T)
+#define CLK_PIN 10  
+#define CW_PIN 11   
 #define EN_PIN 12
 #define RX_PIN 8
 #define TX_PIN 9

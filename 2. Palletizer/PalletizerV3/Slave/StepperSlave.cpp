@@ -20,7 +20,7 @@ void StepperSlave::begin() {
   Serial.begin(9600);
   masterCommSerial.begin(9600);
 
-  masterSerial.begin(&Serial);
+  masterSerial.begin(&masterCommSerial);
   debugSerial.begin(&Serial);
 
   masterSerial.setDataCallback(onMasterDataWrapper);

@@ -2,7 +2,7 @@
 
 #include "StepperSlave.h"
 
-#define SLAVE_ADDR 'y'
+#define SLAVE_ADDR 't'
 #define CLK_PIN 10
 #define CW_PIN 11
 #define EN_PIN 12

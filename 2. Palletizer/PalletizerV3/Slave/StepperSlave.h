@@ -64,14 +64,13 @@ private:
   bool isDelaying = false;
   bool hasReportedCompletion = true;
 
-  // New variables for brake delay handling
   bool isBrakeReleaseDelayActive = false;
   bool isBrakeEngageDelayActive = false;
   unsigned long brakeReleaseDelayStart = 0;
   unsigned long brakeEngageDelayStart = 0;
-  const unsigned long BRAKE_RELEASE_DELAY = 500;  // ms
-  const unsigned long BRAKE_ENGAGE_DELAY = 1500;  // ms
-  bool isBrakeEngaged = true;                     // Track the current brake state
+  const unsigned long BRAKE_RELEASE_DELAY = 500;
+  const unsigned long BRAKE_ENGAGE_DELAY = 1500;
+  bool isBrakeEngaged = true;
 
   static const int MAX_MOTIONS = 5;
   MotionStep motionQueue[MAX_MOTIONS];
@@ -93,7 +92,7 @@ private:
   void checkPositionReached();
   void performHoming();
   void setBrake(bool engaged);
-  void setBrakeWithDelay(bool engaged);  // New method for delayed brake operations
+  void setBrakeWithDelay(bool engaged);
   void setIndicator(bool active);
 };
 

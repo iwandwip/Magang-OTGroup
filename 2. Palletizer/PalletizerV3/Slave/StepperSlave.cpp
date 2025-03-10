@@ -20,14 +20,14 @@ void StepperSlave::begin() {
   Serial.begin(9600);
   masterCommSerial.begin(9600);
 
-  masterSerial.begin(&masterCommSerial);
+  masterSerial.begin(&Serial);  // masterCommSerial
   debugSerial.begin(&Serial);
 
   masterSerial.setDataCallback(onMasterDataWrapper);
 
-  // pinMode(enPin, OUTPUT);
+  pinMode(enPin, OUTPUT);
   pinMode(sensorPin, INPUT_PULLUP);
-  // digitalWrite(enPin, LOW);
+  digitalWrite(enPin, HIGH);
 
   if (brakePin != -1) {
     pinMode(brakePin, OUTPUT);

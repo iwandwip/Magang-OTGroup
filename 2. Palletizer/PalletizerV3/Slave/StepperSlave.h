@@ -7,6 +7,10 @@
 #include "SoftwareSerial.h"
 #include "AccelStepper.h"
 
+#define NOT_CONNECTED -1
+#define HIGH_LOGIC_BRAKE false
+#define LOW_LOGIC_BRAKE true
+
 class StepperSlave {
 public:
   enum Command {

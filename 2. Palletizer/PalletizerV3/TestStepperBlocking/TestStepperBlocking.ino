@@ -3,6 +3,7 @@
 int clkPin = 10;
 int cwPin = 11;
 int enPin = 12;
+int brakePin = 7;
 
 AccelStepper stepper(AccelStepper::DRIVER, clkPin, cwPin);
 
@@ -12,6 +13,8 @@ void setup() {
   stepper.setAcceleration(1000.0);
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, HIGH);
+  pinMode(brakePin, OUTPUT);
+  digitalWrite(brakePin, HIGH);
 
   // pinMode(clkPin, OUTPUT);
   // pinMode(cwPin, OUTPUT);
@@ -22,6 +25,8 @@ void setup() {
 
 void loop() {
   if (Serial.available()) {
+    digitalWrite(brakePin, LOW);
+    delay(200);
     digitalWrite(LED_BUILTIN, LOW);
     int pos = Serial.readStringUntil('\n').toInt();
     Serial.print("| pos: ");
@@ -31,6 +36,9 @@ void loop() {
     stepper.moveTo(pos);
     // stepper.move(pos);
     stepper.runToPosition();
+
+    delay(1500);
+    digitalWrite(brakePin, HIGH);
 
     Serial.println("| done");
     digitalWrite(LED_BUILTIN, HIGH);

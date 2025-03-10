@@ -32,6 +32,7 @@ void StepperSlave::begin() {
   if (brakePin != -1) {
     pinMode(brakePin, OUTPUT);
     setBrake(true);
+    isBrakeEngaged = true;
   }
 
   // Initialize indicator pin
@@ -48,17 +49,84 @@ void StepperSlave::begin() {
   debugSerial.println("SLAVE " + String(slaveId) + ": System initialized");
 }
 
+// Implementation of new method to handle brake operation with delay
+void StepperSlave::setBrakeWithDelay(bool engaged) {
+  if (brakePin != -1) {
+    // Do nothing if we're already in the requested brake state
+    if (engaged == isBrakeEngaged && !isBrakeReleaseDelayActive && !isBrakeEngageDelayActive) {
+      return;
+    }
+
+    if (engaged) {
+      // Only start the brake engage delay if not already in progress
+      if (!isBrakeEngageDelayActive && !isBrakeReleaseDelayActive) {
+        isBrakeEngageDelayActive = true;
+        brakeEngageDelayStart = millis();
+        debugSerial.println("SLAVE " + String(slaveId) + ": Starting brake engage delay");
+      }
+    } else {
+      // Only start the brake release delay if not already in progress
+      if (!isBrakeReleaseDelayActive && !isBrakeEngageDelayActive) {
+        setBrake(false);  // Release brake immediately
+        isBrakeEngaged = false;
+        isBrakeReleaseDelayActive = true;
+        brakeReleaseDelayStart = millis();
+        debugSerial.println("SLAVE " + String(slaveId) + ": Brake released, starting delay before motor runs");
+      }
+    }
+  } else {
+    // No brake pin, just call setBrake directly
+    setBrake(engaged);
+  }
+}
+
 void StepperSlave::update() {
   masterSerial.checkCallback();
+
+  // Handle brake delays first
+  if (brakePin != -1) {
+    // Check if brake release delay is active
+    if (isBrakeReleaseDelayActive) {
+      if (millis() - brakeReleaseDelayStart >= BRAKE_RELEASE_DELAY) {
+        isBrakeReleaseDelayActive = false;
+        debugSerial.println("SLAVE " + String(slaveId) + ": Brake release delay complete, motor can run now");
+      }
+    }
+
+    // Check if brake engage delay is active
+    if (isBrakeEngageDelayActive) {
+      if (millis() - brakeEngageDelayStart >= BRAKE_ENGAGE_DELAY) {
+        isBrakeEngageDelayActive = false;
+        setBrake(true);  // Now actually engage the brake
+        isBrakeEngaged = true;
+        debugSerial.println("SLAVE " + String(slaveId) + ": Brake engage delay complete, brake engaged");
+      }
+    }
+  }
+
   handleMotion();
 
   if (!isPaused && !isDelaying) {
-    if (stepper.isRunning()) {
-      setBrake(false);
+    // Only consider releasing brake if we have distance to go and we're not already in a brake-related delay
+    if (stepper.distanceToGo() != 0 && !isBrakeReleaseDelayActive && !isBrakeEngageDelayActive) {
+      if (!stepper.isRunning()) {
+        // Motor should be running but isn't, ensure brake is released
+        if (isBrakeEngaged) {
+          setBrakeWithDelay(false);
+        }
+      }
     }
-    stepper.run();
-    if (!stepper.isRunning() && stepper.distanceToGo() == 0) {
-      setBrake(true);
+
+    // Run the stepper if we're not in a brake release delay
+    if (!isBrakeReleaseDelayActive) {
+      stepper.run();
+    }
+
+    // Engage brake if we've reached the target position and motor has stopped
+    if (stepper.distanceToGo() == 0 && !stepper.isRunning() && !isBrakeEngageDelayActive && !isBrakeReleaseDelayActive) {
+      if (!isBrakeEngaged) {
+        setBrakeWithDelay(true);
+      }
     }
   }
 
@@ -153,7 +221,13 @@ void StepperSlave::performHoming() {
 
   stepper.setMaxSpeed(HOMING_SPEED);
   stepper.setAcceleration(HOMING_ACCEL);
-  setBrake(false);
+
+  // Reset any active brake delays
+  isBrakeReleaseDelayActive = false;
+  isBrakeEngageDelayActive = false;
+
+  setBrake(false);  // Direct brake release for homing
+  isBrakeEngaged = false;
 
   long distance = 0;
   int count = 20000;
@@ -206,7 +280,8 @@ void StepperSlave::performHoming() {
 
   stepper.setMaxSpeed(originalSpeed);
   stepper.setAcceleration(originalAccel);
-  setBrake(true);
+  setBrake(true);  // Direct brake engage for homing
+  isBrakeEngaged = true;
 
   setIndicator(false);
 
@@ -220,6 +295,10 @@ void StepperSlave::handleZeroCommand() {
   queuedMotionsCount = 0;
   currentMotionIndex = 0;
 
+  // Reset brake delay states
+  isBrakeReleaseDelayActive = false;
+  isBrakeEngageDelayActive = false;
+
   // Turn off indicator during command reset
   setIndicator(false);
 
@@ -231,7 +310,13 @@ void StepperSlave::handleZeroCommand() {
 void StepperSlave::handlePauseCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing PAUSE");
   isPaused = true;
-  setBrake(true);
+
+  // Reset any active brake delays
+  isBrakeReleaseDelayActive = false;
+  isBrakeEngageDelayActive = false;
+
+  setBrake(true);  // Direct brake engage for pause
+  isBrakeEngaged = true;
 
   // Keep indicator ON when paused - sequence isn't completed yet
 
@@ -241,8 +326,13 @@ void StepperSlave::handlePauseCommand() {
 void StepperSlave::handleResumeCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing RESUME");
   isPaused = false;
+
   if (stepper.distanceToGo() != 0) {
-    setBrake(false);
+    // Reset any active brake delays
+    isBrakeReleaseDelayActive = false;
+    isBrakeEngageDelayActive = false;
+
+    setBrakeWithDelay(false);  // Use delayed version for resume
   }
 
   // Turn indicator back ON if we have motions to complete
@@ -260,7 +350,13 @@ void StepperSlave::handleResetCommand() {
   queuedMotionsCount = 0;
   currentMotionIndex = 0;
   stepper.stop();
-  setBrake(true);
+
+  // Reset brake delay states
+  isBrakeReleaseDelayActive = false;
+  isBrakeEngageDelayActive = false;
+
+  setBrake(true);  // Direct brake engage for reset
+  isBrakeEngaged = true;
 
   // Turn off indicator when reset
   setIndicator(false);
@@ -281,7 +377,11 @@ void StepperSlave::startNextMotion() {
       currentMotionIndex++;
       startNextMotion();
     } else {
-      setBrake(false);
+      // Reset any active brake delays to ensure we don't have competing states
+      isBrakeReleaseDelayActive = false;
+      isBrakeEngageDelayActive = false;
+
+      setBrakeWithDelay(false);  // Use the delayed version for starting motion
       stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
       stepper.moveTo(motionQueue[currentMotionIndex].position);
       sendFeedback("MOVING");
@@ -300,7 +400,11 @@ void StepperSlave::handleMotion() {
         currentMotionIndex++;
         startNextMotion();
       } else {
-        setBrake(false);
+        // Reset any active brake delays
+        isBrakeReleaseDelayActive = false;
+        isBrakeEngageDelayActive = false;
+
+        setBrakeWithDelay(false);  // Use the delayed version after queued delay
         stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
         stepper.moveTo(motionQueue[currentMotionIndex].position);
         sendFeedback("MOVING");
@@ -309,12 +413,19 @@ void StepperSlave::handleMotion() {
     return;
   }
 
-  if (stepper.distanceToGo() == 0 && !stepper.isRunning() && !isDelaying && !isPaused) {
-    setBrake(true);
+  // Check if the current motion is complete
+  if (stepper.distanceToGo() == 0 && !stepper.isRunning() && !isDelaying && !isPaused && !isBrakeEngageDelayActive && !isBrakeReleaseDelayActive) {
+
+    if (!isBrakeEngaged) {
+      setBrakeWithDelay(true);  // Use the delayed version when motion completes
+    }
 
     if (currentMotionIndex < queuedMotionsCount - 1) {
       currentMotionIndex++;
-      startNextMotion();
+      // Only start next motion if brake engage delay is not active
+      if (!isBrakeEngageDelayActive) {
+        startNextMotion();
+      }
     } else if (currentMotionIndex == queuedMotionsCount - 1 && !hasReportedCompletion) {
       // Turn off indicator when sequence is completed
       setIndicator(false);
@@ -370,6 +481,11 @@ void StepperSlave::parsePositionSequence(const String& params) {
 
   if (queuedMotionsCount > 0) {
     hasReportedCompletion = false;
+
+    // Reset any active brake delays
+    isBrakeReleaseDelayActive = false;
+    isBrakeEngageDelayActive = false;
+
     startNextMotion();
   }
 }
@@ -412,13 +528,12 @@ void StepperSlave::setBrake(bool engaged) {
       brakeState = !brakeState;
     }
     digitalWrite(brakePin, brakeState ? HIGH : LOW);
-    // debugSerial.println("SLAVE " + String(slaveId) + ": Brake " + (engaged ? "engaged" : "released"));
+    debugSerial.println("SLAVE " + String(slaveId) + ": Brake " + (engaged ? "engaged" : "released") + " directly");
   }
 }
 
 void StepperSlave::setIndicator(bool active) {
   if (indicatorPin != -1) {
     digitalWrite(indicatorPin, active ? LOW : HIGH);
-    // debugSerial.println("SLAVE " + String(slaveId) + ": Indicator " + (active ? "ON" : "OFF"));
   }
 }

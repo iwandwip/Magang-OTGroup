@@ -1,7 +1,7 @@
 # Configuration values and constants for the Palletizer application
 
 # Default serial settings
-DEFAULT_BAUDRATE = 115200
+DEFAULT_BAUDRATE = 9600
 
 # Available baudrates
 BAUDRATES = [9600, 19200, 38400, 57600, 115200]
@@ -14,10 +14,10 @@ WINDOW_TITLE = "Palletizer Control System"
 WINDOW_GEOMETRY = (100, 100, 1280, 720)
 
 # Speed settings
-MIN_SPEED = 100
-MAX_SPEED = 2000
+MIN_SPEED = 500
+MAX_SPEED = 80000
 DEFAULT_SPEED = 1000
-SPEED_STEP = 100
+SPEED_STEP = 1000
 
 # Step settings
 MIN_STEPS = 1

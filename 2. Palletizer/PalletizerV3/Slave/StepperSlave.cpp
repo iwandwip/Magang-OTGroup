@@ -28,7 +28,7 @@ void StepperSlave::begin() {
   Serial.begin(9600);
   masterCommSerial.begin(9600);
 
-  masterSerial.begin(&Serial);
+  masterSerial.begin(&Serial);  // masterCommSerial, Serial
   debugSerial.begin(&Serial);
 
   masterSerial.setDataCallback(onMasterDataWrapper);
@@ -379,7 +379,15 @@ void StepperSlave::handleMotion() {
     return;
   }
 
+  // Check if we've reached the current target position
   if (stepper.distanceToGo() == 0 && !stepper.isRunning() && !isDelaying && !isPaused && !isBrakeEngageDelayActive && !isBrakeReleaseDelayActive && !isEnableEngageDelayActive && !isEnableReleaseDelayActive) {
+
+    // Mark the current motion as complete
+    if (currentMotionIndex < queuedMotionsCount) {
+      motionQueue[currentMotionIndex].completed = true;
+    }
+
+    // Engage brake and disable motor when stationary
     if (!isBrakeEngaged) {
       setBrakeWithDelay(true);
     }
@@ -388,6 +396,7 @@ void StepperSlave::handleMotion() {
       setEnableWithDelay(false);
     }
 
+    // Move to next motion if available
     if (currentMotionIndex < queuedMotionsCount - 1) {
       currentMotionIndex++;
       if (!isBrakeEngageDelayActive && !isEnableEngageDelayActive) {
@@ -421,8 +430,17 @@ void StepperSlave::startNextMotion() {
       setBrakeWithDelay(false);
       setEnableWithDelay(true);
 
+      // If current position already equals target position, handle it properly
+      long targetPosition = motionQueue[currentMotionIndex].position;
+
+      // Set max speed even if already at position
       stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
-      stepper.moveTo(motionQueue[currentMotionIndex].position);
+
+      // Always move to the position, even if it's the current position
+      // This ensures the motion system properly processes it
+      stepper.moveTo(targetPosition);
+
+      // Send feedback always, even if already at position
       sendFeedback("MOVING");
     }
   }

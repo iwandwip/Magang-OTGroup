@@ -7,6 +7,13 @@
 #include "SoftwareSerial.h"
 #include "AccelStepper.h"
 
+#define X_AXIS 'x'
+#define Y_AXIS 'y'
+#define Z_AXIS 'z'
+#define T_AXIS 't'
+#define G_AXIS 'g'
+
+#define NO_DELAY 0
 #define NOT_CONNECTED -1
 #define HIGH_LOGIC_BRAKE false
 #define LOW_LOGIC_BRAKE true

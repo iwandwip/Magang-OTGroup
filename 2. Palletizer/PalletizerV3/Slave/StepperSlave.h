@@ -33,12 +33,12 @@ public:
   };
 
   enum HomingState {
-    HOMING_IDLE,
-    HOMING_INIT,
-    HOMING_MOVE_FROM_SENSOR,
-    HOMING_SEEK_SENSOR,
-    HOMING_ADJUST_POSITION,
-    HOMING_COMPLETE
+    HOMING_IDLE = 0,
+    HOMING_INIT = 1,
+    HOMING_MOVE_FROM_SENSOR = 2,
+    HOMING_SEEK_SENSOR = 3,
+    HOMING_ADJUST_POSITION = 4,
+    HOMING_COMPLETE = 5
   };
 
   enum MotorState {
@@ -81,7 +81,7 @@ private:
   static StepperSlave* instance;
 
   static const int MAX_MOTIONS = 5;
-  const float SPEED_RATIO = 0.5;
+  const float SPEED_RATIO = 0.6;
   const float HOMING_SPEED = 200.0;
   const float HOMING_ACCEL = 100.0;
 

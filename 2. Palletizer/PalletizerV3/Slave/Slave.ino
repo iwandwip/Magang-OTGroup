@@ -2,7 +2,7 @@
 
 #include "StepperSlave.h"
 
-#define SLAVE_ADDR X_AXIS
+#define SLAVE_ADDR Z_AXIS
 
 #define CLK_PIN 10
 #define CW_PIN 11
@@ -41,12 +41,12 @@
 #endif
 
 // Command reference:
-// CMD_START    = 1 // x;1;200    - Start movement to position 200
-// CMD_ZERO     = 2 // x;2        - Home the axis
-// CMD_PAUSE    = 3 // x;3        - Pause movement
-// CMD_RESUME   = 4 // x;4        - Resume movement
-// CMD_RESET    = 5 // x;5        - Reset all motion
-// CMD_SETSPEED = 6 // x;6;2000   - Set speed to 2000
+// CMD_START    = 1 // z;1;200    - Start movement to position 200
+// CMD_ZERO     = 2 // z;2        - Home the axis
+// CMD_PAUSE    = 3 // z;3        - Pause movement
+// CMD_RESUME   = 4 // z;4        - Resume movement
+// CMD_RESET    = 5 // z;5        - Reset all motion
+// CMD_SETSPEED = 6 // z;6;2000   - Set speed to 2000
 
 StepperSlave slave(
   SLAVE_ADDR,

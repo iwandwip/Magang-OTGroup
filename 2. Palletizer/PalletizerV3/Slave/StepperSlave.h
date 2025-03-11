@@ -22,42 +22,70 @@
 
 class StepperSlave {
 public:
-  enum Command {
-    CMD_NONE,
-    CMD_START,
-    CMD_ZERO,
-    CMD_PAUSE,
-    CMD_RESUME,
-    CMD_RESET,
-    CMD_SETSPEED
+  enum CommandCode {
+    CMD_NONE = 0,
+    CMD_START = 1,
+    CMD_ZERO = 2,
+    CMD_PAUSE = 3,
+    CMD_RESUME = 4,
+    CMD_RESET = 5,
+    CMD_SETSPEED = 6
   };
 
-  StepperSlave(char slaveId, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin, int brakePin = -1,
-               bool invertBrakeLogic = false, int indicatorPin = -1, bool invertEnableLogic = false,
-               unsigned long brakeReleaseDelayMs = 500, unsigned long brakeEngageDelayMs = 1500,
-               unsigned long enableReleaseDelayMs = 500, unsigned long enableEngageDelayMs = 1500);
+  enum HomingState {
+    HOMING_IDLE,
+    HOMING_INIT,
+    HOMING_MOVE_FROM_SENSOR,
+    HOMING_SEEK_SENSOR,
+    HOMING_ADJUST_POSITION,
+    HOMING_COMPLETE
+  };
+
+  enum MotorState {
+    MOTOR_IDLE,
+    MOTOR_MOVING,
+    MOTOR_DELAYING,
+    MOTOR_PAUSED
+  };
+
+  struct MotionStep {
+    long position;
+    float speed;
+    unsigned long delayMs;
+    bool isDelayOnly;
+    bool completed;
+  };
+
+  StepperSlave(
+    char slaveId,
+    int rxPin,
+    int txPin,
+    int clkPin,
+    int cwPin,
+    int enPin,
+    int sensorPin,
+    int brakePin = NOT_CONNECTED,
+    bool invertBrakeLogic = false,
+    int indicatorPin = NOT_CONNECTED,
+    bool invertEnableLogic = false,
+    unsigned long brakeReleaseDelayMs = 500,
+    unsigned long brakeEngageDelayMs = 1500,
+    unsigned long enableReleaseDelayMs = 500,
+    unsigned long enableEngageDelayMs = 1500);
 
   void begin();
   void update();
   static void onMasterDataWrapper(const String& data);
 
 private:
-  struct MotionStep {
-    long position;
-    float speed;
-    unsigned long delayBeforeMove;
-    bool completed;
-    bool isDelayOnly;
-  };
-
   static StepperSlave* instance;
 
-  char slaveId;
-  SoftwareSerial masterCommSerial;
-  EnhancedSerial masterSerial;
-  EnhancedSerial debugSerial;
-  AccelStepper stepper;
+  static const int MAX_MOTIONS = 5;
+  const float SPEED_RATIO = 0.5;
+  const float HOMING_SPEED = 200.0;
+  const float HOMING_ACCEL = 100.0;
 
+  char slaveId;
   int enPin;
   int sensorPin;
   int brakePin;
@@ -65,58 +93,73 @@ private:
   bool invertBrakeLogic;
   bool invertEnableLogic;
 
-  const float SPEED_RATIO = 0.5;
-  float MAX_SPEED = 200.0;
-  float ACCELERATION = MAX_SPEED * SPEED_RATIO;
-  const float HOMING_SPEED = 200.0;
-  const float HOMING_ACCEL = 100.0;
+  SoftwareSerial masterCommSerial;
+  EnhancedSerial masterSerial;
+  EnhancedSerial debugSerial;
 
-  bool isPaused = false;
+  AccelStepper stepper;
+  float maxSpeed = 200.0;
+  float acceleration;
+
+  MotorState motorState = MOTOR_IDLE;
   bool isHoming = false;
-  unsigned long delayStartTime = 0;
-  bool isDelaying = false;
+  HomingState homingState = HOMING_IDLE;
   bool hasReportedCompletion = true;
+
+  long homingStepsLimit = 20000;
+  long homingDistanceCorrection = 0;
+  float originalSpeed = 0;
+  float originalAccel = 0;
+
+  unsigned long delayStartTime = 0;
 
   bool isBrakeReleaseDelayActive = false;
   bool isBrakeEngageDelayActive = false;
   unsigned long brakeReleaseDelayStart = 0;
   unsigned long brakeEngageDelayStart = 0;
-  unsigned long BRAKE_RELEASE_DELAY = 500;
-  unsigned long BRAKE_ENGAGE_DELAY = 1500;
+  unsigned long brakeReleaseDelay = 500;
+  unsigned long brakeEngageDelay = 1500;
   bool isBrakeEngaged = true;
 
   bool isEnableReleaseDelayActive = false;
   bool isEnableEngageDelayActive = false;
   unsigned long enableReleaseDelayStart = 0;
   unsigned long enableEngageDelayStart = 0;
-  unsigned long ENABLE_RELEASE_DELAY = 500;
-  unsigned long ENABLE_ENGAGE_DELAY = 1500;
+  unsigned long enableReleaseDelay = 500;
+  unsigned long enableEngageDelay = 1500;
   bool isEnableActive = false;
 
-  static const int MAX_MOTIONS = 5;
   MotionStep motionQueue[MAX_MOTIONS];
   int currentMotionIndex = 0;
   int queuedMotionsCount = 0;
 
   void onMasterData(const String& data);
   void processCommand(const String& data);
+  void sendFeedback(const String& message);
+  void reportPosition();
+
   void handleZeroCommand();
   void handlePauseCommand();
   void handleResumeCommand();
   void handleResetCommand();
   void handleMoveCommand(const String& params);
   void handleSetSpeedCommand(const String& params);
+
   void parsePositionSequence(const String& params);
   void handleMotion();
   void startNextMotion();
-  void sendFeedback(const String& message);
   void checkPositionReached();
-  void performHoming();
+
+  void startHoming();
+  void updateHoming();
+
   void setBrake(bool engaged);
   void setBrakeWithDelay(bool engaged);
   void setEnable(bool active);
   void setEnableWithDelay(bool active);
   void setIndicator(bool active);
+
+  void updateTimers();
 };
 
 #endif

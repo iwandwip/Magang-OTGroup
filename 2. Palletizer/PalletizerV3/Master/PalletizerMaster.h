@@ -9,16 +9,16 @@
 class PalletizerMaster {
 public:
   enum Command {
-    CMD_NONE,
-    CMD_START,
-    CMD_ZERO,
-    CMD_PAUSE,
-    CMD_RESUME,
-    CMD_RESET,
-    CMD_SETSPEED  // New command
+    CMD_NONE = 0,
+    CMD_START = 1,
+    CMD_ZERO = 2,
+    CMD_PAUSE = 3,
+    CMD_RESUME = 4,
+    CMD_RESET = 5,
+    CMD_SETSPEED = 6
   };
 
-  PalletizerMaster(int rxPin, int txPin, int indicatorPin = -1);  // Added indicator pin parameter with default -1
+  PalletizerMaster(int rxPin, int txPin, int indicatorPin = -1);
   void begin();
   void update();
   static void onBluetoothDataWrapper(const String& data);
@@ -33,18 +33,23 @@ private:
   EnhancedSerial debugSerial;
 
   Command currentCommand = CMD_NONE;
+  bool sequenceRunning = false;
+  bool waitingForCompletion = false;
 
-  int indicatorPin;                   // Indicator pin to monitor all slaves
-  bool indicatorEnabled;              // Flag to check if indicator is enabled
-  bool waitingForCompletion = false;  // Flag to track if we're waiting for slaves to complete
-  bool sequenceRunning = false;       // Flag to track if a sequence is running
-  unsigned long lastCheckTime = 0;    // For timing indicator checks
+  int indicatorPin;
+  bool indicatorEnabled;
+  unsigned long lastCheckTime = 0;
 
   void onBluetoothData(const String& data);
   void onSlaveData(const String& data);
+
+  void processStandardCommand(const String& command);
+  void processSpeedCommand(const String& data);
+  void processCoordinateData(const String& data);
+
   void sendCommandToAllSlaves(Command cmd);
   void parseCoordinateData(const String& data);
-  bool checkAllSlavesCompleted();  // Method to check if all slaves are completed
+  bool checkAllSlavesCompleted();
 };
 
 #endif

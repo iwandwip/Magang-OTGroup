@@ -5,7 +5,7 @@ PalletizerMaster* PalletizerMaster::instance = nullptr;
 PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
   : slaveCommSerial(rxPin, txPin), indicatorPin(indicatorPin) {
   instance = this;
-  indicatorEnabled = (indicatorPin != -1);  // Enable indicator feature only if pin is valid
+  indicatorEnabled = (indicatorPin != -1);
 }
 
 void PalletizerMaster::begin() {
@@ -19,7 +19,6 @@ void PalletizerMaster::begin() {
   bluetoothSerial.setDataCallback(onBluetoothDataWrapper);
   slaveSerial.setDataCallback(onSlaveDataWrapper);
 
-  // Initialize indicator pin only if enabled
   if (indicatorEnabled) {
     pinMode(indicatorPin, INPUT_PULLUP);
     debugSerial.println("MASTER: Indicator pin enabled on pin " + String(indicatorPin));
@@ -34,17 +33,13 @@ void PalletizerMaster::update() {
   bluetoothSerial.checkCallback();
   slaveSerial.checkCallback();
 
-  // Check for sequence completion if needed and indicator is enabled
   if (indicatorEnabled && waitingForCompletion && sequenceRunning) {
-    // Only check every 50ms to avoid excessive checks
     if (millis() - lastCheckTime > 50) {
       lastCheckTime = millis();
 
       if (checkAllSlavesCompleted()) {
         sequenceRunning = false;
         waitingForCompletion = false;
-
-        // Send completion feedback to GUI
         bluetoothSerial.println("[FEEDBACK] ALL_SLAVES_COMPLETED");
         debugSerial.println("MASTER: All slaves completed sequence");
       }
@@ -70,34 +65,44 @@ void PalletizerMaster::onBluetoothData(const String& data) {
   upperData.trim();
   upperData.toUpperCase();
 
-  if (upperData == "START") {
+  if (upperData.startsWith("SPEED;")) {
+    processSpeedCommand(data);
+  } else if (currentCommand == CMD_START) {
+    processCoordinateData(data);
+  } else {
+    processStandardCommand(upperData);
+  }
+}
+
+void PalletizerMaster::processStandardCommand(const String& command) {
+  if (command == "START") {
     currentCommand = CMD_START;
     debugSerial.println("MASTER: Command set to START");
-    sequenceRunning = false;  // Reset sequence status
+    sequenceRunning = false;
     waitingForCompletion = false;
     bluetoothSerial.println("[FEEDBACK] START DONE");
-  } else if (upperData == "ZERO") {
+  } else if (command == "ZERO") {
     currentCommand = CMD_ZERO;
     debugSerial.println("MASTER: Command set to ZERO");
     sendCommandToAllSlaves(CMD_ZERO);
     sequenceRunning = true;
-    waitingForCompletion = indicatorEnabled;  // Only wait if indicator is enabled
+    waitingForCompletion = indicatorEnabled;
     lastCheckTime = millis();
     bluetoothSerial.println("[FEEDBACK] ZERO DONE");
-  } else if (upperData == "PAUSE") {
+  } else if (command == "PAUSE") {
     currentCommand = CMD_PAUSE;
     debugSerial.println("MASTER: Command set to PAUSE");
     sendCommandToAllSlaves(CMD_PAUSE);
     bluetoothSerial.println("[FEEDBACK] PAUSE DONE");
-  } else if (upperData == "RESUME") {
+  } else if (command == "RESUME") {
     currentCommand = CMD_RESUME;
     debugSerial.println("MASTER: Command set to RESUME");
     sendCommandToAllSlaves(CMD_RESUME);
     sequenceRunning = true;
-    waitingForCompletion = indicatorEnabled;  // Only wait if indicator is enabled
+    waitingForCompletion = indicatorEnabled;
     lastCheckTime = millis();
     bluetoothSerial.println("[FEEDBACK] RESUME DONE");
-  } else if (upperData == "RESET") {
+  } else if (command == "RESET") {
     currentCommand = CMD_RESET;
     debugSerial.println("MASTER: Command set to RESET");
     sendCommandToAllSlaves(CMD_RESET);
@@ -105,66 +110,56 @@ void PalletizerMaster::onBluetoothData(const String& data) {
     sequenceRunning = false;
     waitingForCompletion = false;
     bluetoothSerial.println("[FEEDBACK] RESET DONE");
-  } else if (upperData.startsWith("SPEED;")) {
-    // Handle the speed command format: SPEED;slaveID;value OR SPEED;value
-    String params = data.substring(6);  // Remove "SPEED;"
+  }
+}
 
-    // Check if we have a specific slave ID or should send to all
-    int separatorPos = params.indexOf(';');
-    if (separatorPos != -1) {
-      // Format: SPEED;slaveID;value - send to specific slave
-      String slaveId = params.substring(0, separatorPos);
-      String speedValue = params.substring(separatorPos + 1);
+void PalletizerMaster::processSpeedCommand(const String& data) {
+  String params = data.substring(6);
+  int separatorPos = params.indexOf(';');
 
-      slaveId.toLowerCase();  // Convert to lowercase for consistency
-      String command = slaveId + ";" + String(CMD_SETSPEED) + ";" + speedValue;
+  if (separatorPos != -1) {
+    String slaveId = params.substring(0, separatorPos);
+    String speedValue = params.substring(separatorPos + 1);
 
+    slaveId.toLowerCase();
+    String command = slaveId + ";" + String(CMD_SETSPEED) + ";" + speedValue;
+
+    slaveSerial.println(command);
+    debugSerial.println("MASTER→SLAVE: " + command);
+    bluetoothSerial.println("[FEEDBACK] SPEED COMMAND SENT TO " + slaveId);
+  } else {
+    const char* slaveIds[] = { "x", "y", "z", "t", "g" };
+    for (int i = 0; i < 5; i++) {
+      String command = String(slaveIds[i]) + ";" + String(CMD_SETSPEED) + ";" + params;
       slaveSerial.println(command);
       debugSerial.println("MASTER→SLAVE: " + command);
-      bluetoothSerial.println("[FEEDBACK] SPEED COMMAND SENT TO " + slaveId);
-    } else {
-      // Format: SPEED;value - send to all slaves
-      const char* slaveIds[] = { "x", "y", "z", "t", "g" };
-      for (int i = 0; i < 5; i++) {
-        String command = String(slaveIds[i]) + ";" + String(CMD_SETSPEED) + ";" + params;
-        slaveSerial.println(command);
-        debugSerial.println("MASTER→SLAVE: " + command);
-      }
-      bluetoothSerial.println("[FEEDBACK] SPEED COMMAND SENT TO ALL SLAVES");
     }
-  } else if (currentCommand == CMD_START) {
-    debugSerial.println("MASTER: Processing coordinates");
-    parseCoordinateData(data);
-    sequenceRunning = true;
-    waitingForCompletion = indicatorEnabled;  // Only wait if indicator is enabled
-    lastCheckTime = millis();
-
-    // If indicator is disabled, immediately send completion feedback
-    if (!indicatorEnabled) {
-      bluetoothSerial.println("[FEEDBACK] ALL_SLAVES_COMPLETED");
-    }
-
-    bluetoothSerial.println("[FEEDBACK] DONE");
+    bluetoothSerial.println("[FEEDBACK] SPEED COMMAND SENT TO ALL SLAVES");
   }
+}
+
+void PalletizerMaster::processCoordinateData(const String& data) {
+  debugSerial.println("MASTER: Processing coordinates");
+  parseCoordinateData(data);
+  sequenceRunning = true;
+  waitingForCompletion = indicatorEnabled;
+  lastCheckTime = millis();
+
+  if (!indicatorEnabled) {
+    bluetoothSerial.println("[FEEDBACK] ALL_SLAVES_COMPLETED");
+  }
+
+  bluetoothSerial.println("[FEEDBACK] DONE");
 }
 
 void PalletizerMaster::onSlaveData(const String& data) {
   debugSerial.println("SLAVE→MASTER: " + data);
   bluetoothSerial.println("[SLAVE] " + data);
 
-  // If indicator is disabled, check for sequence completion messages from slaves
   if (!indicatorEnabled && waitingForCompletion && sequenceRunning) {
-    // If any slave reports sequence completed, send feedback to GUI
-    // This is an alternative method when indicator pin is not used
     if (data.indexOf("SEQUENCE COMPLETED") != -1) {
-      // Count completed sequences from each slave
-      // For simplicity, we're just going to assume all slaves are done if one reports completion
-      // In a more sophisticated implementation, you would track which slaves have reported completion
-
       sequenceRunning = false;
       waitingForCompletion = false;
-
-      // Send completion feedback to GUI
       bluetoothSerial.println("[FEEDBACK] ALL_SLAVES_COMPLETED");
       debugSerial.println("MASTER: All slaves completed sequence (based on message)");
     }
@@ -188,20 +183,15 @@ void PalletizerMaster::parseCoordinateData(const String& data) {
     String slaveId = data.substring(pos, endPos);
     slaveId.trim();
     slaveId.toLowerCase();
+
     int closePos = data.indexOf(')', endPos);
     if (closePos == -1) break;
 
-    // Get the parameters within the parentheses
     String paramsOrig = data.substring(endPos + 1, closePos);
 
-    // Convert any commas to semicolons in the parameters
     String params = "";
     for (int i = 0; i < paramsOrig.length(); i++) {
-      if (paramsOrig.charAt(i) == ',') {
-        params += ';';
-      } else {
-        params += paramsOrig.charAt(i);
-      }
+      params += (paramsOrig.charAt(i) == ',') ? ';' : paramsOrig.charAt(i);
     }
 
     String command = slaveId + ";" + String(currentCommand) + ";" + params;
@@ -215,10 +205,7 @@ void PalletizerMaster::parseCoordinateData(const String& data) {
 
 bool PalletizerMaster::checkAllSlavesCompleted() {
   if (!indicatorEnabled) {
-    return false;  // If indicator is disabled, don't check
+    return false;
   }
-
-  // Read the indicator pin
-  // The pin will be HIGH when all slaves have set their indicator pins to HIGH (completed)
   return digitalRead(indicatorPin) == HIGH;
 }

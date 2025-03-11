@@ -3,10 +3,11 @@
 
 StepperSlave* StepperSlave::instance = nullptr;
 
-StepperSlave::StepperSlave(char id, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin,
-                           int brakePin, bool invertBrakeLogic, int indicatorPin, bool invertEnableLogic,
-                           unsigned long brakeReleaseDelayMs, unsigned long brakeEngageDelayMs,
-                           unsigned long enableReleaseDelayMs, unsigned long enableEngageDelayMs)
+StepperSlave::StepperSlave(
+  char id, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin,
+  int brakePin, bool invertBrakeLogic, int indicatorPin, bool invertEnableLogic,
+  unsigned long brakeReleaseDelayMs, unsigned long brakeEngageDelayMs,
+  unsigned long enableReleaseDelayMs, unsigned long enableEngageDelayMs)
   : slaveId(id),
     masterCommSerial(rxPin, txPin),
     stepper(AccelStepper::DRIVER, clkPin, cwPin),
@@ -16,62 +17,61 @@ StepperSlave::StepperSlave(char id, int rxPin, int txPin, int clkPin, int cwPin,
     indicatorPin(indicatorPin),
     invertBrakeLogic(invertBrakeLogic),
     invertEnableLogic(invertEnableLogic) {
+
   instance = this;
 
-  BRAKE_RELEASE_DELAY = brakeReleaseDelayMs;
-  BRAKE_ENGAGE_DELAY = brakeEngageDelayMs;
-  ENABLE_RELEASE_DELAY = enableReleaseDelayMs;
-  ENABLE_ENGAGE_DELAY = enableEngageDelayMs;
+  brakeReleaseDelay = brakeReleaseDelayMs;
+  brakeEngageDelay = brakeEngageDelayMs;
+  enableReleaseDelay = enableReleaseDelayMs;
+  enableEngageDelay = enableEngageDelayMs;
+
+  acceleration = maxSpeed * SPEED_RATIO;
 }
 
 void StepperSlave::begin() {
   Serial.begin(9600);
   masterCommSerial.begin(9600);
-
-  masterSerial.begin(&Serial);  // masterCommSerial, Serial
+  masterSerial.begin(&Serial);
   debugSerial.begin(&Serial);
-
   masterSerial.setDataCallback(onMasterDataWrapper);
 
-  if (enPin != -1) {
+  if (enPin != NOT_CONNECTED) {
     pinMode(enPin, OUTPUT);
+    setEnable(false);
+    isEnableActive = false;
   }
-  setEnable(false);
-  isEnableActive = false;
 
   pinMode(sensorPin, INPUT_PULLUP);
 
-  if (brakePin != -1) {
+  if (brakePin != NOT_CONNECTED) {
     pinMode(brakePin, OUTPUT);
     setBrake(true);
     isBrakeEngaged = true;
   }
 
-  if (indicatorPin != -1) {
+  if (indicatorPin != NOT_CONNECTED) {
     pinMode(indicatorPin, OUTPUT);
     setIndicator(false);
   }
 
-  stepper.setMaxSpeed(MAX_SPEED);
-  stepper.setAcceleration(ACCELERATION);
+  stepper.setMaxSpeed(maxSpeed);
+  stepper.setAcceleration(acceleration);
   stepper.setCurrentPosition(0);
   stepper.setMinPulseWidth(100);
 
-  debugSerial.println("SLAVE " + String(slaveId) + ": System initialized");
+  debugSerial.println("SLAVE " + String(slaveId) + ": Sistem diinisialisasi");
 }
 
-void StepperSlave::update() {
-  masterSerial.checkCallback();
-
-  if (brakePin != -1) {
-    if (isBrakeReleaseDelayActive && BRAKE_RELEASE_DELAY > 0) {
-      if (millis() - brakeReleaseDelayStart >= BRAKE_RELEASE_DELAY) {
+void StepperSlave::updateTimers() {
+  if (brakePin != NOT_CONNECTED) {
+    if (isBrakeReleaseDelayActive && brakeReleaseDelay > 0) {
+      if (millis() - brakeReleaseDelayStart >= brakeReleaseDelay) {
         isBrakeReleaseDelayActive = false;
       }
     }
 
-    if (isBrakeEngageDelayActive && BRAKE_ENGAGE_DELAY > 0) {
-      if (millis() - brakeEngageDelayStart >= BRAKE_ENGAGE_DELAY) {
+    if (isBrakeEngageDelayActive && brakeEngageDelay > 0) {
+      if (millis() - brakeEngageDelayStart >= brakeEngageDelay) {
         isBrakeEngageDelayActive = false;
         setBrake(true);
         isBrakeEngaged = true;
@@ -79,26 +79,38 @@ void StepperSlave::update() {
     }
   }
 
-  if (enPin != -1) {
-    if (isEnableReleaseDelayActive && ENABLE_RELEASE_DELAY > 0) {
-      if (millis() - enableReleaseDelayStart >= ENABLE_RELEASE_DELAY) {
+  if (enPin != NOT_CONNECTED) {
+    if (isEnableReleaseDelayActive && enableReleaseDelay > 0) {
+      if (millis() - enableReleaseDelayStart >= enableReleaseDelay) {
         isEnableReleaseDelayActive = false;
       }
     }
 
-    if (isEnableEngageDelayActive && ENABLE_ENGAGE_DELAY > 0) {
-      if (millis() - enableEngageDelayStart >= ENABLE_ENGAGE_DELAY) {
+    if (isEnableEngageDelayActive && enableEngageDelay > 0) {
+      if (millis() - enableEngageDelayStart >= enableEngageDelay) {
         isEnableEngageDelayActive = false;
         setEnable(false);
         isEnableActive = false;
       }
     }
   }
+}
+
+void StepperSlave::update() {
+  masterSerial.checkCallback();
+
+  updateTimers();
+
+  if (isHoming) {
+    updateHoming();
+    return;
+  }
 
   handleMotion();
 
-  if (!isPaused && !isDelaying) {
+  if (motorState != MOTOR_PAUSED && motorState != MOTOR_DELAYING) {
     if (stepper.distanceToGo() != 0 && !isBrakeReleaseDelayActive && !isBrakeEngageDelayActive && !isEnableReleaseDelayActive && !isEnableEngageDelayActive) {
+
       if (!stepper.isRunning()) {
         if (isBrakeEngaged) {
           setBrakeWithDelay(false);
@@ -114,6 +126,7 @@ void StepperSlave::update() {
     }
 
     if (stepper.distanceToGo() == 0 && !stepper.isRunning() && !isBrakeEngageDelayActive && !isBrakeReleaseDelayActive && !isEnableEngageDelayActive && !isEnableReleaseDelayActive) {
+
       if (!isBrakeEngaged) {
         setBrakeWithDelay(true);
       }
@@ -184,8 +197,7 @@ void StepperSlave::processCommand(const String& data) {
 
 void StepperSlave::handleZeroCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing ZERO (Homing)");
-  isPaused = false;
-  isDelaying = false;
+  motorState = MOTOR_IDLE;
   queuedMotionsCount = 0;
   currentMotionIndex = 0;
 
@@ -196,14 +208,17 @@ void StepperSlave::handleZeroCommand() {
 
   setIndicator(false);
 
-  performHoming();
-
-  sendFeedback("ZERO DONE");
+  startHoming();
 }
 
 void StepperSlave::handlePauseCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing PAUSE");
-  isPaused = true;
+
+  if (isHoming) {
+    stepper.stop();
+  }
+
+  motorState = MOTOR_PAUSED;
 
   isBrakeReleaseDelayActive = false;
   isBrakeEngageDelayActive = false;
@@ -220,16 +235,19 @@ void StepperSlave::handlePauseCommand() {
 
 void StepperSlave::handleResumeCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing RESUME");
-  isPaused = false;
 
-  if (stepper.distanceToGo() != 0) {
-    isBrakeReleaseDelayActive = false;
-    isBrakeEngageDelayActive = false;
-    isEnableReleaseDelayActive = false;
-    isEnableEngageDelayActive = false;
+  if (motorState == MOTOR_PAUSED) {
+    if (isHoming || stepper.distanceToGo() != 0) {
+      isBrakeReleaseDelayActive = false;
+      isBrakeEngageDelayActive = false;
+      isEnableReleaseDelayActive = false;
+      isEnableEngageDelayActive = false;
 
-    setBrakeWithDelay(false);
-    setEnableWithDelay(true);
+      setBrakeWithDelay(false);
+      setEnableWithDelay(true);
+
+      motorState = isHoming ? MOTOR_MOVING : (stepper.distanceToGo() != 0 ? MOTOR_MOVING : MOTOR_IDLE);
+    }
   }
 
   if (queuedMotionsCount > 0 && currentMotionIndex < queuedMotionsCount) {
@@ -241,8 +259,16 @@ void StepperSlave::handleResumeCommand() {
 
 void StepperSlave::handleResetCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing RESET");
-  isPaused = false;
-  isDelaying = false;
+
+  if (isHoming) {
+    isHoming = false;
+    homingState = HOMING_IDLE;
+
+    stepper.setMaxSpeed(originalSpeed);
+    stepper.setAcceleration(originalAccel);
+  }
+
+  motorState = MOTOR_IDLE;
   queuedMotionsCount = 0;
   currentMotionIndex = 0;
   stepper.stop();
@@ -255,7 +281,7 @@ void StepperSlave::handleResetCommand() {
   setBrake(true);
   isBrakeEngaged = true;
 
-  if (enPin != -1) {
+  if (enPin != NOT_CONNECTED) {
     setEnable(false);
     isEnableActive = false;
   }
@@ -282,13 +308,13 @@ void StepperSlave::handleSetSpeedCommand(const String& params) {
     debugSerial.print(": Setting speed to ");
     debugSerial.println(newSpeed);
 
-    MAX_SPEED = newSpeed;
-    stepper.setMaxSpeed(MAX_SPEED);
+    maxSpeed = newSpeed;
+    stepper.setMaxSpeed(maxSpeed);
 
-    ACCELERATION = MAX_SPEED * SPEED_RATIO;
-    stepper.setAcceleration(ACCELERATION);
+    acceleration = maxSpeed * SPEED_RATIO;
+    stepper.setAcceleration(acceleration);
 
-    sendFeedback("SPEED SET TO " + String(MAX_SPEED));
+    sendFeedback("SPEED SET TO " + String(maxSpeed));
   } else {
     debugSerial.print("SLAVE ");
     debugSerial.print(slaveId);
@@ -313,12 +339,12 @@ void StepperSlave::parsePositionSequence(const String& params) {
     debugSerial.println("SLAVE " + String(slaveId) + ": Parsing parameter: " + param);
 
     if (queuedMotionsCount < MAX_MOTIONS) {
-      motionQueue[queuedMotionsCount].speed = MAX_SPEED;
+      motionQueue[queuedMotionsCount].speed = maxSpeed;
       motionQueue[queuedMotionsCount].completed = false;
 
       if (param.startsWith("d")) {
         unsigned long delayValue = param.substring(1).toInt();
-        motionQueue[queuedMotionsCount].delayBeforeMove = delayValue;
+        motionQueue[queuedMotionsCount].delayMs = delayValue;
         motionQueue[queuedMotionsCount].position = 0;
         motionQueue[queuedMotionsCount].isDelayOnly = true;
 
@@ -326,7 +352,7 @@ void StepperSlave::parsePositionSequence(const String& params) {
       } else {
         long position = param.toInt();
         motionQueue[queuedMotionsCount].position = position;
-        motionQueue[queuedMotionsCount].delayBeforeMove = 0;
+        motionQueue[queuedMotionsCount].delayMs = 0;
         motionQueue[queuedMotionsCount].isDelayOnly = false;
 
         debugSerial.println("SLAVE " + String(slaveId) + ": Queueing position " + String(queuedMotionsCount) + " - Pos: " + String(position));
@@ -355,9 +381,9 @@ void StepperSlave::parsePositionSequence(const String& params) {
 void StepperSlave::handleMotion() {
   if (queuedMotionsCount == 0) return;
 
-  if (isDelaying) {
-    if (millis() - delayStartTime >= motionQueue[currentMotionIndex].delayBeforeMove) {
-      isDelaying = false;
+  if (motorState == MOTOR_DELAYING) {
+    if (millis() - delayStartTime >= motionQueue[currentMotionIndex].delayMs) {
+      motorState = MOTOR_IDLE;
 
       if (motionQueue[currentMotionIndex].isDelayOnly) {
         currentMotionIndex++;
@@ -373,21 +399,19 @@ void StepperSlave::handleMotion() {
 
         stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
         stepper.moveTo(motionQueue[currentMotionIndex].position);
+        motorState = MOTOR_MOVING;
         sendFeedback("MOVING");
       }
     }
     return;
   }
 
-  // Check if we've reached the current target position
-  if (stepper.distanceToGo() == 0 && !stepper.isRunning() && !isDelaying && !isPaused && !isBrakeEngageDelayActive && !isBrakeReleaseDelayActive && !isEnableEngageDelayActive && !isEnableReleaseDelayActive) {
+  if (stepper.distanceToGo() == 0 && !stepper.isRunning() && motorState != MOTOR_DELAYING && motorState != MOTOR_PAUSED && !isBrakeEngageDelayActive && !isBrakeReleaseDelayActive && !isEnableEngageDelayActive && !isEnableReleaseDelayActive) {
 
-    // Mark the current motion as complete
     if (currentMotionIndex < queuedMotionsCount) {
       motionQueue[currentMotionIndex].completed = true;
     }
 
-    // Engage brake and disable motor when stationary
     if (!isBrakeEngaged) {
       setBrakeWithDelay(true);
     }
@@ -396,7 +420,6 @@ void StepperSlave::handleMotion() {
       setEnableWithDelay(false);
     }
 
-    // Move to next motion if available
     if (currentMotionIndex < queuedMotionsCount - 1) {
       currentMotionIndex++;
       if (!isBrakeEngageDelayActive && !isEnableEngageDelayActive) {
@@ -406,43 +429,38 @@ void StepperSlave::handleMotion() {
       setIndicator(false);
       sendFeedback("SEQUENCE COMPLETED");
       hasReportedCompletion = true;
+      motorState = MOTOR_IDLE;
     }
   }
 }
 
 void StepperSlave::startNextMotion() {
-  if (currentMotionIndex < queuedMotionsCount) {
-    setIndicator(true);
+  if (currentMotionIndex >= queuedMotionsCount) return;
 
-    if (motionQueue[currentMotionIndex].delayBeforeMove > 0) {
-      isDelaying = true;
-      delayStartTime = millis();
-      sendFeedback("DELAYING");
-    } else if (motionQueue[currentMotionIndex].isDelayOnly) {
-      currentMotionIndex++;
-      startNextMotion();
-    } else {
-      isBrakeReleaseDelayActive = false;
-      isBrakeEngageDelayActive = false;
-      isEnableReleaseDelayActive = false;
-      isEnableEngageDelayActive = false;
+  setIndicator(true);
 
-      setBrakeWithDelay(false);
-      setEnableWithDelay(true);
+  if (motionQueue[currentMotionIndex].delayMs > 0) {
+    motorState = MOTOR_DELAYING;
+    delayStartTime = millis();
+    sendFeedback("DELAYING");
+  } else if (motionQueue[currentMotionIndex].isDelayOnly) {
+    currentMotionIndex++;
+    startNextMotion();
+  } else {
+    isBrakeReleaseDelayActive = false;
+    isBrakeEngageDelayActive = false;
+    isEnableReleaseDelayActive = false;
+    isEnableEngageDelayActive = false;
 
-      // If current position already equals target position, handle it properly
-      long targetPosition = motionQueue[currentMotionIndex].position;
+    setBrakeWithDelay(false);
+    setEnableWithDelay(true);
 
-      // Set max speed even if already at position
-      stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
+    long targetPosition = motionQueue[currentMotionIndex].position;
+    stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
+    stepper.moveTo(targetPosition);
+    motorState = MOTOR_MOVING;
 
-      // Always move to the position, even if it's the current position
-      // This ensures the motion system properly processes it
-      stepper.moveTo(targetPosition);
-
-      // Send feedback always, even if already at position
-      sendFeedback("MOVING");
-    }
+    sendFeedback("MOVING");
   }
 }
 
@@ -467,12 +485,12 @@ void StepperSlave::checkPositionReached() {
   }
 }
 
-void StepperSlave::performHoming() {
+void StepperSlave::startHoming() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Starting homing sequence");
   setIndicator(true);
 
-  float originalSpeed = stepper.maxSpeed();
-  float originalAccel = stepper.acceleration();
+  originalSpeed = stepper.maxSpeed();
+  originalAccel = stepper.acceleration();
 
   stepper.setMaxSpeed(HOMING_SPEED);
   stepper.setAcceleration(HOMING_ACCEL);
@@ -487,72 +505,92 @@ void StepperSlave::performHoming() {
   setEnable(true);
   isEnableActive = true;
 
-  long distance = 0;
-  int count = 20000;
+  homingStepsLimit = 20000;
+  isHoming = true;
 
   if (digitalRead(sensorPin) == HIGH) {
     debugSerial.println("SLAVE " + String(slaveId) + ": Already in sensor area, moving out first");
-    stepper.move(count);
-    while (digitalRead(sensorPin) == HIGH && stepper.distanceToGo() != 0) {
-      stepper.run();
-      Serial.print("| sensorPin: ");
-      Serial.print(digitalRead(sensorPin));
-      Serial.println();
-    }
-
-    if (stepper.distanceToGo() != 0) {
-      stepper.stop();
-      stepper.setCurrentPosition(stepper.currentPosition());
-      debugSerial.println("SLAVE " + String(slaveId) + ": Moving back to sensor");
-      stepper.move(-count);
-      while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
-        stepper.run();
-        Serial.print("| sensorPin: ");
-        Serial.print(digitalRead(sensorPin));
-        Serial.println();
-      }
-    }
+    homingState = HOMING_MOVE_FROM_SENSOR;
+    stepper.move(homingStepsLimit);
   } else {
     debugSerial.println("SLAVE " + String(slaveId) + ": Outside sensor area, moving to sensor");
-    stepper.move(-count);
-    while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
-      stepper.run();
-      Serial.print("| sensorPin: ");
-      Serial.print(digitalRead(sensorPin));
-      Serial.println();
-    }
+    homingState = HOMING_SEEK_SENSOR;
+    stepper.move(-homingStepsLimit);
   }
+}
 
-  stepper.stop();
-  debugSerial.println("SLAVE " + String(slaveId) + ": Sensor detected");
+void StepperSlave::updateHoming() {
+  if (!isHoming) return;
 
-  distance = stepper.distanceToGo();
-  stepper.runToPosition();
+  if (motorState == MOTOR_PAUSED) return;
 
-  debugSerial.println("SLAVE " + String(slaveId) + ": Correcting overshot by " + String(distance) + " steps");
-  stepper.move(-distance);
-  stepper.runToPosition();
+  switch (homingState) {
+    case HOMING_MOVE_FROM_SENSOR:
+      if (stepper.distanceToGo() == 0 || digitalRead(sensorPin) == LOW) {
+        stepper.stop();
+        stepper.setCurrentPosition(stepper.currentPosition());
+        debugSerial.println("SLAVE " + String(slaveId) + ": Moving back to sensor");
+        homingState = HOMING_SEEK_SENSOR;
+        stepper.move(-homingStepsLimit);
+      } else {
+        stepper.run();
+      }
+      break;
 
-  debugSerial.println("SLAVE " + String(slaveId) + ": Setting home position (0)");
-  stepper.setCurrentPosition(0);
+    case HOMING_SEEK_SENSOR:
+      if (stepper.distanceToGo() == 0 || digitalRead(sensorPin) == HIGH) {
+        stepper.stop();
+        debugSerial.println("SLAVE " + String(slaveId) + ": Sensor detected");
+        homingDistanceCorrection = stepper.distanceToGo();
+        homingState = HOMING_ADJUST_POSITION;
+      } else {
+        stepper.run();
+      }
+      break;
 
-  stepper.setMaxSpeed(originalSpeed);
-  stepper.setAcceleration(originalAccel);
-  setBrake(true);
-  isBrakeEngaged = true;
+    case HOMING_ADJUST_POSITION:
+      if (homingDistanceCorrection != 0) {
+        debugSerial.println("SLAVE " + String(slaveId) + ": Correcting overshot by " + String(homingDistanceCorrection) + " steps");
+        stepper.move(-homingDistanceCorrection);
+        homingDistanceCorrection = 0;
+      }
 
-  if (enPin != -1) {
-    setEnable(false);
-    isEnableActive = false;
+      if (stepper.distanceToGo() == 0) {
+        homingState = HOMING_COMPLETE;
+      } else {
+        stepper.run();
+      }
+      break;
+
+    case HOMING_COMPLETE:
+      debugSerial.println("SLAVE " + String(slaveId) + ": Setting home position (0)");
+      stepper.setCurrentPosition(0);
+      stepper.setMaxSpeed(originalSpeed);
+      stepper.setAcceleration(originalAccel);
+
+      setBrake(true);
+      isBrakeEngaged = true;
+
+      if (enPin != NOT_CONNECTED) {
+        setEnable(false);
+        isEnableActive = false;
+      }
+
+      setIndicator(false);
+      debugSerial.println("SLAVE " + String(slaveId) + ": Homing completed");
+      sendFeedback("ZERO DONE");
+      isHoming = false;
+      homingState = HOMING_IDLE;
+      motorState = MOTOR_IDLE;
+      break;
+
+    default:
+      break;
   }
-
-  setIndicator(false);
-
-  debugSerial.println("SLAVE " + String(slaveId) + ": Homing completed");
 }
 
 void StepperSlave::setBrake(bool engaged) {
-  if (brakePin != -1) {
+  if (brakePin != NOT_CONNECTED) {
     bool brakeState = engaged;
     if (invertBrakeLogic) {
       brakeState = !brakeState;
@@ -562,12 +600,12 @@ void StepperSlave::setBrake(bool engaged) {
 }
 
 void StepperSlave::setBrakeWithDelay(bool engaged) {
-  if (brakePin != -1) {
+  if (brakePin != NOT_CONNECTED) {
     if (engaged == isBrakeEngaged && !isBrakeReleaseDelayActive && !isBrakeEngageDelayActive) {
       return;
     }
 
-    if (BRAKE_RELEASE_DELAY == 0 && BRAKE_ENGAGE_DELAY == 0) {
+    if (brakeReleaseDelay == 0 && brakeEngageDelay == 0) {
       setBrake(engaged);
       isBrakeEngaged = engaged;
       return;
@@ -575,7 +613,7 @@ void StepperSlave::setBrakeWithDelay(bool engaged) {
 
     if (engaged) {
       if (!isBrakeEngageDelayActive && !isBrakeReleaseDelayActive) {
-        if (BRAKE_ENGAGE_DELAY > 0) {
+        if (brakeEngageDelay > 0) {
           isBrakeEngageDelayActive = true;
           brakeEngageDelayStart = millis();
         } else {
@@ -588,7 +626,7 @@ void StepperSlave::setBrakeWithDelay(bool engaged) {
         setBrake(false);
         isBrakeEngaged = false;
 
-        if (BRAKE_RELEASE_DELAY > 0) {
+        if (brakeReleaseDelay > 0) {
           isBrakeReleaseDelayActive = true;
           brakeReleaseDelayStart = millis();
         }
@@ -600,7 +638,7 @@ void StepperSlave::setBrakeWithDelay(bool engaged) {
 }
 
 void StepperSlave::setEnable(bool active) {
-  if (enPin != -1) {
+  if (enPin != NOT_CONNECTED) {
     bool enableState = active;
     if (invertEnableLogic) {
       enableState = !enableState;
@@ -610,12 +648,12 @@ void StepperSlave::setEnable(bool active) {
 }
 
 void StepperSlave::setEnableWithDelay(bool active) {
-  if (enPin != -1) {
+  if (enPin != NOT_CONNECTED) {
     if (active == isEnableActive && !isEnableReleaseDelayActive && !isEnableEngageDelayActive) {
       return;
     }
 
-    if (ENABLE_RELEASE_DELAY == 0 && ENABLE_ENGAGE_DELAY == 0) {
+    if (enableReleaseDelay == 0 && enableEngageDelay == 0) {
       setEnable(active);
       isEnableActive = active;
       return;
@@ -626,14 +664,14 @@ void StepperSlave::setEnableWithDelay(bool active) {
         setEnable(true);
         isEnableActive = true;
 
-        if (ENABLE_RELEASE_DELAY > 0) {
+        if (enableReleaseDelay > 0) {
           isEnableReleaseDelayActive = true;
           enableReleaseDelayStart = millis();
         }
       }
     } else {
       if (!isEnableEngageDelayActive && !isEnableReleaseDelayActive) {
-        if (ENABLE_ENGAGE_DELAY > 0) {
+        if (enableEngageDelay > 0) {
           isEnableEngageDelayActive = true;
           enableEngageDelayStart = millis();
         } else {
@@ -646,7 +684,7 @@ void StepperSlave::setEnableWithDelay(bool active) {
 }
 
 void StepperSlave::setIndicator(bool active) {
-  if (indicatorPin != -1) {
+  if (indicatorPin != NOT_CONNECTED) {
     digitalWrite(indicatorPin, active ? LOW : HIGH);
   }
 }

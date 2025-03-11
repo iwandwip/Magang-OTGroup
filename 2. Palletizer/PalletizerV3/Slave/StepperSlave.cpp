@@ -4,7 +4,9 @@
 StepperSlave* StepperSlave::instance = nullptr;
 
 StepperSlave::StepperSlave(char id, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin,
-                           int brakePin, bool invertBrakeLogic, int indicatorPin)
+                           int brakePin, bool invertBrakeLogic, int indicatorPin, bool invertEnableLogic,
+                           unsigned long brakeReleaseDelayMs, unsigned long brakeEngageDelayMs,
+                           unsigned long enableReleaseDelayMs, unsigned long enableEngageDelayMs)
   : slaveId(id),
     masterCommSerial(rxPin, txPin),
     stepper(AccelStepper::DRIVER, clkPin, cwPin),
@@ -12,8 +14,14 @@ StepperSlave::StepperSlave(char id, int rxPin, int txPin, int clkPin, int cwPin,
     sensorPin(sensorPin),
     brakePin(brakePin),
     indicatorPin(indicatorPin),
-    invertBrakeLogic(invertBrakeLogic) {
+    invertBrakeLogic(invertBrakeLogic),
+    invertEnableLogic(invertEnableLogic) {
   instance = this;
+
+  BRAKE_RELEASE_DELAY = brakeReleaseDelayMs;
+  BRAKE_ENGAGE_DELAY = brakeEngageDelayMs;
+  ENABLE_RELEASE_DELAY = enableReleaseDelayMs;
+  ENABLE_ENGAGE_DELAY = enableEngageDelayMs;
 }
 
 void StepperSlave::begin() {
@@ -25,9 +33,13 @@ void StepperSlave::begin() {
 
   masterSerial.setDataCallback(onMasterDataWrapper);
 
-  pinMode(enPin, OUTPUT);
+  if (enPin != -1) {
+    pinMode(enPin, OUTPUT);
+  }
+  setEnable(false);
+  isEnableActive = false;
+
   pinMode(sensorPin, INPUT_PULLUP);
-  digitalWrite(enPin, HIGH);
 
   if (brakePin != -1) {
     pinMode(brakePin, OUTPUT);
@@ -52,13 +64,13 @@ void StepperSlave::update() {
   masterSerial.checkCallback();
 
   if (brakePin != -1) {
-    if (isBrakeReleaseDelayActive) {
+    if (isBrakeReleaseDelayActive && BRAKE_RELEASE_DELAY > 0) {
       if (millis() - brakeReleaseDelayStart >= BRAKE_RELEASE_DELAY) {
         isBrakeReleaseDelayActive = false;
       }
     }
 
-    if (isBrakeEngageDelayActive) {
+    if (isBrakeEngageDelayActive && BRAKE_ENGAGE_DELAY > 0) {
       if (millis() - brakeEngageDelayStart >= BRAKE_ENGAGE_DELAY) {
         isBrakeEngageDelayActive = false;
         setBrake(true);
@@ -67,24 +79,46 @@ void StepperSlave::update() {
     }
   }
 
+  if (enPin != -1) {
+    if (isEnableReleaseDelayActive && ENABLE_RELEASE_DELAY > 0) {
+      if (millis() - enableReleaseDelayStart >= ENABLE_RELEASE_DELAY) {
+        isEnableReleaseDelayActive = false;
+      }
+    }
+
+    if (isEnableEngageDelayActive && ENABLE_ENGAGE_DELAY > 0) {
+      if (millis() - enableEngageDelayStart >= ENABLE_ENGAGE_DELAY) {
+        isEnableEngageDelayActive = false;
+        setEnable(false);
+        isEnableActive = false;
+      }
+    }
+  }
+
   handleMotion();
 
   if (!isPaused && !isDelaying) {
-    if (stepper.distanceToGo() != 0 && !isBrakeReleaseDelayActive && !isBrakeEngageDelayActive) {
+    if (stepper.distanceToGo() != 0 && !isBrakeReleaseDelayActive && !isBrakeEngageDelayActive && !isEnableReleaseDelayActive && !isEnableEngageDelayActive) {
       if (!stepper.isRunning()) {
         if (isBrakeEngaged) {
           setBrakeWithDelay(false);
         }
+        if (!isEnableActive) {
+          setEnableWithDelay(true);
+        }
       }
     }
 
-    if (!isBrakeReleaseDelayActive) {
+    if (!isBrakeReleaseDelayActive && !isEnableReleaseDelayActive) {
       stepper.run();
     }
 
-    if (stepper.distanceToGo() == 0 && !stepper.isRunning() && !isBrakeEngageDelayActive && !isBrakeReleaseDelayActive) {
+    if (stepper.distanceToGo() == 0 && !stepper.isRunning() && !isBrakeEngageDelayActive && !isBrakeReleaseDelayActive && !isEnableEngageDelayActive && !isEnableReleaseDelayActive) {
       if (!isBrakeEngaged) {
         setBrakeWithDelay(true);
+      }
+      if (isEnableActive) {
+        setEnableWithDelay(false);
       }
     }
   }
@@ -157,6 +191,8 @@ void StepperSlave::handleZeroCommand() {
 
   isBrakeReleaseDelayActive = false;
   isBrakeEngageDelayActive = false;
+  isEnableReleaseDelayActive = false;
+  isEnableEngageDelayActive = false;
 
   setIndicator(false);
 
@@ -171,9 +207,13 @@ void StepperSlave::handlePauseCommand() {
 
   isBrakeReleaseDelayActive = false;
   isBrakeEngageDelayActive = false;
+  isEnableReleaseDelayActive = false;
+  isEnableEngageDelayActive = false;
 
   setBrake(true);
   isBrakeEngaged = true;
+  setEnable(false);
+  isEnableActive = false;
 
   sendFeedback("PAUSE DONE");
 }
@@ -185,8 +225,11 @@ void StepperSlave::handleResumeCommand() {
   if (stepper.distanceToGo() != 0) {
     isBrakeReleaseDelayActive = false;
     isBrakeEngageDelayActive = false;
+    isEnableReleaseDelayActive = false;
+    isEnableEngageDelayActive = false;
 
     setBrakeWithDelay(false);
+    setEnableWithDelay(true);
   }
 
   if (queuedMotionsCount > 0 && currentMotionIndex < queuedMotionsCount) {
@@ -206,9 +249,16 @@ void StepperSlave::handleResetCommand() {
 
   isBrakeReleaseDelayActive = false;
   isBrakeEngageDelayActive = false;
+  isEnableReleaseDelayActive = false;
+  isEnableEngageDelayActive = false;
 
   setBrake(true);
   isBrakeEngaged = true;
+
+  if (enPin != -1) {
+    setEnable(false);
+    isEnableActive = false;
+  }
 
   setIndicator(false);
 
@@ -295,6 +345,8 @@ void StepperSlave::parsePositionSequence(const String& params) {
 
     isBrakeReleaseDelayActive = false;
     isBrakeEngageDelayActive = false;
+    isEnableReleaseDelayActive = false;
+    isEnableEngageDelayActive = false;
 
     startNextMotion();
   }
@@ -313,8 +365,12 @@ void StepperSlave::handleMotion() {
       } else {
         isBrakeReleaseDelayActive = false;
         isBrakeEngageDelayActive = false;
+        isEnableReleaseDelayActive = false;
+        isEnableEngageDelayActive = false;
 
         setBrakeWithDelay(false);
+        setEnableWithDelay(true);
+
         stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
         stepper.moveTo(motionQueue[currentMotionIndex].position);
         sendFeedback("MOVING");
@@ -323,14 +379,18 @@ void StepperSlave::handleMotion() {
     return;
   }
 
-  if (stepper.distanceToGo() == 0 && !stepper.isRunning() && !isDelaying && !isPaused && !isBrakeEngageDelayActive && !isBrakeReleaseDelayActive) {
+  if (stepper.distanceToGo() == 0 && !stepper.isRunning() && !isDelaying && !isPaused && !isBrakeEngageDelayActive && !isBrakeReleaseDelayActive && !isEnableEngageDelayActive && !isEnableReleaseDelayActive) {
     if (!isBrakeEngaged) {
       setBrakeWithDelay(true);
     }
 
+    if (isEnableActive) {
+      setEnableWithDelay(false);
+    }
+
     if (currentMotionIndex < queuedMotionsCount - 1) {
       currentMotionIndex++;
-      if (!isBrakeEngageDelayActive) {
+      if (!isBrakeEngageDelayActive && !isEnableEngageDelayActive) {
         startNextMotion();
       }
     } else if (currentMotionIndex == queuedMotionsCount - 1 && !hasReportedCompletion) {
@@ -355,8 +415,12 @@ void StepperSlave::startNextMotion() {
     } else {
       isBrakeReleaseDelayActive = false;
       isBrakeEngageDelayActive = false;
+      isEnableReleaseDelayActive = false;
+      isEnableEngageDelayActive = false;
 
       setBrakeWithDelay(false);
+      setEnableWithDelay(true);
+
       stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
       stepper.moveTo(motionQueue[currentMotionIndex].position);
       sendFeedback("MOVING");
@@ -397,9 +461,13 @@ void StepperSlave::performHoming() {
 
   isBrakeReleaseDelayActive = false;
   isBrakeEngageDelayActive = false;
+  isEnableReleaseDelayActive = false;
+  isEnableEngageDelayActive = false;
 
   setBrake(false);
   isBrakeEngaged = false;
+  setEnable(true);
+  isEnableActive = true;
 
   long distance = 0;
   int count = 20000;
@@ -455,6 +523,11 @@ void StepperSlave::performHoming() {
   setBrake(true);
   isBrakeEngaged = true;
 
+  if (enPin != -1) {
+    setEnable(false);
+    isEnableActive = false;
+  }
+
   setIndicator(false);
 
   debugSerial.println("SLAVE " + String(slaveId) + ": Homing completed");
@@ -476,21 +549,81 @@ void StepperSlave::setBrakeWithDelay(bool engaged) {
       return;
     }
 
+    if (BRAKE_RELEASE_DELAY == 0 && BRAKE_ENGAGE_DELAY == 0) {
+      setBrake(engaged);
+      isBrakeEngaged = engaged;
+      return;
+    }
+
     if (engaged) {
       if (!isBrakeEngageDelayActive && !isBrakeReleaseDelayActive) {
-        isBrakeEngageDelayActive = true;
-        brakeEngageDelayStart = millis();
+        if (BRAKE_ENGAGE_DELAY > 0) {
+          isBrakeEngageDelayActive = true;
+          brakeEngageDelayStart = millis();
+        } else {
+          setBrake(true);
+          isBrakeEngaged = true;
+        }
       }
     } else {
       if (!isBrakeReleaseDelayActive && !isBrakeEngageDelayActive) {
         setBrake(false);
         isBrakeEngaged = false;
-        isBrakeReleaseDelayActive = true;
-        brakeReleaseDelayStart = millis();
+
+        if (BRAKE_RELEASE_DELAY > 0) {
+          isBrakeReleaseDelayActive = true;
+          brakeReleaseDelayStart = millis();
+        }
       }
     }
   } else {
     setBrake(engaged);
+  }
+}
+
+void StepperSlave::setEnable(bool active) {
+  if (enPin != -1) {
+    bool enableState = active;
+    if (invertEnableLogic) {
+      enableState = !enableState;
+    }
+    digitalWrite(enPin, enableState ? LOW : HIGH);
+  }
+}
+
+void StepperSlave::setEnableWithDelay(bool active) {
+  if (enPin != -1) {
+    if (active == isEnableActive && !isEnableReleaseDelayActive && !isEnableEngageDelayActive) {
+      return;
+    }
+
+    if (ENABLE_RELEASE_DELAY == 0 && ENABLE_ENGAGE_DELAY == 0) {
+      setEnable(active);
+      isEnableActive = active;
+      return;
+    }
+
+    if (active) {
+      if (!isEnableReleaseDelayActive && !isEnableEngageDelayActive) {
+        setEnable(true);
+        isEnableActive = true;
+
+        if (ENABLE_RELEASE_DELAY > 0) {
+          isEnableReleaseDelayActive = true;
+          enableReleaseDelayStart = millis();
+        }
+      }
+    } else {
+      if (!isEnableEngageDelayActive && !isEnableReleaseDelayActive) {
+        if (ENABLE_ENGAGE_DELAY > 0) {
+          isEnableEngageDelayActive = true;
+          enableEngageDelayStart = millis();
+        } else {
+          setEnable(false);
+          isEnableActive = false;
+        }
+      }
+    }
   }
 }
 

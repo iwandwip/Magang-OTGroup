@@ -10,6 +10,8 @@
 #define NOT_CONNECTED -1
 #define HIGH_LOGIC_BRAKE false
 #define LOW_LOGIC_BRAKE true
+#define HIGH_LOGIC_ENABLE false
+#define LOW_LOGIC_ENABLE true
 
 class StepperSlave {
 public:
@@ -23,7 +25,10 @@ public:
     CMD_SETSPEED
   };
 
-  StepperSlave(char slaveId, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin, int brakePin = -1, bool invertBrakeLogic = false, int indicatorPin = -1);
+  StepperSlave(char slaveId, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin, int brakePin = -1,
+               bool invertBrakeLogic = false, int indicatorPin = -1, bool invertEnableLogic = false,
+               unsigned long brakeReleaseDelayMs = 500, unsigned long brakeEngageDelayMs = 1500,
+               unsigned long enableReleaseDelayMs = 500, unsigned long enableEngageDelayMs = 1500);
 
   void begin();
   void update();
@@ -51,6 +56,7 @@ private:
   int brakePin;
   int indicatorPin;
   bool invertBrakeLogic;
+  bool invertEnableLogic;
 
   const float SPEED_RATIO = 0.5;
   float MAX_SPEED = 200.0;
@@ -68,9 +74,17 @@ private:
   bool isBrakeEngageDelayActive = false;
   unsigned long brakeReleaseDelayStart = 0;
   unsigned long brakeEngageDelayStart = 0;
-  const unsigned long BRAKE_RELEASE_DELAY = 500;
-  const unsigned long BRAKE_ENGAGE_DELAY = 1500;
+  unsigned long BRAKE_RELEASE_DELAY = 500;
+  unsigned long BRAKE_ENGAGE_DELAY = 1500;
   bool isBrakeEngaged = true;
+
+  bool isEnableReleaseDelayActive = false;
+  bool isEnableEngageDelayActive = false;
+  unsigned long enableReleaseDelayStart = 0;
+  unsigned long enableEngageDelayStart = 0;
+  unsigned long ENABLE_RELEASE_DELAY = 500;
+  unsigned long ENABLE_ENGAGE_DELAY = 1500;
+  bool isEnableActive = false;
 
   static const int MAX_MOTIONS = 5;
   MotionStep motionQueue[MAX_MOTIONS];
@@ -93,6 +107,8 @@ private:
   void performHoming();
   void setBrake(bool engaged);
   void setBrakeWithDelay(bool engaged);
+  void setEnable(bool active);
+  void setEnableWithDelay(bool active);
   void setIndicator(bool active);
 };
 

@@ -32,15 +32,6 @@ public:
     CMD_SETSPEED = 6
   };
 
-  enum HomingState {
-    HOMING_IDLE = 0,
-    HOMING_INIT = 1,
-    HOMING_MOVE_FROM_SENSOR = 2,
-    HOMING_SEEK_SENSOR = 3,
-    HOMING_ADJUST_POSITION = 4,
-    HOMING_COMPLETE = 5
-  };
-
   enum MotorState {
     MOTOR_IDLE,
     MOTOR_MOVING,
@@ -102,14 +93,7 @@ private:
   float acceleration;
 
   MotorState motorState = MOTOR_IDLE;
-  bool isHoming = false;
-  HomingState homingState = HOMING_IDLE;
   bool hasReportedCompletion = true;
-
-  long homingStepsLimit = 20000;
-  long homingDistanceCorrection = 0;
-  float originalSpeed = 0;
-  float originalAccel = 0;
 
   unsigned long delayStartTime = 0;
 
@@ -150,8 +134,7 @@ private:
   void startNextMotion();
   void checkPositionReached();
 
-  void startHoming();
-  void updateHoming();
+  void performHoming();
 
   void setBrake(bool engaged);
   void setBrakeWithDelay(bool engaged);

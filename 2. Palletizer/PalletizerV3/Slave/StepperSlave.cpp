@@ -31,7 +31,7 @@ StepperSlave::StepperSlave(
 void StepperSlave::begin() {
   Serial.begin(9600);
   masterCommSerial.begin(9600);
-  masterSerial.begin(&Serial);
+  masterSerial.begin(&masterCommSerial);
   debugSerial.begin(&Serial);
   masterSerial.setDataCallback(onMasterDataWrapper);
 
@@ -100,15 +100,6 @@ void StepperSlave::update() {
   masterSerial.checkCallback();
 
   updateTimers();
-
-  if (homingState != HOMING_IDLE && !isHoming) {
-    isHoming = true;
-  }
-
-  if (isHoming) {
-    updateHoming();
-    return;
-  }
 
   handleMotion();
 
@@ -205,7 +196,6 @@ void StepperSlave::handleZeroCommand() {
   motorState = MOTOR_IDLE;
   queuedMotionsCount = 0;
   currentMotionIndex = 0;
-  homingState = HOMING_IDLE;
 
   isBrakeReleaseDelayActive = false;
   isBrakeEngageDelayActive = false;
@@ -214,19 +204,15 @@ void StepperSlave::handleZeroCommand() {
 
   setIndicator(false);
 
-  startHoming();
+  performHoming();
 
-  if (!isHoming) {
-    isHoming = true;
-  }
+  sendFeedback("ZERO DONE");
 }
 
 void StepperSlave::handlePauseCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing PAUSE");
 
-  if (isHoming) {
-    stepper.stop();
-  }
+  stepper.stop();
 
   motorState = MOTOR_PAUSED;
 
@@ -247,7 +233,7 @@ void StepperSlave::handleResumeCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing RESUME");
 
   if (motorState == MOTOR_PAUSED) {
-    if (isHoming || stepper.distanceToGo() != 0) {
+    if (stepper.distanceToGo() != 0) {
       isBrakeReleaseDelayActive = false;
       isBrakeEngageDelayActive = false;
       isEnableReleaseDelayActive = false;
@@ -256,7 +242,7 @@ void StepperSlave::handleResumeCommand() {
       setBrakeWithDelay(false);
       setEnableWithDelay(true);
 
-      motorState = isHoming ? MOTOR_MOVING : (stepper.distanceToGo() != 0 ? MOTOR_MOVING : MOTOR_IDLE);
+      motorState = stepper.distanceToGo() != 0 ? MOTOR_MOVING : MOTOR_IDLE;
     }
   }
 
@@ -269,14 +255,6 @@ void StepperSlave::handleResumeCommand() {
 
 void StepperSlave::handleResetCommand() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Executing RESET");
-
-  if (isHoming) {
-    isHoming = false;
-    homingState = HOMING_IDLE;
-
-    stepper.setMaxSpeed(originalSpeed);
-    stepper.setAcceleration(originalAccel);
-  }
 
   motorState = MOTOR_IDLE;
   queuedMotionsCount = 0;
@@ -495,12 +473,12 @@ void StepperSlave::checkPositionReached() {
   }
 }
 
-void StepperSlave::startHoming() {
+void StepperSlave::performHoming() {
   debugSerial.println("SLAVE " + String(slaveId) + ": Starting homing sequence");
   setIndicator(true);
 
-  originalSpeed = stepper.maxSpeed();
-  originalAccel = stepper.acceleration();
+  float originalSpeed = stepper.maxSpeed();
+  float originalAccel = stepper.acceleration();
 
   stepper.setMaxSpeed(HOMING_SPEED);
   stepper.setAcceleration(HOMING_ACCEL);
@@ -515,98 +493,59 @@ void StepperSlave::startHoming() {
   setEnable(true);
   isEnableActive = true;
 
-  homingStepsLimit = 20000;
-  isHoming = true;
+  long distance = 0;
+  int count = 20000;
 
   if (digitalRead(sensorPin) == HIGH) {
     debugSerial.println("SLAVE " + String(slaveId) + ": Already in sensor area, moving out first");
-    homingState = HOMING_MOVE_FROM_SENSOR;
-    stepper.move(2000);
+    stepper.move(count);
+    while (digitalRead(sensorPin) == HIGH && stepper.distanceToGo() != 0) {
+      stepper.run();
+    }
+
+    if (stepper.distanceToGo() != 0) {
+      stepper.stop();
+      stepper.setCurrentPosition(stepper.currentPosition());
+      debugSerial.println("SLAVE " + String(slaveId) + ": Moving back to sensor");
+      stepper.move(-count);
+      while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
+        stepper.run();
+      }
+    }
   } else {
     debugSerial.println("SLAVE " + String(slaveId) + ": Outside sensor area, moving to sensor");
-    homingState = HOMING_SEEK_SENSOR;
-    stepper.move(-homingStepsLimit);
-  }
-}
-
-void StepperSlave::updateHoming() {
-  if (!isHoming) {
-    isHoming = (homingState != HOMING_IDLE);
-    return;
+    stepper.move(-count);
+    while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
+      stepper.run();
+    }
   }
 
-  if (motorState == MOTOR_PAUSED) return;
+  stepper.stop();
+  debugSerial.println("SLAVE " + String(slaveId) + ": Sensor detected");
 
-  switch (homingState) {
-    case HOMING_MOVE_FROM_SENSOR:
-      if (stepper.distanceToGo() == 0 || digitalRead(sensorPin) == LOW) {
-        stepper.stop();
-        stepper.setCurrentPosition(stepper.currentPosition());
-        debugSerial.println("SLAVE " + String(slaveId) + ": Successfully moved out of sensor, now moving back to find it");
-        homingState = HOMING_SEEK_SENSOR;
-        stepper.move(-homingStepsLimit);
-      } else {
-        stepper.run();
-      }
-      break;
+  distance = stepper.distanceToGo();
+  stepper.runToPosition();
 
-    case HOMING_SEEK_SENSOR:
-      if (stepper.distanceToGo() == 0) {
-        debugSerial.println("SLAVE " + String(slaveId) + ": Failed to find sensor within step limit");
-        homingState = HOMING_COMPLETE;
-        stepper.setCurrentPosition(0);
-      } else if (digitalRead(sensorPin) == HIGH) {
-        stepper.stop();
-        debugSerial.println("SLAVE " + String(slaveId) + ": Sensor detected");
-        homingDistanceCorrection = stepper.distanceToGo();
-        homingState = HOMING_ADJUST_POSITION;
-      } else {
-        stepper.run();
-      }
-      break;
+  debugSerial.println("SLAVE " + String(slaveId) + ": Correcting overshot by " + String(distance) + " steps");
+  stepper.move(-distance);
+  stepper.runToPosition();
 
-    case HOMING_ADJUST_POSITION:
-      if (homingDistanceCorrection != 0) {
-        debugSerial.println("SLAVE " + String(slaveId) + ": Correcting overshot by " + String(homingDistanceCorrection) + " steps");
-        stepper.move(-homingDistanceCorrection);
-        homingDistanceCorrection = 0;
-      }
+  debugSerial.println("SLAVE " + String(slaveId) + ": Setting home position (0)");
+  stepper.setCurrentPosition(0);
 
-      if (stepper.distanceToGo() == 0) {
-        homingState = HOMING_COMPLETE;
-      } else {
-        stepper.run();
-      }
-      break;
+  stepper.setMaxSpeed(originalSpeed);
+  stepper.setAcceleration(originalAccel);
+  setBrake(true);
+  isBrakeEngaged = true;
 
-    case HOMING_COMPLETE:
-      debugSerial.println("SLAVE " + String(slaveId) + ": Setting home position (0)");
-      stepper.setCurrentPosition(0);
-      stepper.setMaxSpeed(originalSpeed);
-      stepper.setAcceleration(originalAccel);
-
-      setBrake(true);
-      isBrakeEngaged = true;
-
-      if (enPin != NOT_CONNECTED) {
-        setEnable(false);
-        isEnableActive = false;
-      }
-
-      setIndicator(false);
-      debugSerial.println("SLAVE " + String(slaveId) + ": Homing completed");
-      sendFeedback("ZERO DONE");
-
-      isHoming = false;
-      homingState = HOMING_IDLE;
-      motorState = MOTOR_IDLE;
-      break;
-
-    default:
-      isHoming = false;
-      homingState = HOMING_IDLE;
-      break;
+  if (enPin != NOT_CONNECTED) {
+    setEnable(false);
+    isEnableActive = false;
   }
+
+  setIndicator(false);
+
+  debugSerial.println("SLAVE " + String(slaveId) + ": Homing completed");
 }
 
 void StepperSlave::setBrake(bool engaged) {

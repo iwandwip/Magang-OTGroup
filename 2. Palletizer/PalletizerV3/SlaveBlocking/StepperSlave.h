@@ -99,18 +99,10 @@ private:
 
   unsigned long delayStartTime = 0;
 
-  bool isBrakeReleaseDelayActive = false;
-  bool isBrakeEngageDelayActive = false;
-  unsigned long brakeReleaseDelayStart = 0;
-  unsigned long brakeEngageDelayStart = 0;
   unsigned long brakeReleaseDelay = 500;
   unsigned long brakeEngageDelay = 1500;
   bool isBrakeEngaged = true;
 
-  bool isEnableReleaseDelayActive = false;
-  bool isEnableEngageDelayActive = false;
-  unsigned long enableReleaseDelayStart = 0;
-  unsigned long enableEngageDelayStart = 0;
   unsigned long enableReleaseDelay = 500;
   unsigned long enableEngageDelay = 1500;
   bool isEnableActive = false;
@@ -144,7 +136,6 @@ private:
   void setEnableWithDelay(bool active);
   void setIndicator(bool active);
 
-  void updateTimers();
   void debugPrint(const String& message);
   void debugPrintln(const String& message);
 };

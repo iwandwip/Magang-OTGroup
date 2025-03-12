@@ -6,13 +6,16 @@ from ..utils.config import *
 
 
 class SlaveControlPanel(QWidget):
-    """Panel kontrol untuk satu slave stepper"""
+    """Panel kontrol untuk satu slave stepper dengan Absolute Positioning"""
     command_request = pyqtSignal(str)
+    position_changed = pyqtSignal(str, int)  # Emits (axis_id, new_position) when position changes
 
     def __init__(self, slave_id, parent=None):
         super().__init__(parent)
         self.slave_id = slave_id
         self.current_speed = DEFAULT_SPEED
+        self.current_position = 0  # Current calculated position
+        self.target_position = 0   # Target position for movements
         self.setup_ui()
 
     def setup_ui(self):
@@ -35,17 +38,35 @@ class SlaveControlPanel(QWidget):
         status_layout.addWidget(self.status_value)
         status_layout.addStretch()
 
-        # Position display
+        # Position display - Enhanced with calculated position
         position_layout = QHBoxLayout()
-        self.position_label = QLabel("Posisi:")
-        self.position_value = QLabel("0")
+        self.position_label = QLabel("Position:")
+        self.position_value = QLabel("0")  # Current position
         self.position_value.setStyleSheet("font-family: monospace; font-weight: bold;")
 
         position_layout.addWidget(self.position_label)
         position_layout.addWidget(self.position_value)
         position_layout.addStretch()
 
-        # Speed control - NEW SECTION
+        # Target position input
+        target_layout = QHBoxLayout()
+        target_layout.addWidget(QLabel("Target Pos:"))
+
+        # Add SpinBox for setting the target position
+        self.target_spinbox = QSpinBox()
+        self.target_spinbox.setRange(-MAX_STEPS*100, MAX_STEPS*100)  # Wide range for absolute positioning
+        self.target_spinbox.setValue(0)
+        self.target_spinbox.setSingleStep(100)
+        self.target_spinbox.valueChanged.connect(self.on_target_changed)
+
+        self.goto_button = QPushButton("Go To")
+        self.goto_button.clicked.connect(self.on_goto_clicked)
+        self.goto_button.setStyleSheet(BUTTON_START)
+
+        target_layout.addWidget(self.target_spinbox)
+        target_layout.addWidget(self.goto_button)
+
+        # Speed control
         speed_layout = QHBoxLayout()
         speed_layout.addWidget(QLabel("Speed:"))
 
@@ -111,7 +132,7 @@ class SlaveControlPanel(QWidget):
         command_layout.addWidget(self.resume_btn, 2, 0)
         command_layout.addWidget(self.stop_btn, 2, 1)
 
-        # Movement controls
+        # Relative movement controls (+/- buttons)
         movement_layout = QGridLayout()
         movement_layout.setSpacing(5)  # Tighter spacing
 
@@ -144,7 +165,8 @@ class SlaveControlPanel(QWidget):
         # Tambahkan semua sub-layout ke group layout
         group_layout.addLayout(status_layout)
         group_layout.addLayout(position_layout)
-        group_layout.addLayout(speed_layout)  # Add the new speed control
+        group_layout.addLayout(target_layout)
+        group_layout.addLayout(speed_layout)
         group_layout.addLayout(command_layout)
         group_layout.addLayout(movement_layout)
         group_layout.addLayout(custom_layout)
@@ -166,6 +188,23 @@ class SlaveControlPanel(QWidget):
         self.speed_slider.setValue(value)
         self.current_speed = float(value)
 
+    def on_target_changed(self, value):
+        """Handle target position spinbox change"""
+        self.target_position = value
+
+    def on_goto_clicked(self):
+        """Send command to go to the target position"""
+        # Format: x(position) - absolute positioning
+        move_cmd = f"{self.slave_id}({self.target_position})"
+        self.command_request.emit(move_cmd)
+        self.status_value.setText(f"Moving to {self.target_position}")
+        self.status_value.setStyleSheet(STATUS_MOVING)
+
+        # Update the position (will be confirmed by feedback)
+        self.current_position = self.target_position
+        self.position_value.setText(str(self.current_position))
+        self.position_changed.emit(self.slave_id, self.current_position)
+
     def on_set_speed(self):
         # Format: SPEED;<slave_id>;<speed_value>
         command = CMD_SPEED_FORMAT.format(self.slave_id, self.current_speed)
@@ -184,6 +223,13 @@ class SlaveControlPanel(QWidget):
         self.command_request.emit(CMD_ZERO)
         self.status_value.setText("Homing...")
         self.status_value.setStyleSheet(STATUS_HOMING)
+
+        # Reset the position to zero
+        self.current_position = 0
+        self.target_position = 0
+        self.target_spinbox.setValue(0)
+        self.position_value.setText("0")
+        self.position_changed.emit(self.slave_id, 0)
 
     def on_pause_clicked(self):
         # Sesuai dengan format yang diharapkan master (PAUSE)
@@ -204,26 +250,46 @@ class SlaveControlPanel(QWidget):
         self.status_value.setStyleSheet(STATUS_STOPPED)
 
     def on_move_positive(self):
+        """Move in positive direction by relative steps"""
         steps = self.steps_spinbox.value()
 
-        # Format untuk gerakan koordinat setelah START
-        # Format: x(position) - tanpa kecepatan karena konstan
-        move_cmd = f"{self.slave_id}({steps})"
+        # Calculate new absolute position
+        new_position = self.current_position + steps
+
+        # Format for absolute positioning: x(position)
+        move_cmd = f"{self.slave_id}({new_position})"
 
         self.command_request.emit(move_cmd)
-        self.status_value.setText("Moving +")
+        self.status_value.setText(f"Moving to {new_position}")
         self.status_value.setStyleSheet(STATUS_MOVING)
+
+        # Update position and target
+        self.current_position = new_position
+        self.target_position = new_position
+        self.target_spinbox.setValue(new_position)
+        self.position_value.setText(str(new_position))
+        self.position_changed.emit(self.slave_id, new_position)
 
     def on_move_negative(self):
-        steps = -self.steps_spinbox.value()  # Negative steps for opposite direction
+        """Move in negative direction by relative steps"""
+        steps = self.steps_spinbox.value()
 
-        # Format untuk gerakan koordinat setelah START
-        # Format: x(-position) - tanpa kecepatan karena konstan
-        move_cmd = f"{self.slave_id}({steps})"
+        # Calculate new absolute position
+        new_position = self.current_position - steps
+
+        # Format for absolute positioning: x(position)
+        move_cmd = f"{self.slave_id}({new_position})"
 
         self.command_request.emit(move_cmd)
-        self.status_value.setText("Moving -")
+        self.status_value.setText(f"Moving to {new_position}")
         self.status_value.setStyleSheet(STATUS_MOVING)
+
+        # Update position and target
+        self.current_position = new_position
+        self.target_position = new_position
+        self.target_spinbox.setValue(new_position)
+        self.position_value.setText(str(new_position))
+        self.position_changed.emit(self.slave_id, new_position)
 
     def on_send_custom(self):
         command = self.custom_command.text().strip()
@@ -231,17 +297,50 @@ class SlaveControlPanel(QWidget):
             self.command_request.emit(command)
             self.custom_command.clear()
 
+            # If this is a position command, try to update the position
+            if self.slave_id in command and '(' in command and ')' in command:
+                try:
+                    # Simple parsing for position commands like "x(100)"
+                    if command.startswith(self.slave_id):
+                        value_str = command.split('(')[1].split(')')[0]
+                        # Handle simple direct movement
+                        if value_str.isdigit() or (value_str.startswith('-') and value_str[1:].isdigit()):
+                            position = int(value_str)
+                            self.current_position = position
+                            self.target_position = position
+                            self.target_spinbox.setValue(position)
+                            self.position_value.setText(str(position))
+                            self.position_changed.emit(self.slave_id, position)
+                except Exception as e:
+                    # Silently fail on parsing errors
+                    pass
+
     def update_status(self, message):
         if "POS:" in message:
             parts = message.split()
             for part in parts:
                 if part.startswith("POS:"):
                     position = part.split(':')[1]
-                    self.position_value.setText(position)
+                    try:
+                        # Update position from feedback
+                        pos_value = int(position)
+                        self.current_position = pos_value
+                        self.position_value.setText(position)
+                        self.target_spinbox.setValue(pos_value)
+                        self.position_changed.emit(self.slave_id, pos_value)
+                    except ValueError:
+                        # Just update the display if conversion fails
+                        self.position_value.setText(position)
 
         if "ZERO DONE" in message:
             self.status_value.setText("Homed")
             self.status_value.setStyleSheet(STATUS_IDLE)
+            # Reset position on successful homing
+            self.current_position = 0
+            self.target_position = 0
+            self.target_spinbox.setValue(0)
+            self.position_value.setText("0")
+            self.position_changed.emit(self.slave_id, 0)
         elif "PAUSE DONE" in message:
             self.status_value.setText("Paused")
             self.status_value.setStyleSheet(STATUS_PAUSED)
@@ -272,3 +371,10 @@ class SlaveControlPanel(QWidget):
                 self.current_speed = speed_float
             except ValueError:
                 pass
+
+    def set_position(self, position):
+        """External method to set the position"""
+        self.current_position = position
+        self.target_position = position
+        self.target_spinbox.setValue(position)
+        self.position_value.setText(str(position))

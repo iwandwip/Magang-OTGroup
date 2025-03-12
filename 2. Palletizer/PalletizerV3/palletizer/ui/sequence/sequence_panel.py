@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QSpinBox, QCheckBox, QTabWidget, QComboBox, QSplitter,
                              QScrollArea, QFrame, QSizePolicy, QListWidget, QMessageBox)
 from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtGui import QFont
 
 from .sequence_row_manager import SequenceRowManager
 from .sequence_executor import SequenceExecutor
@@ -37,6 +38,9 @@ class SequencePanel(QWidget):
         self.file_manager.sequence_updated.connect(self.on_sequence_name_updated)
         self.file_manager.sequences_list_updated.connect(self.update_saved_sequences_list)
         self.sequence_executor.execution_state_changed.connect(self.on_execution_state_changed)
+
+        # Position labels
+        self.position_labels = {}
 
         # Setup UI
         self.setup_ui()
@@ -255,7 +259,7 @@ class SequencePanel(QWidget):
                 # Step checkbox and value
                 step_check = QCheckBox(f"Step {i+1}:")
                 step_value = QSpinBox()
-                step_value.setRange(-MAX_STEPS, MAX_STEPS)
+                step_value.setRange(-MAX_STEPS*100, MAX_STEPS*100)  # Wider range for absolute positioning
                 step_value.setSingleStep(100)
                 step_value.setEnabled(False)  # Disabled until checked
 
@@ -394,6 +398,51 @@ class SequencePanel(QWidget):
         self.command_preview.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         preview_layout.addWidget(self.command_preview)
+
+        # ======== Current Positions Below Command Preview ========
+        # Create compact positions display layout
+        positions_layout = QHBoxLayout()
+        positions_layout.setSpacing(10)
+
+        # Create position labels for each axis
+        for slave_id in SLAVE_IDS:
+            # Create frame for axis label and position
+            axis_frame = QFrame()
+            axis_frame.setFrameShape(QFrame.StyledPanel)
+            axis_frame.setStyleSheet("background-color: #f0f0f0; border-radius: 3px;")
+
+            axis_frame_layout = QHBoxLayout(axis_frame)
+            axis_frame_layout.setContentsMargins(5, 2, 5, 2)
+            axis_frame_layout.setSpacing(5)
+
+            # Axis label
+            axis_label = QLabel(f"{slave_id.upper()}")
+            axis_label.setAlignment(Qt.AlignCenter)
+            axis_label.setStyleSheet("font-weight: bold;")
+
+            # Position value label
+            position_label = QLabel("0")
+            position_label.setAlignment(Qt.AlignCenter)
+            position_label.setStyleSheet("color: #006400; background-color: #ffffff; padding: 2px; border: 1px solid #cccccc;")
+            position_label.setFont(QFont("Monospace", 10, QFont.Bold))
+            position_label.setMinimumWidth(50)
+
+            # Store reference to position label
+            self.position_labels[slave_id.lower()] = position_label
+
+            # Add to layout
+            axis_frame_layout.addWidget(axis_label)
+            axis_frame_layout.addWidget(position_label)
+
+            # Add to positions layout
+            positions_layout.addWidget(axis_frame)
+
+        # Add stretch to ensure proper spacing
+        positions_layout.addStretch()
+
+        # Add positions layout to preview layout
+        preview_layout.addLayout(positions_layout)
+
         preview_group.setLayout(preview_layout)
 
         right_layout.addWidget(selection_group)
@@ -410,6 +459,26 @@ class SequencePanel(QWidget):
 
         # Initialize the saved sequences list
         self.update_saved_sequences_list()
+
+    # ========== Methods for Position Handling ==========
+
+    def update_position(self, axis_id, position):
+        """Update the position display for a specific axis"""
+        if axis_id.lower() in self.position_labels:
+            self.position_labels[axis_id.lower()].setText(str(position))
+
+            # Briefly highlight the background to indicate change
+            current_style = self.position_labels[axis_id.lower()].styleSheet()
+            self.position_labels[axis_id.lower()].setStyleSheet("color: #006400; background-color: #e0ffe0; padding: 2px; border: 1px solid #cccccc;")
+
+            # Use a single shot timer to revert the style after a short delay
+            from PyQt5.QtCore import QTimer
+            QTimer.singleShot(300, lambda: self.position_labels[axis_id.lower()].setStyleSheet(current_style))
+
+    def reset_all_positions(self):
+        """Reset all position displays to zero"""
+        for axis_id in self.position_labels:
+            self.position_labels[axis_id].setText("0")
 
     # ======== Helper methods (mostly delegation to component classes) ========
 

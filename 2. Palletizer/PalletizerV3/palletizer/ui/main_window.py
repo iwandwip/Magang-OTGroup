@@ -6,8 +6,9 @@ import serial.tools.list_ports
 
 from palletizer.serial_communicator import SerialCommunicator
 from palletizer.ui.slave_control_panel import SlaveControlPanel
-from palletizer.ui.sequence import SequencePanel
+from palletizer.ui.sequence import SequencePanel  # Updated import
 from palletizer.ui.monitor_panel import MonitorPanel
+from palletizer.ui.position_tracker import PositionTracker  # New import
 from palletizer.utils.config import *
 
 
@@ -19,6 +20,10 @@ class PalletizerControlApp(QMainWindow):
         self.serial_thread = SerialCommunicator()
         self.available_ports = []
         self.slave_panels = {}
+
+        # Initialize position tracker
+        self.position_tracker = PositionTracker(self)
+
         self.setup_ui()
         self.init_connections()
 
@@ -89,6 +94,9 @@ class PalletizerControlApp(QMainWindow):
             # Connect panel's command_request signal to handle_slave_command
             panel.command_request.connect(self.handle_slave_command)
 
+            # Connect panel's position_changed signal to position tracker
+            panel.position_changed.connect(self.on_position_changed)
+
         # Add stretches to make the layout flexible
         for i in range(3):  # 3 columns
             control_layout.setColumnStretch(i, 1)
@@ -120,6 +128,12 @@ class PalletizerControlApp(QMainWindow):
         # Connect serial thread signals
         self.serial_thread.data_received.connect(self.handle_received_data)
         self.serial_thread.connection_status.connect(self.update_connection_status)
+
+        # Connect position tracker signals
+        self.position_tracker.position_updated.connect(self.on_tracker_position_updated)
+
+        # Connect tab change signal to update positions
+        self.tab_widget.currentChanged.connect(self.on_tab_changed)
 
         # Start the thread
         self.serial_thread.start()
@@ -167,11 +181,17 @@ class PalletizerControlApp(QMainWindow):
             self.serial_thread.send_command(command)
             self.monitor_panel.add_log(command, "TX")
 
+            # Update position tracker with the command
+            self.position_tracker.parse_command(command)
+
     def handle_sequence_command(self, command):
         """Handle commands from sequence panel"""
         if self.serial_thread.is_connected:
             self.serial_thread.send_command(command)
             self.monitor_panel.add_log(command, "TX")
+
+            # Update position tracker with the command
+            self.position_tracker.parse_command(command)
 
     def handle_global_command(self, command):
         """Handle global commands like START, ZERO, PAUSE, etc."""
@@ -180,11 +200,46 @@ class PalletizerControlApp(QMainWindow):
             self.monitor_panel.add_log(f"Global command: {command}", "TX")
             self.statusBar().showMessage(f"Sent global command: {command}")
 
+            # Handle ZERO command specially - reset positions
+            if command == CMD_ZERO:
+                self.position_tracker.reset_all_positions()
+                self.monitor_panel.add_log("Position tracker: All positions reset to zero", "INFO")
+
     def handle_manual_command(self, command):
         """Handle commands from manual command input"""
         if command and self.serial_thread.is_connected:
             self.serial_thread.send_command(command)
             self.monitor_panel.add_log(command, "TX")
+
+            # Update position tracker with the command
+            self.position_tracker.parse_command(command)
+
+    def on_position_changed(self, axis_id, position):
+        """Handle position changes from UI operations"""
+        # Update the position in the position tracker
+        self.position_tracker.set_position(axis_id, position)
+
+        # Also update the position in the sequence panel's display
+        self.sequence_panel.update_position(axis_id, position)
+
+        # Log the update
+        self.monitor_panel.add_log(f"Position update: {axis_id.upper()} to {position}", "INFO")
+
+    def on_tracker_position_updated(self, axis_id, position):
+        """Handle position updates from the position tracker"""
+        # Update slave panel position
+        if axis_id in self.slave_panels:
+            self.slave_panels[axis_id].set_position(position)
+
+        # Update sequence panel position display
+        self.sequence_panel.update_position(axis_id, position)
+
+    def on_tab_changed(self, index):
+        """Handle tab changed event"""
+        # When switching to the sequence panel, update all position displays
+        if index == 1:  # Sequence Control tab
+            for axis_id, position in self.position_tracker.get_all_positions().items():
+                self.sequence_panel.update_position(axis_id, position)
 
     def handle_received_data(self, data):
         """Handle data received from serial port"""

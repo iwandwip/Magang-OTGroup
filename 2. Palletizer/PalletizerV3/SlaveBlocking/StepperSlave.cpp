@@ -66,11 +66,9 @@ void StepperSlave::begin() {
 void StepperSlave::update() {
   masterSerial.checkCallback();
 
-  if (motorState != MOTOR_PAUSED && motorState != MOTOR_DELAYING) {
+  if (motorState != MOTOR_PAUSED) {
     handleMotion();
   }
-
-  checkPositionReached();
 }
 
 void StepperSlave::onMasterDataWrapper(const String& data) {
@@ -183,7 +181,9 @@ void StepperSlave::handleResumeCommand() {
         delay(enableReleaseDelay);
       }
 
-      motorState = stepper.distanceToGo() != 0 ? MOTOR_MOVING : MOTOR_IDLE;
+      motorState = MOTOR_MOVING;
+    } else {
+      motorState = MOTOR_IDLE;
     }
   }
 
@@ -221,6 +221,9 @@ void StepperSlave::handleMoveCommand(const String& params) {
 
   if (queuedMotionsCount > 0) {
     setIndicator(true);
+    motorState = MOTOR_IDLE;
+    currentMotionIndex = 0;
+    executeCurrentMotion();
   }
 }
 
@@ -293,11 +296,6 @@ void StepperSlave::parsePositionSequence(const String& params) {
   } while (semicolonPos != -1 && startPos < params.length() && queuedMotionsCount < MAX_MOTIONS);
 
   debugPrintln("SLAVE " + String(slaveId) + ": Total queued motions: " + String(queuedMotionsCount));
-
-  if (queuedMotionsCount > 0) {
-    hasReportedCompletion = false;
-    startNextMotion();
-  }
 }
 
 void StepperSlave::handleMotion() {
@@ -311,7 +309,7 @@ void StepperSlave::handleMotion() {
 
       currentMotionIndex++;
       if (currentMotionIndex < queuedMotionsCount) {
-        startNextMotion();
+        executeCurrentMotion();
       } else {
         setIndicator(false);
         sendFeedback("SEQUENCE COMPLETED");
@@ -319,39 +317,17 @@ void StepperSlave::handleMotion() {
         motorState = MOTOR_IDLE;
       }
     }
-    return;
-  }
-
-  if (motorState == MOTOR_MOVING && stepper.distanceToGo() == 0) {
-    motionQueue[currentMotionIndex].completed = true;
-    debugPrintln("SLAVE " + String(slaveId) + ": Motion completed");
-
-    setBrake(true);
-    if (brakeEngageDelay > 0) {
-      delay(brakeEngageDelay);
-    }
-
-    if (isEnableActive) {
-      setEnable(false);
-      if (enableEngageDelay > 0) {
-        delay(enableEngageDelay);
-      }
-    }
-
-    currentMotionIndex++;
-    if (currentMotionIndex < queuedMotionsCount) {
-      startNextMotion();
-    } else {
-      setIndicator(false);
-      sendFeedback("SEQUENCE COMPLETED");
-      hasReportedCompletion = true;
-      motorState = MOTOR_IDLE;
-    }
   }
 }
 
-void StepperSlave::startNextMotion() {
-  if (currentMotionIndex >= queuedMotionsCount) return;
+void StepperSlave::executeCurrentMotion() {
+  if (currentMotionIndex >= queuedMotionsCount) {
+    setIndicator(false);
+    sendFeedback("SEQUENCE COMPLETED");
+    hasReportedCompletion = true;
+    motorState = MOTOR_IDLE;
+    return;
+  }
 
   setIndicator(true);
 
@@ -359,46 +335,55 @@ void StepperSlave::startNextMotion() {
     motorState = MOTOR_DELAYING;
     delayStartTime = millis();
     sendFeedback("DELAYING");
-  } else {
-    motorState = MOTOR_MOVING;
-
-    setBrake(false);
-    isBrakeEngaged = false;
-    if (brakeReleaseDelay > 0) {
-      delay(brakeReleaseDelay);
-    }
-
-    setEnable(true);
-    isEnableActive = true;
-    if (enableReleaseDelay > 0) {
-      delay(enableReleaseDelay);
-    }
-
-    long targetPosition = motionQueue[currentMotionIndex].position;
-    stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
-
-    sendFeedback("MOVING TO " + String(targetPosition));
-    stepper.moveTo(targetPosition);
-    stepper.runToPosition();
-
-    sendFeedback("POSITION REACHED");
-    motorState = MOTOR_IDLE;
-    motionQueue[currentMotionIndex].completed = true;
+    return;
   }
-}
 
-void StepperSlave::checkPositionReached() {
-  static unsigned long lastReportTime = 0;
-  static long lastReportedPosition = -999999;
+  motorState = MOTOR_MOVING;
 
-  if ((millis() - lastReportTime > 2000) || (abs(stepper.currentPosition() - lastReportedPosition) > 50)) {
-    if (motorState == MOTOR_MOVING || abs(stepper.currentPosition() - lastReportedPosition) > 10) {
-      lastReportTime = millis();
-      lastReportedPosition = stepper.currentPosition();
+  setBrake(false);
+  if (brakeReleaseDelay > 0) {
+    delay(brakeReleaseDelay);
+  }
 
-      String positionUpdate = "POS:" + String(stepper.currentPosition()) + " TARGET:" + String(stepper.targetPosition());
-      sendFeedback(positionUpdate);
+  setEnable(true);
+  if (enableReleaseDelay > 0) {
+    delay(enableReleaseDelay);
+  }
+
+  long targetPosition = motionQueue[currentMotionIndex].position;
+  stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
+
+  sendFeedback("MOVING TO " + String(targetPosition));
+  reportPosition();
+
+  stepper.moveTo(targetPosition);
+  stepper.runToPosition();
+
+  reportPosition();
+  sendFeedback("POSITION REACHED");
+
+  if (brakeEngageDelay > 0) {
+    delay(brakeEngageDelay);
+  }
+  setBrake(true);
+
+  if (isEnableActive) {
+    setEnable(false);
+    if (enableEngageDelay > 0) {
+      delay(enableEngageDelay);
     }
+  }
+
+  motionQueue[currentMotionIndex].completed = true;
+  motorState = MOTOR_IDLE;
+
+  currentMotionIndex++;
+  if (currentMotionIndex < queuedMotionsCount) {
+    executeCurrentMotion();
+  } else {
+    setIndicator(false);
+    sendFeedback("SEQUENCE COMPLETED");
+    hasReportedCompletion = true;
   }
 }
 
@@ -489,12 +474,13 @@ void StepperSlave::setBrakeWithDelay(bool engaged) {
       return;
     }
 
-    setBrake(engaged);
 
     if (engaged && brakeEngageDelay > 0) {
+      setBrake(engaged);
       delay(brakeEngageDelay);
     } else if (!engaged && brakeReleaseDelay > 0) {
       delay(brakeReleaseDelay);
+      setBrake(engaged);
     }
   } else {
     setBrake(engaged);

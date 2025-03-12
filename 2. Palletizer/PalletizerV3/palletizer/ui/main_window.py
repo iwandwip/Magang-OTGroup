@@ -6,7 +6,7 @@ import serial.tools.list_ports
 
 from palletizer.serial_communicator import SerialCommunicator
 from palletizer.ui.slave_control_panel import SlaveControlPanel
-from palletizer.ui.sequence_panel import SequencePanel
+from palletizer.ui.sequence import SequencePanel
 from palletizer.ui.monitor_panel import MonitorPanel
 from palletizer.utils.config import *
 

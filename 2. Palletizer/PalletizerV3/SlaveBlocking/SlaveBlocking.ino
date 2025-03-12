@@ -2,7 +2,7 @@
 
 #include "StepperSlave.h"
 
-#define SLAVE_ADDR Z_AXIS
+#define SLAVE_ADDR Y_AXIS
 
 #define CLK_PIN 10
 #define CW_PIN 11
@@ -41,7 +41,7 @@
 #define BRAKE_RELEASE_DELAY NO_DELAY
 #endif
 
-// Command reference:
+// Command reference: z;1;100;2000;d2000;500;1000
 // CMD_START    = 1 // z;1;200    - Start movement to position 200
 // CMD_ZERO     = 2 // z;2        - Home the axis
 // CMD_PAUSE    = 3 // z;3        - Pause movement

@@ -125,8 +125,7 @@ private:
 
   void parsePositionSequence(const String& params);
   void handleMotion();
-  void startNextMotion();
-  void checkPositionReached();
+  void executeCurrentMotion();
 
   void performHoming();
 

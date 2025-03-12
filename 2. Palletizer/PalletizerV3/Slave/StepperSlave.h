@@ -62,7 +62,8 @@ public:
     unsigned long brakeReleaseDelayMs = 500,
     unsigned long brakeEngageDelayMs = 1500,
     unsigned long enableReleaseDelayMs = 500,
-    unsigned long enableEngageDelayMs = 1500);
+    unsigned long enableEngageDelayMs = 1500,
+    bool enableDebug = true);
 
   void begin();
   void update();
@@ -83,6 +84,7 @@ private:
   int indicatorPin;
   bool invertBrakeLogic;
   bool invertEnableLogic;
+  bool debugEnabled;
 
   SoftwareSerial masterCommSerial;
   EnhancedSerial masterSerial;
@@ -143,6 +145,8 @@ private:
   void setIndicator(bool active);
 
   void updateTimers();
+  void debugPrint(const String& message);
+  void debugPrintln(const String& message);
 };
 
 #endif

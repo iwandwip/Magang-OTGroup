@@ -65,12 +65,15 @@ void PalletizerMaster::onBluetoothData(const String& data) {
   upperData.trim();
   upperData.toUpperCase();
 
-  if (upperData.startsWith("SPEED;")) {
+  if (upperData == "START" || upperData == "ZERO" || upperData == "PAUSE" || upperData == "RESUME" || upperData == "RESET") {
+    processStandardCommand(upperData);
+  } else if (upperData.startsWith("SPEED;")) {
     processSpeedCommand(data);
   } else if (currentCommand == CMD_START) {
     processCoordinateData(data);
   } else {
-    processStandardCommand(upperData);
+    debugSerial.println("MASTER: Unknown command: " + upperData);
+    bluetoothSerial.println("[FEEDBACK] UNKNOWN COMMAND");
   }
 }
 

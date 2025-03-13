@@ -1,24 +1,33 @@
-from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-                             QLabel, QPushButton, QComboBox, QTabWidget,
-                             QMessageBox, QScrollArea, QGridLayout, QSizePolicy)
-from PyQt5.QtCore import Qt
-import serial.tools.list_ports
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.tabbedpanel import TabbedPanel, TabbedPanelItem
+from kivy.uix.label import Label
+from kivy.uix.button import Button
+from kivy.uix.spinner import Spinner
+from kivy.properties import ObjectProperty, BooleanProperty, StringProperty
 
 from palletizer.serial_communicator import SerialCommunicator
 from palletizer.ui.slave_control_panel import SlaveControlPanel
-from palletizer.ui.sequence import SequencePanel
+from palletizer.ui.sequence.sequence_panel import SequencePanel
 from palletizer.ui.monitor_panel import MonitorPanel
 from palletizer.ui.position_tracker import PositionTracker
 from palletizer.ui.visualization_panel import VisualizationPanel
-from palletizer.ui.communication_settings_panel import CommunicationSettingsPanel  # Import the new settings panel
+from palletizer.ui.communication_settings_panel import CommunicationSettingsPanel
 from palletizer.utils.config import *
 
 
-class PalletizerControlApp(QMainWindow):
+class PalletizerControlApp(BoxLayout):
     """Main application window"""
 
-    def __init__(self):
-        super().__init__()
+    is_connected = BooleanProperty(False)
+    status_text = StringProperty("Status: Disconnected")
+
+    def __init__(self, **kwargs):
+        super(PalletizerControlApp, self).__init__(**kwargs)
+        self.orientation = 'vertical'
+        self.spacing = 5
+        self.padding = 5
+
+        # Initialize components
         self.serial_thread = SerialCommunicator()
         self.available_ports = []
         self.slave_panels = {}
@@ -37,311 +46,178 @@ class PalletizerControlApp(QMainWindow):
             'COMPLETE_FEEDBACK': 'ALL_SLAVES_COMPLETED'
         }
 
+        # Build UI
         self.setup_ui()
         self.init_connections()
 
     def setup_ui(self):
-        self.setWindowTitle(WINDOW_TITLE)
-        self.setGeometry(*WINDOW_GEOMETRY)
-
-        # Set window to start maximized
-        self.showMaximized()
-
-        # Main widget and layout
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        main_layout = QVBoxLayout(central_widget)
-        main_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
-        main_layout.setSpacing(5)  # Tighter spacing
-
         # Connection controls at top
-        connection_layout = QHBoxLayout()
-        connection_layout.setSpacing(5)  # Tighter spacing
+        connection_layout = BoxLayout(size_hint=(1, 0.05), spacing=5)
 
-        connection_layout.addWidget(QLabel("Port:"))
-        self.port_combo = QComboBox()
-        self.refresh_ports()
-        connection_layout.addWidget(self.port_combo)
+        connection_layout.add_widget(Label(text="Port:", size_hint=(0.1, 1)))
+        self.port_spinner = Spinner(text="Select Port", values=self.get_available_ports(), size_hint=(0.2, 1))
+        connection_layout.add_widget(self.port_spinner)
 
-        connection_layout.addWidget(QLabel("Baudrate:"))
-        self.baudrate_combo = QComboBox()
-        for baud in BAUDRATES:
-            self.baudrate_combo.addItem(str(baud))
-        self.baudrate_combo.setCurrentText(str(DEFAULT_BAUDRATE))  # Default to 115200
-        connection_layout.addWidget(self.baudrate_combo)
+        connection_layout.add_widget(Label(text="Baudrate:", size_hint=(0.1, 1)))
+        baud_values = [str(b) for b in BAUDRATES]
+        self.baudrate_spinner = Spinner(text=str(DEFAULT_BAUDRATE), values=baud_values, size_hint=(0.2, 1))
+        connection_layout.add_widget(self.baudrate_spinner)
 
-        self.connect_btn = QPushButton("Connect")
-        self.connect_btn.clicked.connect(self.on_connect)
-        connection_layout.addWidget(self.connect_btn)
+        self.connect_btn = Button(text="Connect", size_hint=(0.15, 1))
+        self.connect_btn.bind(on_press=self.on_connect)
+        connection_layout.add_widget(self.connect_btn)
 
-        self.refresh_btn = QPushButton("Refresh")
-        self.refresh_btn.clicked.connect(self.refresh_ports)
-        connection_layout.addWidget(self.refresh_btn)
+        self.refresh_btn = Button(text="Refresh", size_hint=(0.15, 1))
+        self.refresh_btn.bind(on_press=self.refresh_ports)
+        connection_layout.add_widget(self.refresh_btn)
 
-        self.status_label = QLabel("Status: Disconnected")
-        self.status_label.setStyleSheet("color: red;")
-        connection_layout.addWidget(self.status_label)
+        self.status_label = Label(text=self.status_text, size_hint=(0.2, 1))
+        connection_layout.add_widget(self.status_label)
 
-        connection_layout.addStretch()
+        self.add_widget(connection_layout)
 
-        # Tab widget for different panels
-        self.tab_widget = QTabWidget()
-        self.tab_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # Tab panel for different sections
+        self.tab_panel = TabbedPanel(do_default_tab=False, size_hint=(1, 0.95))
 
-        # Control panel with all slave controls - use QScrollArea
-        slave_scroll = QScrollArea()
-        slave_scroll.setWidgetResizable(True)
+        # Individual Control Tab
+        control_tab = TabbedPanelItem(text="Individual Control")
+        control_content = BoxLayout(orientation='vertical')
 
-        control_widget = QWidget()
-        control_layout = QGridLayout(control_widget)
-        control_layout.setContentsMargins(5, 5, 5, 5)  # Reduce margins
-        control_layout.setSpacing(5)  # Tighter spacing
+        # Create grid layout for slave controls
+        control_grid = self.create_slave_control_grid()
+        control_content.add_widget(control_grid)
+        control_tab.content = control_content
+
+        # Sequence Control Tab
+        sequence_tab = TabbedPanelItem(text="Sequence Control")
+        self.sequence_panel = SequencePanel()
+        sequence_tab.content = self.sequence_panel
+
+        # Visualization Tab
+        visualization_tab = TabbedPanelItem(text="3D Visualization")
+        self.visualization_panel = VisualizationPanel()
+        visualization_tab.content = self.visualization_panel
+
+        # Monitor Tab
+        monitor_tab = TabbedPanelItem(text="Monitor")
+        self.monitor_panel = MonitorPanel()
+        monitor_tab.content = self.monitor_panel
+
+        # Settings Tab
+        settings_tab = TabbedPanelItem(text="Communication Settings")
+        self.comm_settings_panel = CommunicationSettingsPanel(self)
+        settings_tab.content = self.comm_settings_panel
+
+        # Add tabs to panel
+        self.tab_panel.add_widget(control_tab)
+        self.tab_panel.add_widget(sequence_tab)
+        self.tab_panel.add_widget(visualization_tab)
+        self.tab_panel.add_widget(monitor_tab)
+        self.tab_panel.add_widget(settings_tab)
+
+        self.add_widget(self.tab_panel)
+
+    def create_slave_control_grid(self):
+        from kivy.uix.gridlayout import GridLayout
+        from kivy.uix.scrollview import ScrollView
+
+        scroll_view = ScrollView(bar_width=10)
+        grid = GridLayout(cols=3, spacing=10, size_hint_y=None)
+        grid.bind(minimum_height=grid.setter('height'))
 
         # Create control panels for each slave
-        for i, slave_id in enumerate(SLAVE_IDS):
+        for slave_id in SLAVE_IDS:
             panel = SlaveControlPanel(slave_id)
             self.slave_panels[slave_id] = panel
-            row, col = divmod(i, 3)  # 3 panels per row
-            control_layout.addWidget(panel, row, col)
+            grid.add_widget(panel)
 
-            # Connect panel's command_request signal to handle_slave_command
-            panel.command_request.connect(self.handle_slave_command)
+            # Bind panel signals (Implementasi Kivy event binding)
+            panel.bind(on_command=self.handle_slave_command)
+            panel.bind(on_position_change=self.on_position_changed)
 
-            # Connect panel's position_changed signal to position tracker
-            panel.position_changed.connect(self.on_position_changed)
-
-        # Add stretches to make the layout flexible
-        for i in range(3):  # 3 columns
-            control_layout.setColumnStretch(i, 1)
-
-        slave_scroll.setWidget(control_widget)
-
-        # Tabs
-        self.tab_widget.addTab(slave_scroll, "Individual Control")
-
-        # Sequence control panel
-        self.sequence_panel = SequencePanel()
-        self.sequence_panel.sequence_command.connect(self.handle_sequence_command)
-        self.sequence_panel.global_command.connect(self.handle_global_command)
-        self.tab_widget.addTab(self.sequence_panel, "Sequence Control")
-
-        # Visualization panel (NEW)
-        self.visualization_panel = VisualizationPanel()
-        self.tab_widget.addTab(self.visualization_panel, "3D Visualization")
-
-        # Monitor panel
-        self.monitor_panel = MonitorPanel()
-        self.monitor_panel.send_command.connect(self.handle_manual_command)
-        self.tab_widget.addTab(self.monitor_panel, "Monitor")
-
-        # Communication settings panel (NEW)
-        self.comm_settings_panel = CommunicationSettingsPanel(self)
-        self.comm_settings_panel.config_updated.connect(self.on_comm_settings_updated)
-        self.tab_widget.addTab(self.comm_settings_panel, "Communication Settings")
-
-        # Add main components to layout
-        main_layout.addLayout(connection_layout)
-        main_layout.addWidget(self.tab_widget)
-
-        # Setup status bar
-        self.statusBar().showMessage("Ready")
+        scroll_view.add_widget(grid)
+        return scroll_view
 
     def init_connections(self):
-        # Connect serial thread signals
-        self.serial_thread.data_received.connect(self.handle_received_data)
-        self.serial_thread.connection_status.connect(self.update_connection_status)
+        # Register Kivy Events
+        self.serial_thread.register_callback('on_data_received', self.handle_received_data)
+        self.serial_thread.register_callback('on_connection_status', self.update_connection_status)
 
         # Connect position tracker signals
-        self.position_tracker.position_updated.connect(self.on_tracker_position_updated)
+        self.position_tracker.bind(on_position_updated=self.on_tracker_position_updated)
 
-        # Connect tab change signal to update positions
-        self.tab_widget.currentChanged.connect(self.on_tab_changed)
-
-        # Start the thread
+        # Start serial thread
         self.serial_thread.start()
 
-    def refresh_ports(self):
-        self.port_combo.clear()
-        self.available_ports = [port.device for port in serial.tools.list_ports.comports()]
-        if self.available_ports:
-            for port in self.available_ports:
-                self.port_combo.addItem(port)
-        else:
-            self.port_combo.addItem("No ports available")
+    def get_available_ports(self):
+        try:
+            from serial.tools.list_ports import comports
+            self.available_ports = [port.device for port in comports()]
+            if not self.available_ports:
+                return ["No ports available"]
+            return self.available_ports
+        except:
+            return ["Serial module not available"]
 
-    def on_connect(self):
-        if self.serial_thread.is_connected:
+    def refresh_ports(self, instance=None):
+        ports = self.get_available_ports()
+        self.port_spinner.values = ports
+        if ports:
+            self.port_spinner.text = ports[0]
+
+    def on_connect(self, instance):
+        if self.is_connected:
             # Disconnect
             self.serial_thread.disconnect()
-            self.connect_btn.setText("Connect")
-            self.statusBar().showMessage("Disconnected")
+            self.connect_btn.text = "Connect"
         else:
             # Connect
-            if not self.available_ports:
-                QMessageBox.warning(self, "No Ports", "No serial ports available.")
+            if not self.available_ports or self.available_ports[0] == "No ports available":
+                from kivy.uix.popup import Popup
+                from kivy.uix.label import Label
+                popup = Popup(title='Error', content=Label(text='No serial ports available.'),
+                              size_hint=(0.5, 0.3))
+                popup.open()
                 return
 
-            port = self.port_combo.currentText()
-            baudrate = int(self.baudrate_combo.currentText())
+            port = self.port_spinner.text
+            baudrate = int(self.baudrate_spinner.text)
 
             if self.serial_thread.connect(port, baudrate):
-                self.connect_btn.setText("Disconnect")
-                self.statusBar().showMessage(f"Connected to {port} at {baudrate} baud")
+                self.connect_btn.text = "Disconnect"
 
     def update_connection_status(self, connected, message):
+        self.is_connected = connected
         if connected:
-            self.status_label.setText(f"Status: {message}")
-            self.status_label.setStyleSheet("color: green; font-weight: bold;")
+            self.status_text = f"Status: {message}"
+            self.status_label.color = [0, 1, 0, 1]  # Green
         else:
-            self.status_label.setText(f"Status: {message}")
-            self.status_label.setStyleSheet("color: red;")
-            self.connect_btn.setText("Connect")
+            self.status_text = f"Status: {message}"
+            self.status_label.color = [1, 0, 0, 1]  # Red
+            self.connect_btn.text = "Connect"
 
-    def handle_slave_command(self, command):
+    # Implementasi handler lainnya...
+    def handle_slave_command(self, instance, command):
         """Handle commands from individual slave panels"""
-        if self.serial_thread.is_connected:
+        if self.is_connected:
             self.serial_thread.send_command(command)
             self.monitor_panel.add_log(command, "TX")
-
-            # Update position tracker with the command
             self.position_tracker.parse_command(command)
 
-    def handle_sequence_command(self, command):
-        """Handle commands from sequence panel"""
-        if self.serial_thread.is_connected:
-            self.serial_thread.send_command(command)
-            self.monitor_panel.add_log(command, "TX")
-
-            # Update position tracker with the command
-            self.position_tracker.parse_command(command)
-
-    def handle_global_command(self, command):
-        """Handle global commands like START, ZERO, PAUSE, etc."""
-        if self.serial_thread.is_connected:
-            # Translate common commands to configured commands
-            translated_command = command
-
-            if command == CMD_START:
-                translated_command = self.command_settings['START']
-            elif command == CMD_ZERO:
-                translated_command = self.command_settings['HOME']
-            elif command == CMD_PAUSE:
-                translated_command = self.command_settings['PAUSE']
-            elif command == CMD_RESUME:
-                translated_command = self.command_settings['RESUME']
-            elif command == CMD_RESET:
-                translated_command = self.command_settings['RESET']
-
-            self.serial_thread.send_command(translated_command)
-            self.monitor_panel.add_log(f"Global command: {command} → {translated_command}", "TX")
-            self.statusBar().showMessage(f"Sent global command: {translated_command}")
-
-            # Handle ZERO command specially - reset positions
-            if command == CMD_ZERO:
-                self.position_tracker.reset_all_positions()
-                # Also reset positions in visualization panel
-                self.visualization_panel.reset_all_positions()
-                self.monitor_panel.add_log("Position tracker: All positions reset to zero", "INFO")
-
-    def handle_manual_command(self, command):
-        """Handle commands from manual command input"""
-        if command and self.serial_thread.is_connected:
-            self.serial_thread.send_command(command)
-            self.monitor_panel.add_log(command, "TX")
-
-            # Update position tracker with the command
-            self.position_tracker.parse_command(command)
-
-    def on_position_changed(self, axis_id, position):
+    def on_position_changed(self, instance, axis_id, position):
         """Handle position changes from UI operations"""
-        # Update the position in the position tracker
         self.position_tracker.set_position(axis_id, position)
-
-        # Also update the position in the sequence panel's display
         self.sequence_panel.update_position(axis_id, position)
-
-        # Update the visualization panel
         self.visualization_panel.update_position(axis_id, position)
-
-        # Log the update
         self.monitor_panel.add_log(f"Position update: {axis_id.upper()} to {position}", "INFO")
 
-    def on_tracker_position_updated(self, axis_id, position):
+    def on_tracker_position_updated(self, instance, axis_id, position):
         """Handle position updates from the position tracker"""
-        # Update slave panel position
         if axis_id in self.slave_panels:
             self.slave_panels[axis_id].set_position(position)
-
-        # Update sequence panel position display
         self.sequence_panel.update_position(axis_id, position)
-
-        # Update visualization panel
         self.visualization_panel.update_position(axis_id, position)
 
-    def on_tab_changed(self, index):
-        """Handle tab changed event"""
-        # When switching to the sequence or visualization panel, update all position displays
-        if index == 1 or index == 2:  # Sequence Control or 3D Visualization tab
-            for axis_id, position in self.position_tracker.get_all_positions().items():
-                if index == 1:
-                    self.sequence_panel.update_position(axis_id, position)
-                elif index == 2:
-                    self.visualization_panel.update_position(axis_id, position)
-
     def handle_received_data(self, data):
-        """Handle data received from serial port"""
-        self.monitor_panel.add_log(data, "RX")
-
-        # Update status bar with latest feedback
-        if data.startswith("[FEEDBACK]"):
-            feedback_msg = data[11:].strip()  # Remove [FEEDBACK] prefix
-            self.statusBar().showMessage(f"Feedback: {feedback_msg}")
-
-            # Check for configured completion feedback and handle it
-            if feedback_msg == self.command_settings['COMPLETE_FEEDBACK']:
-                # Notify the sequence panel that all slaves have completed
-                self.sequence_panel.handle_slave_completion()
-
-        # Determine message type and route to appropriate handler
-        if data.startswith("[FEEDBACK]"):
-            # Feedback from master - already handled above
-            pass
-        elif data.startswith("[SLAVE]"):
-            # Message from slave via master
-            # Format should be: [SLAVE] slave_id;message
-            parts = data[7:].split(';', 1)
-            if len(parts) >= 2:
-                slave_id = parts[0].lower()
-                message = parts[1]
-
-                if slave_id in self.slave_panels:
-                    self.slave_panels[slave_id].update_status(message)
-
-    def on_set_global_speed(self):
-        """Handle global speed setting"""
-        speed_value = self.global_speed_spinbox.value()
-        # Format using configured speed format
-        speed_cmd = self.command_settings['SPEED_FORMAT'].format("", speed_value)
-        self.global_command.emit(speed_cmd)
-        self.statusBar().showMessage(f"Sent global speed command: {speed_cmd}")
-
-    def on_comm_settings_updated(self):
-        """Handle communication settings updates"""
-        # Update command settings with values from settings panel
-        self.command_settings = self.comm_settings_panel.command_settings.copy()
-
-        # Log the update
-        self.monitor_panel.add_log("Communication settings updated", "INFO")
-
-        # Update any UI elements or handlers that depend on these settings
-
-    def closeEvent(self, event):
-        """Handle window close event"""
-        # Stop the serial thread properly
-        self.serial_thread.stop()
-        event.accept()
-
-    def resizeEvent(self, event):
-        """Handle window resize event"""
-        # Make any adjustments needed when window is resized
-        super().resizeEvent(event)
+        # Implementasi penanganan data yang diterima
+        pass

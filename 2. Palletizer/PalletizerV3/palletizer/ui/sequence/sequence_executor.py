@@ -14,6 +14,7 @@ class SequenceExecutor(QObject):
         self.current_sequence_index = -1  # Index of the current row being executed
         self.sequence_execution_active = False  # Flag to track if sequence execution is in progress
         self.row_manager = None  # Will be set from SequencePanel
+        self.waiting_for_completion = False  # Flag to track if we're waiting for ALL_SLAVES_COMPLETED
 
     def set_row_manager(self, row_manager):
         """Set the reference to the row manager"""
@@ -27,10 +28,16 @@ class SequenceExecutor(QObject):
 
         if self.current_sequence_index >= len(self.row_manager.sequence_rows) - 1:
             # We're at the end of the sequence
-            QMessageBox.information(None, "Sequence Complete", "All rows have been executed.")
+            # Only show message in manual mode
+            if not self.parent().auto_execution:
+                QMessageBox.information(None, "Sequence Complete", "All rows have been executed.")
+
             self.sequence_execution_active = False
+            self.waiting_for_completion = False
             self.current_sequence_index = -1
             self.execution_state_changed.emit(False)
+            # Update running row display to show completion
+            self.parent().update_running_row_display(-1)
             return False
 
         # Move to the next row
@@ -51,11 +58,18 @@ class SequenceExecutor(QObject):
         # Send row command
         self.sequence_command.emit(row_command)
 
+        # Set waiting flag
+        self.waiting_for_completion = True
+
         # Update execution state
         self.execution_state_changed.emit(True)
 
-        # Show status message
-        QMessageBox.information(None, "Running Sequence", f"Running Row {row_index + 1}")
+        # Update running row display
+        self.parent().update_running_row_display(row_index)
+
+        # Show status message only in manual mode
+        if not self.parent().auto_execution:
+            QMessageBox.information(None, "Running Sequence", f"Running Row {row_index + 1}")
 
         return True
 
@@ -78,6 +92,7 @@ class SequenceExecutor(QObject):
             # Reset sequence execution state
             self.current_sequence_index = -1
             self.sequence_execution_active = False
+            self.waiting_for_completion = False
 
             # Start with the first row
             return self.run_next_row()
@@ -105,8 +120,16 @@ class SequenceExecutor(QObject):
         # Then send row command
         self.sequence_command.emit(row_command)
 
-        # Show status message
-        QMessageBox.information(None, "Running Sequence", f"Running Row {row_index + 1}")
+        # Not setting sequence_execution_active to True because this is not part of sequenced execution
+        # But we are waiting for completion
+        self.waiting_for_completion = True
+
+        # Update running row display
+        self.parent().update_running_row_display(row_index)
+
+        # Show status message only in manual mode
+        if not self.parent().auto_execution:
+            QMessageBox.information(None, "Running Sequence", f"Running Row {row_index + 1}")
 
         return True
 
@@ -132,13 +155,29 @@ class SequenceExecutor(QObject):
         # Then send axis command
         self.sequence_command.emit(row[axis])
 
-        # Show status message
-        QMessageBox.information(None, "Running Sequence", f"Running Axis {axis.upper()} from Row {row_index + 1}")
+        # Not setting sequence_execution_active to True because this is only a single axis
+        # But we are waiting for completion
+        self.waiting_for_completion = True
+
+        # Update running row display with indication of which axis is running
+        self.parent().running_row_value.setText(f"{row_index+1}.{axis.upper()}")
+        self.parent().running_row_frame.setStyleSheet("background-color: #e0e0ff; border-radius: 3px;")
+
+        # Show status message only in manual mode
+        if not self.parent().auto_execution:
+            QMessageBox.information(None, "Running Sequence", f"Running Axis {axis.upper()} from Row {row_index + 1}")
 
         return True
 
     def handle_slave_completion(self):
         """Called when all slaves have completed their tasks"""
+        # If we're not waiting for completion, then ignore this signal
+        if not self.waiting_for_completion:
+            return False
+
+        # Reset the waiting flag
+        self.waiting_for_completion = False
+
         # Re-enable the Next button if we're in sequence execution mode
         if self.sequence_execution_active:
             self.execution_state_changed.emit(True)

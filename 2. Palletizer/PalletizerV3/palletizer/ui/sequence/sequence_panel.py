@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QGridLayout,
                              QLabel, QPushButton, QGroupBox, QLineEdit, QTextEdit,
                              QSpinBox, QCheckBox, QTabWidget, QComboBox, QSplitter,
-                             QScrollArea, QFrame, QSizePolicy, QListWidget, QMessageBox)
+                             QScrollArea, QFrame, QSizePolicy, QListWidget, QMessageBox,
+                             QRadioButton, QButtonGroup)
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QFont
 
@@ -24,6 +25,9 @@ class SequencePanel(QWidget):
         self.row_manager = SequenceRowManager(self)
         self.sequence_executor = SequenceExecutor(self)
         self.file_manager = SequenceFileManager(self)
+
+        # Setup execution mode
+        self.auto_execution = False  # Default to manual mode
 
         # Connect helper instances
         self.sequence_executor.set_row_manager(self.row_manager)
@@ -188,6 +192,32 @@ class SequencePanel(QWidget):
         self.row_list.setMinimumHeight(120)
         self.row_list.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
+        # NEW: Execution Mode Selection
+        execution_mode_layout = QHBoxLayout()
+        execution_mode_layout.setSpacing(10)
+
+        # Add a label
+        execution_mode_layout.addWidget(QLabel("Next Row Execution Mode:"))
+
+        # Create radio buttons for execution mode
+        self.execution_mode_group = QButtonGroup(self)
+
+        self.manual_mode_radio = QRadioButton("Manual")
+        self.manual_mode_radio.setChecked(True)  # Default to manual mode
+        self.manual_mode_radio.toggled.connect(self.on_execution_mode_changed)
+
+        self.auto_mode_radio = QRadioButton("Automatic")
+        self.auto_mode_radio.toggled.connect(self.on_execution_mode_changed)
+
+        # Add radio buttons to button group
+        self.execution_mode_group.addButton(self.manual_mode_radio, 0)
+        self.execution_mode_group.addButton(self.auto_mode_radio, 1)
+
+        # Add radio buttons to layout
+        execution_mode_layout.addWidget(self.manual_mode_radio)
+        execution_mode_layout.addWidget(self.auto_mode_radio)
+        execution_mode_layout.addStretch()
+
         # Row control buttons
         row_control_layout = QHBoxLayout()
         row_control_layout.setSpacing(5)  # Tighter spacing
@@ -216,6 +246,7 @@ class SequencePanel(QWidget):
         row_control_layout.addWidget(self.clear_all_rows_btn)
 
         row_list_layout.addWidget(self.row_list)
+        row_list_layout.addLayout(execution_mode_layout)  # Add the execution mode radio buttons
         row_list_layout.addLayout(row_control_layout)
 
         row_list_group.setLayout(row_list_layout)
@@ -437,6 +468,30 @@ class SequencePanel(QWidget):
             # Add to positions layout
             positions_layout.addWidget(axis_frame)
 
+        # Add running row indicator
+        self.running_row_frame = QFrame()
+        self.running_row_frame.setFrameShape(QFrame.StyledPanel)
+        self.running_row_frame.setStyleSheet("background-color: #e0ffe0; border-radius: 3px;")
+
+        running_row_layout = QHBoxLayout(self.running_row_frame)
+        running_row_layout.setContentsMargins(5, 2, 5, 2)
+        running_row_layout.setSpacing(5)
+
+        running_label = QLabel("Row:")
+        running_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        running_label.setStyleSheet("font-weight: bold;")
+
+        self.running_row_value = QLabel("-")
+        self.running_row_value.setAlignment(Qt.AlignCenter)
+        self.running_row_value.setStyleSheet("color: #006400; background-color: #ffffff; padding: 2px; border: 1px solid #cccccc;")
+        self.running_row_value.setFont(QFont("Monospace", 10, QFont.Bold))
+        self.running_row_value.setMinimumWidth(30)
+
+        running_row_layout.addWidget(running_label)
+        running_row_layout.addWidget(self.running_row_value)
+
+        positions_layout.addWidget(self.running_row_frame)
+
         # Add stretch to ensure proper spacing
         positions_layout.addStretch()
 
@@ -459,6 +514,26 @@ class SequencePanel(QWidget):
 
         # Initialize the saved sequences list
         self.update_saved_sequences_list()
+
+    def on_execution_mode_changed(self):
+        """Handle change in execution mode (auto/manual)"""
+        self.auto_execution = self.auto_mode_radio.isChecked()
+
+        # Update Next Row button state based on current execution state
+        if self.auto_execution:
+            # In auto mode, Next Row button is always disabled
+            self.next_btn.setEnabled(False)
+            self.next_btn.setStyleSheet("background-color: #e0e0e0; font-weight: bold;")
+            self.next_btn.setText("Next Row (Auto)")
+        else:
+            # In manual mode, Next Row button is enabled only during sequence execution
+            self.next_btn.setText("Next Row")
+            self.next_btn.setStyleSheet("background-color: #ffddaa; font-weight: bold;")
+            # Only enable if currently in execution state
+            if self.sequence_executor.sequence_execution_active:
+                self.next_btn.setEnabled(True)
+            else:
+                self.next_btn.setEnabled(False)
 
     # ========== Methods for Position Handling ==========
 
@@ -722,8 +797,31 @@ class SequencePanel(QWidget):
 
     def on_execution_state_changed(self, is_executing):
         """Handle execution state changes"""
-        self.next_btn.setEnabled(is_executing)
+        # Only enable Next button in manual mode
+        if not self.auto_execution:
+            self.next_btn.setEnabled(is_executing)
+
+    def update_running_row_display(self, row_index=-1):
+        """Update the running row display"""
+        if row_index >= 0:
+            self.running_row_value.setText(str(row_index + 1))
+            self.running_row_frame.setStyleSheet("background-color: #e0ffe0; border-radius: 3px;")
+        else:
+            self.running_row_value.setText("-")
+            self.running_row_frame.setStyleSheet("background-color: #f0f0f0; border-radius: 3px;")
 
     def handle_slave_completion(self):
         """Called when all slaves have completed their tasks"""
-        self.sequence_executor.handle_slave_completion()
+        # In auto mode, automatically run the next row
+        # In manual mode, just notify the sequence executor
+        result = self.sequence_executor.handle_slave_completion()
+
+        if result and self.auto_execution:
+            # In auto mode, automatically run next row
+            self.sequence_executor.run_next_row()
+        else:
+            # If sequence is complete, update running row display
+            if not self.sequence_executor.sequence_execution_active:
+                self.update_running_row_display(-1)
+
+        return result

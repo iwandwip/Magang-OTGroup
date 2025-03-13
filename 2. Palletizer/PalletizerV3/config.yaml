@@ -31,5 +31,5 @@ rail_lengths:
   z: 1420
 relative_positions:
   x_offset: 610
-  y_offset: 0
+  y_offset: 300
   z_offset: 0

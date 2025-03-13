@@ -4,7 +4,7 @@
 
 #define RX_PIN 8
 #define TX_PIN 9
-#define INDICATOR_PIN -1
+#define INDICATOR_PIN 2
 
 PalletizerMaster master(RX_PIN, TX_PIN, INDICATOR_PIN);
 

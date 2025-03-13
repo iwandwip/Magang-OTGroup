@@ -535,6 +535,15 @@ class SequencePanel(QWidget):
             else:
                 self.next_btn.setEnabled(False)
 
+    def update_running_row_display(self, row_index=-1):
+        """Update the running row display"""
+        if row_index >= 0:
+            self.running_row_value.setText(str(row_index + 1))
+            self.running_row_frame.setStyleSheet("background-color: #e0ffe0; border-radius: 3px;")
+        else:
+            self.running_row_value.setText("-")
+            self.running_row_frame.setStyleSheet("background-color: #f0f0f0; border-radius: 3px;")
+
     # ========== Methods for Position Handling ==========
 
     def update_position(self, axis_id, position):
@@ -800,15 +809,6 @@ class SequencePanel(QWidget):
         # Only enable Next button in manual mode
         if not self.auto_execution:
             self.next_btn.setEnabled(is_executing)
-
-    def update_running_row_display(self, row_index=-1):
-        """Update the running row display"""
-        if row_index >= 0:
-            self.running_row_value.setText(str(row_index + 1))
-            self.running_row_frame.setStyleSheet("background-color: #e0ffe0; border-radius: 3px;")
-        else:
-            self.running_row_value.setText("-")
-            self.running_row_frame.setStyleSheet("background-color: #f0f0f0; border-radius: 3px;")
 
     def handle_slave_completion(self):
         """Called when all slaves have completed their tasks"""

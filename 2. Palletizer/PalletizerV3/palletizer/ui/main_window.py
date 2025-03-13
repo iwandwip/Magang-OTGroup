@@ -6,9 +6,11 @@ import serial.tools.list_ports
 
 from palletizer.serial_communicator import SerialCommunicator
 from palletizer.ui.slave_control_panel import SlaveControlPanel
-from palletizer.ui.sequence import SequencePanel  # Updated import
+from palletizer.ui.sequence import SequencePanel
 from palletizer.ui.monitor_panel import MonitorPanel
-from palletizer.ui.position_tracker import PositionTracker  # New import
+from palletizer.ui.position_tracker import PositionTracker
+from palletizer.ui.visualization_panel import VisualizationPanel
+from palletizer.ui.communication_settings_panel import CommunicationSettingsPanel  # Import the new settings panel
 from palletizer.utils.config import *
 
 
@@ -23,6 +25,17 @@ class PalletizerControlApp(QMainWindow):
 
         # Initialize position tracker
         self.position_tracker = PositionTracker(self)
+
+        # Command settings dictionary
+        self.command_settings = {
+            'START': CMD_START,
+            'HOME': CMD_ZERO,
+            'PAUSE': CMD_PAUSE,
+            'RESUME': CMD_RESUME,
+            'RESET': CMD_RESET,
+            'SPEED_FORMAT': CMD_SPEED_FORMAT,
+            'COMPLETE_FEEDBACK': 'ALL_SLAVES_COMPLETED'
+        }
 
         self.setup_ui()
         self.init_connections()
@@ -112,10 +125,19 @@ class PalletizerControlApp(QMainWindow):
         self.sequence_panel.global_command.connect(self.handle_global_command)
         self.tab_widget.addTab(self.sequence_panel, "Sequence Control")
 
+        # Visualization panel (NEW)
+        self.visualization_panel = VisualizationPanel()
+        self.tab_widget.addTab(self.visualization_panel, "3D Visualization")
+
         # Monitor panel
         self.monitor_panel = MonitorPanel()
         self.monitor_panel.send_command.connect(self.handle_manual_command)
         self.tab_widget.addTab(self.monitor_panel, "Monitor")
+
+        # Communication settings panel (NEW)
+        self.comm_settings_panel = CommunicationSettingsPanel(self)
+        self.comm_settings_panel.config_updated.connect(self.on_comm_settings_updated)
+        self.tab_widget.addTab(self.comm_settings_panel, "Communication Settings")
 
         # Add main components to layout
         main_layout.addLayout(connection_layout)
@@ -196,13 +218,29 @@ class PalletizerControlApp(QMainWindow):
     def handle_global_command(self, command):
         """Handle global commands like START, ZERO, PAUSE, etc."""
         if self.serial_thread.is_connected:
-            self.serial_thread.send_command(command)
-            self.monitor_panel.add_log(f"Global command: {command}", "TX")
-            self.statusBar().showMessage(f"Sent global command: {command}")
+            # Translate common commands to configured commands
+            translated_command = command
+
+            if command == CMD_START:
+                translated_command = self.command_settings['START']
+            elif command == CMD_ZERO:
+                translated_command = self.command_settings['HOME']
+            elif command == CMD_PAUSE:
+                translated_command = self.command_settings['PAUSE']
+            elif command == CMD_RESUME:
+                translated_command = self.command_settings['RESUME']
+            elif command == CMD_RESET:
+                translated_command = self.command_settings['RESET']
+
+            self.serial_thread.send_command(translated_command)
+            self.monitor_panel.add_log(f"Global command: {command} → {translated_command}", "TX")
+            self.statusBar().showMessage(f"Sent global command: {translated_command}")
 
             # Handle ZERO command specially - reset positions
             if command == CMD_ZERO:
                 self.position_tracker.reset_all_positions()
+                # Also reset positions in visualization panel
+                self.visualization_panel.reset_all_positions()
                 self.monitor_panel.add_log("Position tracker: All positions reset to zero", "INFO")
 
     def handle_manual_command(self, command):
@@ -222,6 +260,9 @@ class PalletizerControlApp(QMainWindow):
         # Also update the position in the sequence panel's display
         self.sequence_panel.update_position(axis_id, position)
 
+        # Update the visualization panel
+        self.visualization_panel.update_position(axis_id, position)
+
         # Log the update
         self.monitor_panel.add_log(f"Position update: {axis_id.upper()} to {position}", "INFO")
 
@@ -234,12 +275,18 @@ class PalletizerControlApp(QMainWindow):
         # Update sequence panel position display
         self.sequence_panel.update_position(axis_id, position)
 
+        # Update visualization panel
+        self.visualization_panel.update_position(axis_id, position)
+
     def on_tab_changed(self, index):
         """Handle tab changed event"""
-        # When switching to the sequence panel, update all position displays
-        if index == 1:  # Sequence Control tab
+        # When switching to the sequence or visualization panel, update all position displays
+        if index == 1 or index == 2:  # Sequence Control or 3D Visualization tab
             for axis_id, position in self.position_tracker.get_all_positions().items():
-                self.sequence_panel.update_position(axis_id, position)
+                if index == 1:
+                    self.sequence_panel.update_position(axis_id, position)
+                elif index == 2:
+                    self.visualization_panel.update_position(axis_id, position)
 
     def handle_received_data(self, data):
         """Handle data received from serial port"""
@@ -250,8 +297,8 @@ class PalletizerControlApp(QMainWindow):
             feedback_msg = data[11:].strip()  # Remove [FEEDBACK] prefix
             self.statusBar().showMessage(f"Feedback: {feedback_msg}")
 
-            # Check for ALL_SLAVES_COMPLETED feedback and handle it
-            if feedback_msg == "ALL_SLAVES_COMPLETED":
+            # Check for configured completion feedback and handle it
+            if feedback_msg == self.command_settings['COMPLETE_FEEDBACK']:
                 # Notify the sequence panel that all slaves have completed
                 self.sequence_panel.handle_slave_completion()
 
@@ -269,6 +316,24 @@ class PalletizerControlApp(QMainWindow):
 
                 if slave_id in self.slave_panels:
                     self.slave_panels[slave_id].update_status(message)
+
+    def on_set_global_speed(self):
+        """Handle global speed setting"""
+        speed_value = self.global_speed_spinbox.value()
+        # Format using configured speed format
+        speed_cmd = self.command_settings['SPEED_FORMAT'].format("", speed_value)
+        self.global_command.emit(speed_cmd)
+        self.statusBar().showMessage(f"Sent global speed command: {speed_cmd}")
+
+    def on_comm_settings_updated(self):
+        """Handle communication settings updates"""
+        # Update command settings with values from settings panel
+        self.command_settings = self.comm_settings_panel.command_settings.copy()
+
+        # Log the update
+        self.monitor_panel.add_log("Communication settings updated", "INFO")
+
+        # Update any UI elements or handlers that depend on these settings
 
     def closeEvent(self, event):
         """Handle window close event"""

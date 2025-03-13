@@ -8,13 +8,11 @@ from ..utils.config import *
 
 
 class CommunicationSettingsPanel(QWidget):
-    """Panel untuk mengatur konfigurasi komunikasi dengan master controller"""
-    config_updated = pyqtSignal()  # Signal when configuration is updated
+    config_updated = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
 
-        # Default command settings (will be overridden by saved settings later)
         self.command_settings = {
             'START': 'START',
             'HOME': 'ZERO',
@@ -30,34 +28,35 @@ class CommunicationSettingsPanel(QWidget):
 
     def setup_ui(self):
         main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(10, 10, 10, 10)
-        main_layout.setSpacing(10)
+        main_layout.setContentsMargins(5, 5, 5, 5)
+        main_layout.setSpacing(5)
 
-        # Status section at top
-        status_frame = QFrame()
-        status_frame.setFrameShape(QFrame.StyledPanel)
-        status_frame.setStyleSheet("background-color: #f0f0f0; border-radius: 5px;")
-        status_layout = QHBoxLayout(status_frame)
+        # Title and buttons at top - similar to what's shown in the screenshot
+        header_layout = QHBoxLayout()
 
-        status_label = QLabel("Communication Settings")
-        status_label.setStyleSheet("font-weight: bold; font-size: 14px;")
-        status_layout.addWidget(status_label)
+        # Title on left
+        title_label = QLabel("Communication Settings")
+        title_label.setStyleSheet("font-weight: bold; font-size: 14px;")
+        header_layout.addWidget(title_label)
 
-        status_layout.addStretch()
+        header_layout.addStretch()
 
+        # Buttons on right
         self.save_btn = QPushButton("Save Settings")
         self.save_btn.clicked.connect(self.save_settings)
-        self.save_btn.setStyleSheet("background-color: #ccffcc;")
-        status_layout.addWidget(self.save_btn)
+        # Match the green style seen in the Start buttons
+        self.save_btn.setStyleSheet("background-color: #ccffcc; color: #006400; font-weight: bold;")
+        header_layout.addWidget(self.save_btn)
 
         self.reset_btn = QPushButton("Reset to Defaults")
         self.reset_btn.clicked.connect(self.reset_to_defaults)
-        self.reset_btn.setStyleSheet("background-color: #ffcccc;")
-        status_layout.addWidget(self.reset_btn)
+        # Match the red style seen in the Stop/Reset buttons
+        self.reset_btn.setStyleSheet("background-color: #ffcccc; color: #800000; font-weight: bold;")
+        header_layout.addWidget(self.reset_btn)
 
-        main_layout.addWidget(status_frame)
+        main_layout.addLayout(header_layout)
 
-        # Create scroll area for settings
+        # Main content in a scroll area
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QFrame.NoFrame)
@@ -67,25 +66,24 @@ class CommunicationSettingsPanel(QWidget):
         settings_layout.setContentsMargins(0, 0, 0, 0)
         settings_layout.setSpacing(15)
 
-        # Global command settings
+        # Global command settings group
         command_group = QGroupBox("Global Command Settings")
         command_layout = QGridLayout()
-        command_layout.setColumnStretch(1, 1)  # Make the command field stretch
+        command_layout.setColumnStretch(1, 1)
 
-        # Command fields and labels
         commands = [
-            ("START Button", "START", "Command sent when START button is pressed"),
-            ("HOME Button", "HOME", "Command sent when HOME button is pressed"),
-            ("PAUSE Button", "PAUSE", "Command sent when PAUSE button is pressed"),
-            ("RESUME Button", "RESUME", "Command sent when RESUME button is pressed"),
-            ("STOP/RESET Button", "RESET", "Command sent when STOP/RESET button is pressed"),
+            ("START Button:", "START", "Command sent when START button is pressed"),
+            ("HOME Button:", "HOME", "Command sent when HOME button is pressed"),
+            ("PAUSE Button:", "PAUSE", "Command sent when PAUSE button is pressed"),
+            ("RESUME Button:", "RESUME", "Command sent when RESUME button is pressed"),
+            ("STOP/RESET Button:", "RESET", "Command sent when STOP/RESET button is pressed"),
         ]
 
         row = 0
         self.command_inputs = {}
 
         for label_text, key, tooltip in commands:
-            label = QLabel(f"{label_text}:")
+            label = QLabel(label_text)
             label.setToolTip(tooltip)
 
             command_input = QLineEdit()
@@ -96,7 +94,6 @@ class CommunicationSettingsPanel(QWidget):
             command_layout.addWidget(command_input, row, 1)
             row += 1
 
-        # Speed command format
         speed_label = QLabel("Speed Command Format:")
         speed_label.setToolTip("Format for speed commands. Use {} as placeholders for slave_id and speed_value")
 
@@ -109,12 +106,11 @@ class CommunicationSettingsPanel(QWidget):
         command_group.setLayout(command_layout)
         settings_layout.addWidget(command_group)
 
-        # Feedback settings
+        # Feedback settings group
         feedback_group = QGroupBox("Feedback Settings")
         feedback_layout = QGridLayout()
-        feedback_layout.setColumnStretch(1, 1)  # Make the input field stretch
+        feedback_layout.setColumnStretch(1, 1)
 
-        # Completion feedback
         complete_label = QLabel("Completion Feedback:")
         complete_label.setToolTip("Feedback string that indicates all slaves have completed their tasks")
 
@@ -124,7 +120,6 @@ class CommunicationSettingsPanel(QWidget):
         feedback_layout.addWidget(complete_label, 0, 0)
         feedback_layout.addWidget(self.complete_feedback_input, 0, 1)
 
-        # Feedback protocol explanation
         protocol_frame = QFrame()
         protocol_frame.setFrameShape(QFrame.StyledPanel)
         protocol_frame.setStyleSheet("background-color: #f8f8f8; border: 1px solid #dddddd;")
@@ -152,7 +147,7 @@ class CommunicationSettingsPanel(QWidget):
         feedback_group.setLayout(feedback_layout)
         settings_layout.addWidget(feedback_group)
 
-        # Testing section
+        # Test communication group
         test_group = QGroupBox("Test Communication")
         test_layout = QVBoxLayout()
 
@@ -164,12 +159,11 @@ class CommunicationSettingsPanel(QWidget):
 
         self.send_test_btn = QPushButton("Send Test Command")
         self.send_test_btn.clicked.connect(self.send_test_command)
-        self.send_test_btn.setStyleSheet("background-color: #e0e0ff;")
+        self.send_test_btn.setStyleSheet(BUTTON_SPEED)  # Use the predefined style
         test_command_layout.addWidget(self.send_test_btn)
 
         test_layout.addLayout(test_command_layout)
 
-        # Test explanation
         test_info = QLabel(
             "Use this section to test custom commands. Enter a command and press 'Send Test Command'\n"
             "to send it directly to the master controller. This is useful for testing new commands\n"
@@ -182,16 +176,13 @@ class CommunicationSettingsPanel(QWidget):
         test_group.setLayout(test_layout)
         settings_layout.addWidget(test_group)
 
-        # Add spacer at bottom
+        # Add stretch to push everything to the top
         settings_layout.addStretch()
 
         scroll_area.setWidget(settings_container)
         main_layout.addWidget(scroll_area)
 
     def load_settings(self):
-        """Load settings from config or use defaults"""
-        # Here we would load from a persistent storage, but for now just use the
-        # values from the config module
         self.command_inputs["START"].setText(CMD_START)
         self.command_inputs["HOME"].setText(CMD_ZERO)
         self.command_inputs["PAUSE"].setText(CMD_PAUSE)
@@ -200,11 +191,9 @@ class CommunicationSettingsPanel(QWidget):
         self.speed_format_input.setText(CMD_SPEED_FORMAT)
         self.complete_feedback_input.setText("ALL_SLAVES_COMPLETED")
 
-        # Store the current values
         self.update_command_settings()
 
     def update_command_settings(self):
-        """Update command_settings dictionary from UI inputs"""
         self.command_settings["START"] = self.command_inputs["START"].text()
         self.command_settings["HOME"] = self.command_inputs["HOME"].text()
         self.command_settings["PAUSE"] = self.command_inputs["PAUSE"].text()
@@ -214,19 +203,12 @@ class CommunicationSettingsPanel(QWidget):
         self.command_settings["COMPLETE_FEEDBACK"] = self.complete_feedback_input.text()
 
     def save_settings(self):
-        """Save current settings"""
-        # Update settings from UI
         self.update_command_settings()
-
-        # Here we would save to a persistent storage
-        # For now, just emit a signal that config has changed
         self.config_updated.emit()
-
         QMessageBox.information(self, "Settings Saved",
                                 "Communication settings have been saved and applied.")
 
     def reset_to_defaults(self):
-        """Reset settings to defaults"""
         reply = QMessageBox.question(
             self,
             "Reset Settings",
@@ -236,7 +218,6 @@ class CommunicationSettingsPanel(QWidget):
         )
 
         if reply == QMessageBox.Yes:
-            # Reset to defaults from config module
             self.command_inputs["START"].setText(CMD_START)
             self.command_inputs["HOME"].setText(CMD_ZERO)
             self.command_inputs["PAUSE"].setText(CMD_PAUSE)
@@ -245,25 +226,19 @@ class CommunicationSettingsPanel(QWidget):
             self.speed_format_input.setText(CMD_SPEED_FORMAT)
             self.complete_feedback_input.setText("ALL_SLAVES_COMPLETED")
 
-            # Update settings from UI
             self.update_command_settings()
-
-            # Emit signal that config has changed
             self.config_updated.emit()
 
             QMessageBox.information(self, "Settings Reset",
                                     "Communication settings have been reset to defaults.")
 
     def send_test_command(self):
-        """Send a test command"""
         command = self.test_command_input.text().strip()
         if not command:
             QMessageBox.warning(self, "Empty Command",
                                 "Please enter a command to send.")
             return
 
-        # Emit signal to send command through the main window
-        # This will be connected to the appropriate handler
         self.parent().handle_manual_command(command)
 
         QMessageBox.information(self, "Command Sent",

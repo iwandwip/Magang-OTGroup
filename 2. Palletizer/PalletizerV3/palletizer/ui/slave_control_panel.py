@@ -38,7 +38,7 @@ class SlaveControlPanel(QWidget):
         status_layout.addWidget(self.status_value)
         status_layout.addStretch()
 
-        # Position display - Enhanced with calculated position
+        # Position display
         position_layout = QHBoxLayout()
         self.position_label = QLabel("Position:")
         self.position_value = QLabel("0")  # Current position
@@ -132,26 +132,6 @@ class SlaveControlPanel(QWidget):
         command_layout.addWidget(self.resume_btn, 2, 0)
         command_layout.addWidget(self.stop_btn, 2, 1)
 
-        # Relative movement controls (+/- buttons)
-        movement_layout = QGridLayout()
-        movement_layout.setSpacing(5)  # Tighter spacing
-
-        self.move_positive_btn = QPushButton("Move +")
-        self.move_positive_btn.clicked.connect(self.on_move_positive)
-
-        self.move_negative_btn = QPushButton("Move -")
-        self.move_negative_btn.clicked.connect(self.on_move_negative)
-
-        self.steps_spinbox = QSpinBox()
-        self.steps_spinbox.setRange(MIN_STEPS, MAX_STEPS)
-        self.steps_spinbox.setValue(DEFAULT_STEPS)
-
-        # Tambahkan widget ke layout
-        movement_layout.addWidget(QLabel("Steps:"), 0, 0)
-        movement_layout.addWidget(self.steps_spinbox, 0, 1)
-        movement_layout.addWidget(self.move_positive_btn, 1, 0)
-        movement_layout.addWidget(self.move_negative_btn, 1, 1)
-
         # Custom command
         custom_layout = QHBoxLayout()
         self.custom_command = QLineEdit()
@@ -168,7 +148,7 @@ class SlaveControlPanel(QWidget):
         group_layout.addLayout(target_layout)
         group_layout.addLayout(speed_layout)
         group_layout.addLayout(command_layout)
-        group_layout.addLayout(movement_layout)
+        # Removed Steps section
         group_layout.addLayout(custom_layout)
 
         # Set group layout ke group box
@@ -248,48 +228,6 @@ class SlaveControlPanel(QWidget):
         self.command_request.emit(CMD_RESET)
         self.status_value.setText("Stopped")
         self.status_value.setStyleSheet(STATUS_STOPPED)
-
-    def on_move_positive(self):
-        """Move in positive direction by relative steps"""
-        steps = self.steps_spinbox.value()
-
-        # Calculate new absolute position
-        new_position = self.current_position + steps
-
-        # Format for absolute positioning: x(position)
-        move_cmd = f"{self.slave_id}({new_position})"
-
-        self.command_request.emit(move_cmd)
-        self.status_value.setText(f"Moving to {new_position}")
-        self.status_value.setStyleSheet(STATUS_MOVING)
-
-        # Update position and target
-        self.current_position = new_position
-        self.target_position = new_position
-        self.target_spinbox.setValue(new_position)
-        self.position_value.setText(str(new_position))
-        self.position_changed.emit(self.slave_id, new_position)
-
-    def on_move_negative(self):
-        """Move in negative direction by relative steps"""
-        steps = self.steps_spinbox.value()
-
-        # Calculate new absolute position
-        new_position = self.current_position - steps
-
-        # Format for absolute positioning: x(position)
-        move_cmd = f"{self.slave_id}({new_position})"
-
-        self.command_request.emit(move_cmd)
-        self.status_value.setText(f"Moving to {new_position}")
-        self.status_value.setStyleSheet(STATUS_MOVING)
-
-        # Update position and target
-        self.current_position = new_position
-        self.target_position = new_position
-        self.target_spinbox.setValue(new_position)
-        self.position_value.setText(str(new_position))
-        self.position_changed.emit(self.slave_id, new_position)
 
     def on_send_custom(self):
         command = self.custom_command.text().strip()

@@ -2,23 +2,31 @@
 
 ## Project Structure
 
-The Palletizer Control System has been restructured into a proper Python package for better maintainability and organization. Here's the directory structure:
+The Palletizer Control System has been structured into a proper Python package for better maintainability and organization. Here's the current directory structure:
 
 ```
 PalletizerV3/
-├── main.py                        # Main entry point for the application
-└── palletizer/                    # Main package
-    ├── __init__.py                # Package initialization
-    ├── serial_communicator.py     # Serial communication handler
-    ├── ui/                        # UI components subpackage
-    │   ├── __init__.py            # UI subpackage initialization
-    │   ├── main_window.py         # Main application window
-    │   ├── slave_control_panel.py # Control panel for individual slaves
-    │   ├── sequence_panel.py      # Sequence programming and execution panel
-    │   └── monitor_panel.py       # Communication monitoring and logging panel
-    └── utils/                     # Utilities subpackage
-        ├── __init__.py            # Utilities subpackage initialization
-        └── config.py              # Configuration constants and settings
+├── main.py                                # Main entry point for the application
+└── palletizer/                            # Main package
+    ├── __init__.py                        # Package initialization
+    ├── Palletizer.md                      # Documentation
+    ├── serial_communicator.py             # Serial communication handler
+    ├── ui/                                # UI components subpackage
+    │   ├── __init__.py                    # UI subpackage initialization
+    │   ├── main_window.py                 # Main application window
+    │   ├── slave_control_panel.py         # Control panel for individual slaves
+    │   ├── monitor_panel.py               # Communication monitoring and logging panel
+    │   ├── position_tracker.py            # Position tracking logic
+    │   ├── position_display_widget.py     # Position display UI component
+    │   └── sequence/                      # Sequence control subpackage
+    │       ├── __init__.py                # Sequence subpackage initialization
+    │       ├── sequence_panel.py          # Main sequence control panel
+    │       ├── sequence_row_manager.py    # Row management for sequences
+    │       ├── sequence_executor.py       # Sequence execution logic
+    │       └── sequence_file_operations.py # Sequence file handling
+    └── utils/                             # Utilities subpackage
+        ├── __init__.py                    # Utilities subpackage initialization
+        └── config.py                      # Configuration constants and settings
 ```
 
 ## Module Descriptions
@@ -34,9 +42,19 @@ PalletizerV3/
 ### UI Components
 
 - **main_window.py**: The main application window that contains the tab widget and manages the overall UI layout.
-- **slave_control_panel.py**: Provides control interfaces for individual axes/slaves (X, Y, Z, T, G).
-- **sequence_panel.py**: Allows creating, editing, saving, and executing sequences of movements.
+- **slave_control_panel.py**: Provides control interfaces for individual axes/slaves (X, Y, Z, T, G) with absolute positioning.
 - **monitor_panel.py**: Displays communication logs and allows sending manual commands.
+- **position_tracker.py**: Tracks the position of each axis based on commands and feedback.
+- **position_display_widget.py**: UI component for displaying current positions of all axes.
+
+### Sequence Control Subpackage
+
+The sequence control functionality has been refactored into a subpackage with multiple components:
+
+- **sequence_panel.py**: Main sequence panel that integrates all sequence control functionality.
+- **sequence_row_manager.py**: Handles sequence row operations (add, edit, delete, etc.).
+- **sequence_executor.py**: Manages the execution of sequences, including step-by-step execution.
+- **sequence_file_operations.py**: Handles saving, loading, and managing sequence files.
 
 ### Utilities
 
@@ -59,9 +77,22 @@ The application uses a combination of absolute and relative imports:
   ```
 
 - **Absolute imports from palletizer package** are used in `main_window.py`:
+
   ```python
   from palletizer.serial_communicator import SerialCommunicator
   from palletizer.ui.slave_control_panel import SlaveControlPanel
+  ```
+
+- **Imports for the sequence subpackage**:
+
+  ```python
+  # From main_window.py
+  from palletizer.ui.sequence import SequencePanel
+
+  # From within sequence_panel.py
+  from .sequence_row_manager import SequenceRowManager
+  from .sequence_executor import SequenceExecutor
+  from .sequence_file_operations import SequenceFileManager
   ```
 
 ## Running the Application
@@ -72,33 +103,52 @@ To run the application, execute the `main.py` file from the project root directo
 python main.py
 ```
 
-## Benefits of This Structure
+## Key Features
 
-1. **Modularity**: Each component is in its own file, making the code more maintainable.
+### 1. Modular UI Architecture
 
-2. **Separation of Concerns**: UI components, serial communication, and configuration are kept separate.
+The UI is organized into reusable components, each with a specific responsibility:
 
-3. **Easier Maintenance**: Individual files are smaller and focused on a single responsibility.
+- Main window manages overall layout and tabs
+- Individual slave control panels handle axes control
+- Sequence panel manages sequence creation and execution
+- Monitor panel displays communication logs
 
-4. **Centralized Configuration**: Constants and styles are defined in a single location.
+### 2. Position Tracking System
 
-5. **Scalability**: New features can be added as new modules without affecting existing code.
+The application includes a robust position tracking system:
 
-6. **Code Reuse**: Components can be imported and reused in other projects.
+- `position_tracker.py` maintains the absolute position of each axis
+- Positions are updated based on commands sent and feedback received
+- Positions are reset to zero when homing commands are executed
+- Position displays are available in both Individual Control and Sequence Control tabs
 
-7. **Improved Collaboration**: Multiple developers can work on different modules simultaneously.
+### 3. Sequence Control System
 
-## Common Development Tasks
+The sequence control system has been refactored into a modular subpackage:
 
-### Adding a New Feature
+- Sequences can be created, edited, saved, and loaded
+- Sequences can be executed in full or step-by-step
+- Individual axes can be tested from sequence rows
+- Position tracking is integrated with sequence execution
+
+## Adding New Features
 
 To add a new feature, you can:
 
-1. Create a new module in the appropriate subpackage
-2. Update the imports in the relevant files
-3. Integrate the new functionality with the existing components
+1. Identify the appropriate location for the feature:
 
-### Modifying Configuration
+   - Is it related to a specific UI component? Add it to that component.
+   - Is it a new UI component? Create a new file in the `ui` directory.
+   - Is it sequence-related? Add it to the appropriate file in the `sequence` subpackage.
+
+2. Update the imports in the relevant files to access the new functionality.
+
+3. Connect any signals/slots needed for the feature to communicate with other components.
+
+4. Update configuration in `config.py` if needed.
+
+## Modifying Configuration
 
 All configuration values are in `utils/config.py`. Update this file to change:
 
@@ -106,14 +156,6 @@ All configuration values are in `utils/config.py`. Update this file to change:
 - UI appearance settings
 - Default values
 - Command formats
-
-### Adding a New Control Panel
-
-To add a new control panel:
-
-1. Create a new panel class in the `ui` subpackage
-2. Add it to the tab widget in `main_window.py`
-3. Connect its signals to the appropriate handlers
 
 ## Troubleshooting
 
@@ -132,3 +174,11 @@ If the application can't communicate with the hardware:
 - Check the serial port settings in `config.py`
 - Verify the hardware connections
 - Check the communication protocol implementation
+
+### Position Tracking Issues
+
+If positions are not tracking correctly:
+
+- Verify the command parsing in `position_tracker.py`
+- Check that position signals are properly connected in `main_window.py`
+- Ensure position displays are updated when positions change

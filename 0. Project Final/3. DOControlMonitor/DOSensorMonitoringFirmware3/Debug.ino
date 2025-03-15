@@ -25,6 +25,17 @@ void serialDebugging() {
   Serial.print("| T: ");
   Serial.print(readHoldingRegister[TRANSITION_TIME_REGISTER]);
 
+  Serial.print("| kp: ");
+  Serial.print(readHoldingRegister[PARAM_KP_PID_REGISTER]);
+  Serial.print("| ki: ");
+  Serial.print(readHoldingRegister[PARAM_KI_PID_REGISTER]);
+  Serial.print("| kd: ");
+  Serial.print(readHoldingRegister[PARAM_KD_PID_REGISTER]);
+  Serial.print("| sp: ");
+  Serial.print(readHoldingRegister[PARAM_SP_PID_REGISTER]);
+  Serial.print("| do: ");
+  Serial.print(readHoldingRegister[PARAM_DO_QC_INPUT]);
+
   Serial.print("| Ct: ");
   Serial.print(eeprom.getWriteCount());
 

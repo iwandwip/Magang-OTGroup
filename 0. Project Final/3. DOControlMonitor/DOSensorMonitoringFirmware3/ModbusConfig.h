@@ -25,6 +25,7 @@ enum ReadHoldingRegisterIndex {
   PARAM_KI_PID_REGISTER,     // 4115
   PARAM_KD_PID_REGISTER,     // 4117
   PARAM_SP_PID_REGISTER,     // 4119
+  PARAM_DO_QC_INPUT,         // 4121
   READ_HOLDING_REGISTER_LEN
 };
 

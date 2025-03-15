@@ -9,6 +9,8 @@
 
 SoftwareSerial modbus(MODBUS_RO_PIN, MODBUS_DI_PIN);
 ModbusMaster node;
+PID pid;
+
 #if IS_ARDUINO_BOARD
 EEPROMLib eeprom;
 #else
@@ -22,8 +24,8 @@ EEPROMLibESP8266 eeprom;
 uint8_t readCoil[READ_COIL_LEN];
 float writeHoldingRegister[WRITE_HOLDING_REGISTER_LEN];
 float readHoldingRegister[READ_HOLDING_REGISTER_LEN];
-uint16_t pwmOutput;
-float correctionFactor;
+float calibrationInputQC = 0.0;
+float calibrationInputQCBefore = 0.0;
 
 void setup() {
   // ESP.wdtDisable();
@@ -59,6 +61,7 @@ void setup() {
   readHoldingRegister[PARAM_KI_PID_REGISTER] = eeprom.readFloat(28);
   readHoldingRegister[PARAM_KD_PID_REGISTER] = eeprom.readFloat(32);
   readHoldingRegister[PARAM_SP_PID_REGISTER] = eeprom.readFloat(36);
+  readHoldingRegister[PARAM_DO_QC_INPUT] = eeprom.readFloat(38);
 
   bool isAnyNaN =
     isnan(readHoldingRegister[CALIBRATION_REGISTER])
@@ -70,19 +73,21 @@ void setup() {
     || isnan(readHoldingRegister[PARAM_KP_PID_REGISTER])
     || isnan(readHoldingRegister[PARAM_KI_PID_REGISTER])
     || isnan(readHoldingRegister[PARAM_KD_PID_REGISTER])
-    || isnan(readHoldingRegister[PARAM_SP_PID_REGISTER]);
+    || isnan(readHoldingRegister[PARAM_SP_PID_REGISTER])
+    || isnan(readHoldingRegister[PARAM_DO_QC_INPUT]);
 
   if (isAnyNaN) {
-    eeprom.writeFloat(0, 0);
-    eeprom.writeFloat(4, 0);
-    eeprom.writeFloat(8, 2.0);
-    eeprom.writeFloat(12, 25);
-    eeprom.writeFloat(16, 35);
-    eeprom.writeFloat(20, 1);
-    eeprom.writeFloat(24, 0.8);
-    eeprom.writeFloat(28, 0.3);
-    eeprom.writeFloat(32, 2.5);
-    eeprom.writeFloat(36, 2.5);
+    
+    eeprom.writeFloat(4, 0.0);    // IN_FREQUENCY_REGISTER
+    eeprom.writeFloat(8, 2.0);    // DO_THRESHOLD_REGISTER
+    eeprom.writeFloat(12, 25.0);  // ABOVE_THESHOLD_REGISTER
+    eeprom.writeFloat(16, 35.0);  // BELOW_THESHOLD_REGISTER
+    eeprom.writeFloat(20, 1.0);   // TRANSITION_TIME_REGISTER
+    eeprom.writeFloat(24, 0.8);   // PARAM_KP_PID_REGISTER
+    eeprom.writeFloat(28, 0.3);   // PARAM_KI_PID_REGISTER
+    eeprom.writeFloat(32, 0.2);   // PARAM_KD_PID_REGISTER
+    eeprom.writeFloat(36, 2.5);   // PARAM_SP_PID_REGISTER
+    eeprom.writeFloat(38, 2.5);   // PARAM_DO_QC_INPUT
   }
 
   delay(1000);
@@ -91,6 +96,10 @@ void setup() {
 #if !IS_ARDUINO_BOARD && ENABLE_FIREBASE
   wifiTaskInit();
 #endif
+
+  pid.setConstants(readHoldingRegister[PARAM_KP_PID_REGISTER], readHoldingRegister[PARAM_KI_PID_REGISTER], readHoldingRegister[PARAM_KD_PID_REGISTER], readHoldingRegister[PARAM_SP_PID_REGISTER]);
+  pid.setOutputRange(0, 50);
+  pid.reset();
 }
 
 void loop() {
@@ -109,12 +118,17 @@ void loop() {
     writeHoldingRegister[ADC_REGISTER] = rawADCSensor;
     writeHoldingRegister[VOLT_REGISTER] = rawVoltSensor;
     writeHoldingRegister[DO_REGISTER] = rawDOSensor;
-    writeHoldingRegister[DO_REGISTER] += readHoldingRegister[CALIBRATION_REGISTER];
+    
     timerHoldingRegister = millis();
   }
 
   readCoil[AUTO_COIL] = readSingleCoil(2);
   readMultipleFloatsFromRegisters(readHoldingRegister, 101, READ_HOLDING_REGISTER_LEN);
+  calibrationInputQC = readHoldingRegister[PARAM_DO_QC_INPUT];
+  if (calibrationInputQC != calibrationInputQCBefore) {
+    calibrationInputQCBefore = calibrationInputQC;
+    calibrationDO();
+  }
 
   bool eepromEnableWrite = false;
   for (int i = 0; i < READ_HOLDING_REGISTER_LEN; i++) {
@@ -136,25 +150,38 @@ void loop() {
     readHoldingRegister[PARAM_KI_PID_REGISTER] = eeprom.readFloat(28);
     readHoldingRegister[PARAM_KD_PID_REGISTER] = eeprom.readFloat(32);
     readHoldingRegister[PARAM_SP_PID_REGISTER] = eeprom.readFloat(36);
+    readHoldingRegister[PARAM_DO_QC_INPUT] = eeprom.readFloat(38);
 
     writeMultipleFloatsToRegisters(readHoldingRegister, 101, READ_HOLDING_REGISTER_LEN);
   } else {
     if (eepromEnableWrite) {
       isSystemInitialize = true;
-      eeprom.writeFloat(0, readHoldingRegister[CALIBRATION_REGISTER]);
-      eeprom.writeFloat(4, readHoldingRegister[IN_FREQUENCY_REGISTER]);
-      eeprom.writeFloat(8, readHoldingRegister[DO_THRESHOLD_REGISTER]);
-      eeprom.writeFloat(12, readHoldingRegister[ABOVE_THESHOLD_REGISTER]);
-      eeprom.writeFloat(16, readHoldingRegister[BELOW_THESHOLD_REGISTER]);
-      eeprom.writeFloat(20, readHoldingRegister[TRANSITION_TIME_REGISTER]);
-      eeprom.writeFloat(24, readHoldingRegister[PARAM_KP_PID_REGISTER]);
-      eeprom.writeFloat(28, readHoldingRegister[PARAM_KI_PID_REGISTER]);
-      eeprom.writeFloat(32, readHoldingRegister[PARAM_KD_PID_REGISTER]);
-      eeprom.writeFloat(36, readHoldingRegister[PARAM_SP_PID_REGISTER]);
+      // eeprom.writeFloat(0, readHoldingRegister[CALIBRATION_REGISTER]);
+      // eeprom.writeFloat(4, readHoldingRegister[IN_FREQUENCY_REGISTER]);
+      // eeprom.writeFloat(8, readHoldingRegister[DO_THRESHOLD_REGISTER]);
+      // eeprom.writeFloat(12, readHoldingRegister[ABOVE_THESHOLD_REGISTER]);
+      // eeprom.writeFloat(16, readHoldingRegister[BELOW_THESHOLD_REGISTER]);
+      // eeprom.writeFloat(20, readHoldingRegister[TRANSITION_TIME_REGISTER]);
+      // eeprom.writeFloat(24, readHoldingRegister[PARAM_KP_PID_REGISTER]);
+      // eeprom.writeFloat(28, readHoldingRegister[PARAM_KI_PID_REGISTER]);
+      // eeprom.writeFloat(32, readHoldingRegister[PARAM_KD_PID_REGISTER]);
+      // eeprom.writeFloat(36, readHoldingRegister[PARAM_SP_PID_REGISTER]);
+      // eeprom.writeFloat(38, readHoldingRegister[PARAM_DO_QC_INPUT]);
     }
   }
 
   if (isSystemInitialize) {
+    static uint32_t systemTransitionTimer;
+    if (millis() - systemTransitionTimer >= readHoldingRegister[TRANSITION_TIME_REGISTER] * 1000) {
+      systemTransitionTimer = millis();
+      pid.calculate(readHoldingRegister[PARAM_SP_PID_REGISTER] * 1000, writeHoldingRegister[DO_REGISTER] * 1000);
+      writeHoldingRegister[OUT_FREQUENCY_REGISTER] = pid.getOutput();
+      if (writeHoldingRegister[OUT_FREQUENCY_REGISTER] < 20) writeHoldingRegister[OUT_FREQUENCY_REGISTER] = 20;
+      else if (writeHoldingRegister[OUT_FREQUENCY_REGISTER] > 40) writeHoldingRegister[OUT_FREQUENCY_REGISTER] = 40;
+      writeHoldingRegister[PWM_OUT_REGISTER] = map(writeHoldingRegister[OUT_FREQUENCY_REGISTER], 0, 50, 0, 255);
+      analogWrite(PWM_OUTPUT_PIN, writeHoldingRegister[PWM_OUT_REGISTER]);
+    }
+
     // static uint32_t systemTransitionTimer;
     // if (millis() - systemTransitionTimer >= readHoldingRegister[TRANSITION_TIME_REGISTER] * 1000) {
     //   systemTransitionTimer = millis();
@@ -170,8 +197,6 @@ void loop() {
     // }
   }
 
-  writeHoldingRegister[DO_REGISTER] = 2.53;
-  writeHoldingRegister[OUT_FREQUENCY_REGISTER] = 37.5;
   writeHoldingRegister[EEPROM_WRITE_COUNT_REGISTER] = eeprom.getWriteCount();
   writeMultipleFloatsToRegisters(writeHoldingRegister, 1, WRITE_HOLDING_REGISTER_LEN);
 #if !IS_ARDUINO_BOARD && ENABLE_FIREBASE

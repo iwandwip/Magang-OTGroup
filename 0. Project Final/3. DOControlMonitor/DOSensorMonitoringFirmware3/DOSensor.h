@@ -27,3 +27,4 @@ const uint16_t DO_SENSOR_TABLE[41] = {
 void initSensorDO();
 void readSensorDO(float* _adcRawRead, float* _adcVoltage, float* _doSensorValue);
 int16_t convertDOToPercentage(float doValue, float maxDO);
+void calibrationDO();

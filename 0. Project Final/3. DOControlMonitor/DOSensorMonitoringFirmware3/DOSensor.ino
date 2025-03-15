@@ -31,9 +31,17 @@ void readSensorDO(float* adcRawRead, float* adcVoltage, float* doSensorValue) {
   *adcRawRead = filterAverageADC.getFilteredValue();
   filterLerpADC.update(*adcRawRead);
   *adcRawRead = filterLerpADC.getValue();
-  *adcVoltage = uint32_t(DO_SENSOR_VREF_MV) * *adcRawRead / DO_SENSOR_ADC_RES;
-  *doSensorValue = convertVoltageToDO(*adcVoltage, temperature) / 1000.f;
-  *adcVoltage /= 1000.f;
+
+  *adcVoltage = *adcRawRead * (ARDUINO_REFERENCE_VOLTAGE / ARDUINO_ADC_RESOLUTION);
+  *doSensorValue = *adcVoltage * (DO_RANGE_MAX / ARDUINO_REFERENCE_VOLTAGE);
+  *doSensorValue = *doSensorValue * readHoldingRegister[CALIBRATION_REGISTER];
+
+  *doSensorValue = *doSensorValue < 0.0 ? 0.0 : *doSensorValue;
+  *doSensorValue = *doSensorValue > *doSensorValue * 1.2 ? *doSensorValue * 1.2 : *doSensorValue;
+
+  // *adcVoltage = uint32_t(DO_SENSOR_VREF_MV) * *adcRawRead / DO_SENSOR_ADC_RES;
+  // *doSensorValue = convertVoltageToDO(*adcVoltage, temperature) / 1000.f;
+  // *adcVoltage /= 1000.f;
 }
 
 int16_t convertDOToPercentage(float doValue, float maxDO) {
@@ -49,4 +57,11 @@ int16_t convertVoltageToDO(uint32_t voltageReadMv, uint8_t tempCelcius) {
   uint16_t vSaturation = (int16_t)((int8_t)tempCelcius - CAL2_TEMPERATURE) * ((uint16_t)CAL1_VOLTAGE - CAL2_VOLTAGE) / ((uint8_t)CAL1_TEMPERATURE - CAL2_TEMPERATURE) + CAL2_VOLTAGE;
   return (voltageReadMv * DO_SENSOR_TABLE[tempCelcius] / vSaturation);
 #endif
+}
+
+void calibrationDO() {
+  writeHoldingRegister[VOLT_REGISTER] = writeHoldingRegister[ADC_REGISTER] * (ARDUINO_REFERENCE_VOLTAGE / ARDUINO_ADC_RESOLUTION);
+  writeHoldingRegister[DO_REGISTER] = writeHoldingRegister[VOLT_REGISTER] * (DO_RANGE_MAX / ARDUINO_REFERENCE_VOLTAGE);
+
+  readHoldingRegister[CALIBRATION_REGISTER] = readHoldingRegister[PARAM_DO_QC_INPUT] / writeHoldingRegister[DO_REGISTER];
 }

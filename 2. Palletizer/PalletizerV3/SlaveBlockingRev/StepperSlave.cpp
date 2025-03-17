@@ -102,21 +102,12 @@ void StepperSlave::processCommand(const String& data) {
     case CMD_ZERO:
       handleZeroCommand();
       break;
-    case CMD_PAUSE:
-      handlePauseCommand();
-      break;
-    case CMD_RESUME:
-      handleResumeCommand();
-      break;
-    case CMD_RESET:
-      handleResetCommand();
-      break;
     case CMD_SETSPEED:
       if (secondSeparator != -1) {
         handleSetSpeedCommand(data.substring(secondSeparator + 1));
       }
       break;
-    case CMD_START:
+    case CMD_RUN:
       if (secondSeparator != -1) {
         handleMoveCommand(data.substring(secondSeparator + 1));
       }
@@ -149,70 +140,6 @@ void StepperSlave::handleZeroCommand() {
   performHoming();
 
   sendFeedback("ZERO DONE");
-}
-
-void StepperSlave::handlePauseCommand() {
-  debugPrintln("SLAVE " + String(slaveId) + ": Executing PAUSE");
-
-  stepper.stop();
-  motorState = MOTOR_PAUSED;
-
-  setBrake(true);
-  isBrakeEngaged = true;
-
-  setEnable(false);
-  isEnableActive = false;
-
-  sendFeedback("PAUSE DONE");
-}
-
-void StepperSlave::handleResumeCommand() {
-  debugPrintln("SLAVE " + String(slaveId) + ": Executing RESUME");
-
-  if (motorState == MOTOR_PAUSED) {
-    if (stepper.distanceToGo() != 0) {
-      setBrake(false);
-      if (brakeReleaseDelay > 0) {
-        delay(brakeReleaseDelay);
-      }
-
-      setEnable(true);
-      if (enableReleaseDelay > 0) {
-        delay(enableReleaseDelay);
-      }
-
-      motorState = MOTOR_MOVING;
-    } else {
-      motorState = MOTOR_IDLE;
-    }
-  }
-
-  if (queuedMotionsCount > 0 && currentMotionIndex < queuedMotionsCount) {
-    setIndicator(true);
-  }
-
-  sendFeedback("RESUME DONE");
-}
-
-void StepperSlave::handleResetCommand() {
-  debugPrintln("SLAVE " + String(slaveId) + ": Executing RESET");
-
-  motorState = MOTOR_IDLE;
-  queuedMotionsCount = 0;
-  currentMotionIndex = 0;
-  stepper.stop();
-
-  setBrake(true);
-  isBrakeEngaged = true;
-
-  if (enPin != NOT_CONNECTED) {
-    setEnable(false);
-    isEnableActive = false;
-  }
-
-  setIndicator(false);
-
-  sendFeedback("RESET DONE");
 }
 
 void StepperSlave::handleMoveCommand(const String& params) {

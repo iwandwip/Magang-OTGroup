@@ -10,11 +10,8 @@ class PalletizerMaster {
 public:
   enum Command {
     CMD_NONE = 0,
-    CMD_START = 1,
+    CMD_RUN = 1,  // Renamed from CMD_START
     CMD_ZERO = 2,
-    CMD_PAUSE = 3,
-    CMD_RESUME = 4,
-    CMD_RESET = 5,
     CMD_SETSPEED = 6
   };
 

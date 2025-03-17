@@ -42,11 +42,8 @@
 #endif
 
 // Command reference: z;1;100;2000;d2000;500;1000
-// CMD_START    = 1 // z;1;200    - Start movement to position 200
+// CMD_RUN      = 1 // z;1;200    - Start movement to position 200
 // CMD_ZERO     = 2 // z;2        - Home the axis
-// CMD_PAUSE    = 3 // z;3        - Pause movement
-// CMD_RESUME   = 4 // z;4        - Resume movement
-// CMD_RESET    = 5 // z;5        - Reset all motion
 // CMD_SETSPEED = 6 // z;6;2000   - Set speed to 2000
 
 StepperSlave slave(

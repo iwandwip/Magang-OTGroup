@@ -4,7 +4,7 @@
 #define ARDUINO_REFERENCE_VOLTAGE 3.3
 #define ARDUINO_ADC_RESOLUTION 1023
 #define DO_RANGE_MIN 0.0
-#define DO_RANGE_MAX 5.0
+#define DO_RANGE_MAX 20.0
 
 // === === === === === === === === === === === === === === === ===
 

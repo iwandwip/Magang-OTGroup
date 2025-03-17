@@ -10,7 +10,7 @@ AccelStepper stepper(AccelStepper::DRIVER, clkPin, cwPin);
 
 void setup() {
   Serial.begin(9600);
-  const float maxSpeed = 4000.0;
+  const float maxSpeed = 8000.0;
   const float accelRatio = 0.6;
   stepper.setMaxSpeed(maxSpeed);
   stepper.setAcceleration(maxSpeed * accelRatio);
@@ -37,8 +37,14 @@ void loop() {
     Serial.print(pos);
     Serial.println();
 
+    static uint32_t startTime, endTime;
+    startTime = millis();
+
     stepper.moveTo(pos);
     stepper.runToPosition();
+    
+    endTime = millis();
+    Serial.println((endTime - startTime) / 1000.f);
 
     // delay(1500);
     // digitalWrite(enPin, LOW);

@@ -24,6 +24,7 @@ EEPROMLibESP8266 eeprom;
 uint8_t readCoil[READ_COIL_LEN];
 float writeHoldingRegister[WRITE_HOLDING_REGISTER_LEN];
 float readHoldingRegister[READ_HOLDING_REGISTER_LEN];
+float calibrationFactor = 1.0;
 float calibrationInputQC = 0.0;
 float calibrationInputQCBefore = 0.0;
 
@@ -61,7 +62,8 @@ void setup() {
   readHoldingRegister[PARAM_KI_PID_REGISTER] = eeprom.readFloat(28);
   readHoldingRegister[PARAM_KD_PID_REGISTER] = eeprom.readFloat(32);
   readHoldingRegister[PARAM_SP_PID_REGISTER] = eeprom.readFloat(36);
-  readHoldingRegister[PARAM_DO_QC_INPUT] = eeprom.readFloat(38);
+  readHoldingRegister[PARAM_DO_QC_INPUT_REGISTER] = eeprom.readFloat(40);
+  readHoldingRegister[PARAM_DO_CAL_FACTOR_REGISTER] = eeprom.readFloat(44);
 
   bool isAnyNaN =
     isnan(readHoldingRegister[CALIBRATION_REGISTER])
@@ -74,10 +76,11 @@ void setup() {
     || isnan(readHoldingRegister[PARAM_KI_PID_REGISTER])
     || isnan(readHoldingRegister[PARAM_KD_PID_REGISTER])
     || isnan(readHoldingRegister[PARAM_SP_PID_REGISTER])
-    || isnan(readHoldingRegister[PARAM_DO_QC_INPUT]);
+    || isnan(readHoldingRegister[PARAM_DO_QC_INPUT_REGISTER])
+    || isnan(readHoldingRegister[PARAM_DO_CAL_FACTOR_REGISTER]);
 
   if (isAnyNaN) {
-    
+    eeprom.writeFloat(0, 1.0);    // CALIBRATION_REGISTER
     eeprom.writeFloat(4, 0.0);    // IN_FREQUENCY_REGISTER
     eeprom.writeFloat(8, 2.0);    // DO_THRESHOLD_REGISTER
     eeprom.writeFloat(12, 25.0);  // ABOVE_THESHOLD_REGISTER
@@ -87,7 +90,8 @@ void setup() {
     eeprom.writeFloat(28, 0.3);   // PARAM_KI_PID_REGISTER
     eeprom.writeFloat(32, 0.2);   // PARAM_KD_PID_REGISTER
     eeprom.writeFloat(36, 2.5);   // PARAM_SP_PID_REGISTER
-    eeprom.writeFloat(38, 2.5);   // PARAM_DO_QC_INPUT
+    eeprom.writeFloat(40, 2.5);   // PARAM_DO_QC_INPUT_REGISTER
+    eeprom.writeFloat(44, 1.0);   // PARAM_DO_CAL_FACTOR_REGISTER
   }
 
   delay(1000);
@@ -118,13 +122,13 @@ void loop() {
     writeHoldingRegister[ADC_REGISTER] = rawADCSensor;
     writeHoldingRegister[VOLT_REGISTER] = rawVoltSensor;
     writeHoldingRegister[DO_REGISTER] = rawDOSensor;
-    
+
     timerHoldingRegister = millis();
   }
 
   readCoil[AUTO_COIL] = readSingleCoil(2);
   readMultipleFloatsFromRegisters(readHoldingRegister, 101, READ_HOLDING_REGISTER_LEN);
-  calibrationInputQC = readHoldingRegister[PARAM_DO_QC_INPUT];
+  calibrationInputQC = readHoldingRegister[PARAM_DO_QC_INPUT_REGISTER];
   if (calibrationInputQC != calibrationInputQCBefore) {
     calibrationInputQCBefore = calibrationInputQC;
     calibrationDO();
@@ -150,23 +154,27 @@ void loop() {
     readHoldingRegister[PARAM_KI_PID_REGISTER] = eeprom.readFloat(28);
     readHoldingRegister[PARAM_KD_PID_REGISTER] = eeprom.readFloat(32);
     readHoldingRegister[PARAM_SP_PID_REGISTER] = eeprom.readFloat(36);
-    readHoldingRegister[PARAM_DO_QC_INPUT] = eeprom.readFloat(38);
+    readHoldingRegister[PARAM_DO_QC_INPUT_REGISTER] = eeprom.readFloat(40);
+    readHoldingRegister[PARAM_DO_CAL_FACTOR_REGISTER] = eeprom.readFloat(44);
 
     writeMultipleFloatsToRegisters(readHoldingRegister, 101, READ_HOLDING_REGISTER_LEN);
+    Serial.println("| Wait");
   } else {
     if (eepromEnableWrite) {
       isSystemInitialize = true;
-      // eeprom.writeFloat(0, readHoldingRegister[CALIBRATION_REGISTER]);
-      // eeprom.writeFloat(4, readHoldingRegister[IN_FREQUENCY_REGISTER]);
-      // eeprom.writeFloat(8, readHoldingRegister[DO_THRESHOLD_REGISTER]);
-      // eeprom.writeFloat(12, readHoldingRegister[ABOVE_THESHOLD_REGISTER]);
-      // eeprom.writeFloat(16, readHoldingRegister[BELOW_THESHOLD_REGISTER]);
-      // eeprom.writeFloat(20, readHoldingRegister[TRANSITION_TIME_REGISTER]);
-      // eeprom.writeFloat(24, readHoldingRegister[PARAM_KP_PID_REGISTER]);
-      // eeprom.writeFloat(28, readHoldingRegister[PARAM_KI_PID_REGISTER]);
-      // eeprom.writeFloat(32, readHoldingRegister[PARAM_KD_PID_REGISTER]);
-      // eeprom.writeFloat(36, readHoldingRegister[PARAM_SP_PID_REGISTER]);
-      // eeprom.writeFloat(38, readHoldingRegister[PARAM_DO_QC_INPUT]);
+      eeprom.writeFloat(0, readHoldingRegister[CALIBRATION_REGISTER]);
+      eeprom.writeFloat(4, readHoldingRegister[IN_FREQUENCY_REGISTER]);
+      eeprom.writeFloat(8, readHoldingRegister[DO_THRESHOLD_REGISTER]);
+      eeprom.writeFloat(12, readHoldingRegister[ABOVE_THESHOLD_REGISTER]);
+      eeprom.writeFloat(16, readHoldingRegister[BELOW_THESHOLD_REGISTER]);
+      eeprom.writeFloat(20, readHoldingRegister[TRANSITION_TIME_REGISTER]);
+      eeprom.writeFloat(24, readHoldingRegister[PARAM_KP_PID_REGISTER]);
+      eeprom.writeFloat(28, readHoldingRegister[PARAM_KI_PID_REGISTER]);
+      eeprom.writeFloat(32, readHoldingRegister[PARAM_KD_PID_REGISTER]);
+      eeprom.writeFloat(36, readHoldingRegister[PARAM_SP_PID_REGISTER]);
+      eeprom.writeFloat(40, readHoldingRegister[PARAM_DO_QC_INPUT_REGISTER]);
+      eeprom.writeFloat(44, readHoldingRegister[PARAM_DO_CAL_FACTOR_REGISTER]);
+      serialDebugging();
     }
   }
 
@@ -202,5 +210,4 @@ void loop() {
 #if !IS_ARDUINO_BOARD && ENABLE_FIREBASE
   wifiTaskLoop();
 #endif
-  serialDebugging();
 }

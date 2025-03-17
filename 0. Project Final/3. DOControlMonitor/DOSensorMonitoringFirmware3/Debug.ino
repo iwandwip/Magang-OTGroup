@@ -34,7 +34,9 @@ void serialDebugging() {
   Serial.print("| sp: ");
   Serial.print(readHoldingRegister[PARAM_SP_PID_REGISTER]);
   Serial.print("| do: ");
-  Serial.print(readHoldingRegister[PARAM_DO_QC_INPUT]);
+  Serial.print(readHoldingRegister[PARAM_DO_QC_INPUT_REGISTER]);
+  Serial.print("| cf: ");
+  Serial.print(calibrationFactor);
 
   Serial.print("| Ct: ");
   Serial.print(eeprom.getWriteCount());

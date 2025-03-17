@@ -34,10 +34,10 @@ void readSensorDO(float* adcRawRead, float* adcVoltage, float* doSensorValue) {
 
   *adcVoltage = *adcRawRead * (ARDUINO_REFERENCE_VOLTAGE / ARDUINO_ADC_RESOLUTION);
   *doSensorValue = *adcVoltage * (DO_RANGE_MAX / ARDUINO_REFERENCE_VOLTAGE);
-  *doSensorValue = *doSensorValue * readHoldingRegister[CALIBRATION_REGISTER];
+  *doSensorValue = *doSensorValue * calibrationFactor;
 
   *doSensorValue = *doSensorValue < 0.0 ? 0.0 : *doSensorValue;
-  *doSensorValue = *doSensorValue > *doSensorValue * 1.2 ? *doSensorValue * 1.2 : *doSensorValue;
+  *doSensorValue = *doSensorValue > 20.0 ? 20.0 : *doSensorValue;
 
   // *adcVoltage = uint32_t(DO_SENSOR_VREF_MV) * *adcRawRead / DO_SENSOR_ADC_RES;
   // *doSensorValue = convertVoltageToDO(*adcVoltage, temperature) / 1000.f;
@@ -63,5 +63,6 @@ void calibrationDO() {
   writeHoldingRegister[VOLT_REGISTER] = writeHoldingRegister[ADC_REGISTER] * (ARDUINO_REFERENCE_VOLTAGE / ARDUINO_ADC_RESOLUTION);
   writeHoldingRegister[DO_REGISTER] = writeHoldingRegister[VOLT_REGISTER] * (DO_RANGE_MAX / ARDUINO_REFERENCE_VOLTAGE);
 
-  readHoldingRegister[CALIBRATION_REGISTER] = readHoldingRegister[PARAM_DO_QC_INPUT] / writeHoldingRegister[DO_REGISTER];
+  calibrationFactor = readHoldingRegister[PARAM_DO_QC_INPUT_REGISTER] / writeHoldingRegister[DO_REGISTER];
+  calibrationFactor = (isnan(calibrationFactor) || isinf(calibrationFactor)) ? 1.0 : calibrationFactor;
 }

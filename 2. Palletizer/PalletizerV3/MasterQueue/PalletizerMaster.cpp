@@ -42,6 +42,13 @@ void PalletizerMaster::update() {
         waitingForCompletion = false;
         bluetoothSerial.println("DONE");
         debugSerial.println("MASTER: All slaves completed sequence");
+
+        if (!isQueueEmpty()) {
+          debugSerial.println("MASTER: Processing next command from queue");
+          processNextCommand();
+        } else if (!requestNextCommand) {
+          requestCommand();
+        }
       }
     }
   }
@@ -61,17 +68,35 @@ void PalletizerMaster::onSlaveDataWrapper(const String& data) {
 
 void PalletizerMaster::onBluetoothData(const String& data) {
   debugSerial.println("ANDROID→MASTER: " + data);
-  String upperData = data;
-  upperData.trim();
-  upperData.toUpperCase();
+  if (requestNextCommand) {
+    requestNextCommand = false;
+    if (data != "END_QUEUE") {
+      addToQueue(data);
+      if (!isQueueFull()) {
+        requestCommand();
+      }
+    }
+    return;
+  }
 
-  if (upperData == "ZERO") {
-    processStandardCommand(upperData);
-  } else if (upperData.startsWith("SPEED;")) {
-    processSpeedCommand(data);
+  if (!sequenceRunning && !waitingForCompletion) {
+    String upperData = data;
+    upperData.trim();
+    upperData.toUpperCase();
+
+    if (upperData == "ZERO") {
+      processStandardCommand(upperData);
+    } else if (upperData.startsWith("SPEED;")) {
+      processSpeedCommand(data);
+    } else {
+      processCoordinateData(data);
+    }
+
+    if (!isQueueFull()) {
+      requestCommand();
+    }
   } else {
-    // Process coordinate data directly without requiring START command
-    processCoordinateData(data);
+    addToQueue(data);
   }
 }
 
@@ -131,6 +156,13 @@ void PalletizerMaster::onSlaveData(const String& data) {
       waitingForCompletion = false;
       bluetoothSerial.println("DONE");
       debugSerial.println("MASTER: All slaves completed sequence (based on message)");
+
+      if (!isQueueEmpty()) {
+        debugSerial.println("MASTER: Processing next command from queue");
+        processNextCommand();
+      } else if (!requestNextCommand) {
+        requestCommand();
+      }
     }
   }
 }
@@ -177,4 +209,76 @@ bool PalletizerMaster::checkAllSlavesCompleted() {
     return false;
   }
   return digitalRead(indicatorPin) == HIGH;
+}
+
+void PalletizerMaster::addToQueue(const String& command) {
+  if (isQueueFull()) {
+    debugSerial.println("MASTER: Command queue is full, dropping command: " + command);
+    return;
+  }
+
+  commandQueue[queueTail] = command;
+  queueTail = (queueTail + 1) % MAX_QUEUE_SIZE;
+  queueSize++;
+
+  debugSerial.println("MASTER: Added command to queue: " + command + " (Queue size: " + String(queueSize) + ")");
+}
+
+String PalletizerMaster::getFromQueue() {
+  if (isQueueEmpty()) {
+    return "";
+  }
+
+  String command = commandQueue[queueHead];
+  queueHead = (queueHead + 1) % MAX_QUEUE_SIZE;
+  queueSize--;
+
+  debugSerial.println("MASTER: Processing command from queue: " + command + " (Queue size: " + String(queueSize) + ")");
+
+  return command;
+}
+
+bool PalletizerMaster::isQueueEmpty() {
+  return queueSize == 0;
+}
+
+bool PalletizerMaster::isQueueFull() {
+  return queueSize >= MAX_QUEUE_SIZE;
+}
+
+void PalletizerMaster::processNextCommand() {
+  if (isQueueEmpty()) {
+    debugSerial.println("MASTER: Command queue is empty");
+    return;
+  }
+
+  String command = getFromQueue();
+
+  // Process the command as before
+  String upperData = command;
+  upperData.trim();
+  upperData.toUpperCase();
+
+  if (upperData == "ZERO") {
+    processStandardCommand(upperData);
+  } else if (upperData.startsWith("SPEED;")) {
+    processSpeedCommand(command);
+  } else {
+    // Process coordinate data
+    processCoordinateData(command);
+  }
+
+  // If the queue is getting low and we're not waiting for completion,
+  // request more commands
+  if (queueSize < 3 && !waitingForCompletion && !sequenceRunning) {
+    requestCommand();
+  }
+}
+
+void PalletizerMaster::requestCommand() {
+  if (!isQueueFull()) {
+    requestNextCommand = true;
+    bluetoothSerial.println("NEXT");  // Request next command from bluetooth
+    debugSerial.println("MASTER: Requesting next command");
+  }
 }

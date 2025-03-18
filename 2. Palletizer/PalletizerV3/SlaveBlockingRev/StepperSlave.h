@@ -24,7 +24,7 @@ class StepperSlave {
 public:
   enum CommandCode {
     CMD_NONE = 0,
-    CMD_RUN = 1,  // Renamed from CMD_START
+    CMD_RUN = 1,
     CMD_ZERO = 2,
     CMD_SETSPEED = 6
   };

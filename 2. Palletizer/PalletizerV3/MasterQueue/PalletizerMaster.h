@@ -10,7 +10,7 @@ class PalletizerMaster {
 public:
   enum Command {
     CMD_NONE = 0,
-    CMD_RUN = 1,  // Renamed from CMD_START
+    CMD_RUN = 1,  
     CMD_ZERO = 2,
     CMD_SETSPEED = 6
   };
@@ -37,6 +37,13 @@ private:
   bool indicatorEnabled;
   unsigned long lastCheckTime = 0;
 
+  static const int MAX_QUEUE_SIZE = 5;  
+  String commandQueue[MAX_QUEUE_SIZE];  
+  int queueHead = 0;                    
+  int queueTail = 0;                    
+  int queueSize = 0;                    
+  bool requestNextCommand = false;      
+
   void onBluetoothData(const String& data);
   void onSlaveData(const String& data);
 
@@ -47,6 +54,13 @@ private:
   void sendCommandToAllSlaves(Command cmd);
   void parseCoordinateData(const String& data);
   bool checkAllSlavesCompleted();
+
+  void addToQueue(const String& command);
+  String getFromQueue();
+  bool isQueueEmpty();
+  bool isQueueFull();
+  void processNextCommand();
+  void requestCommand();
 };
 
 #endif

@@ -1,4 +1,3 @@
-#include "Arduino.h"
 #include "StepperSlave.h"
 
 StepperSlave* StepperSlave::instance = nullptr;
@@ -7,7 +6,7 @@ StepperSlave::StepperSlave(
   char id, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin,
   int brakePin, bool invertBrakeLogic, int indicatorPin, bool invertEnableLogic,
   unsigned long brakeReleaseDelayMs, unsigned long brakeEngageDelayMs,
-  unsigned long enableReleaseDelayMs, unsigned long enableEngageDelayMs, bool enableDebug)
+  unsigned long enableReleaseDelayMs, unsigned long enableEngageDelayMs)
   : slaveId(id),
     masterCommSerial(rxPin, txPin),
     stepper(AccelStepper::DRIVER, clkPin, cwPin),
@@ -16,8 +15,7 @@ StepperSlave::StepperSlave(
     brakePin(brakePin),
     indicatorPin(indicatorPin),
     invertBrakeLogic(invertBrakeLogic),
-    invertEnableLogic(invertEnableLogic),
-    debugEnabled(enableDebug) {
+    invertEnableLogic(invertEnableLogic) {
 
   instance = this;
 
@@ -60,7 +58,7 @@ void StepperSlave::begin() {
   stepper.setCurrentPosition(0);
   stepper.setMinPulseWidth(100);
 
-  debugPrintln("SLAVE " + String(slaveId) + ": Sistem diinisialisasi");
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Sistem diinisialisasi");
 }
 
 void StepperSlave::update() {
@@ -78,7 +76,7 @@ void StepperSlave::onMasterDataWrapper(const String& data) {
 }
 
 void StepperSlave::onMasterData(const String& data) {
-  debugPrintln("MASTER→SLAVE: " + data);
+  DEBUG_PRINTLN("MASTER→SLAVE: " + data);
   processCommand(data);
 }
 
@@ -96,7 +94,7 @@ void StepperSlave::processCommand(const String& data) {
                   ? data.substring(firstSeparator + 1).toInt()
                   : data.substring(firstSeparator + 1, secondSeparator).toInt();
 
-  debugPrintln("SLAVE " + String(slaveId) + ": Processing command " + String(cmdCode));
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Processing command " + String(cmdCode));
 
   switch (cmdCode) {
     case CMD_ZERO:
@@ -113,7 +111,7 @@ void StepperSlave::processCommand(const String& data) {
       }
       break;
     default:
-      debugPrintln("SLAVE " + String(slaveId) + ": Unknown command " + String(cmdCode));
+      DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Unknown command " + String(cmdCode));
       break;
   }
 }
@@ -121,7 +119,7 @@ void StepperSlave::processCommand(const String& data) {
 void StepperSlave::sendFeedback(const String& message) {
   String feedback = String(slaveId) + ";" + message;
   masterSerial.println(feedback);
-  debugPrintln("SLAVE→MASTER: " + feedback);
+  DEBUG_PRINTLN("SLAVE→MASTER: " + feedback);
 }
 
 void StepperSlave::reportPosition() {
@@ -130,7 +128,7 @@ void StepperSlave::reportPosition() {
 }
 
 void StepperSlave::handleZeroCommand() {
-  debugPrintln("SLAVE " + String(slaveId) + ": Executing ZERO (Homing)");
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Executing ZERO (Homing)");
 
   motorState = MOTOR_IDLE;
   queuedMotionsCount = 0;
@@ -157,12 +155,10 @@ void StepperSlave::handleMoveCommand(const String& params) {
 void StepperSlave::handleSetSpeedCommand(const String& params) {
   float newSpeed = params.toFloat();
   if (newSpeed > 0) {
-    if (debugEnabled) {
-      debugSerial.print("SLAVE ");
-      debugSerial.print(slaveId);
-      debugSerial.print(": Setting speed to ");
-      debugSerial.println(newSpeed);
-    }
+    DEBUG_PRINT("SLAVE ");
+    DEBUG_PRINT(slaveId);
+    DEBUG_PRINT(": Setting speed to ");
+    DEBUG_PRINTLN(newSpeed);
 
     maxSpeed = newSpeed;
     stepper.setMaxSpeed(maxSpeed);
@@ -172,17 +168,15 @@ void StepperSlave::handleSetSpeedCommand(const String& params) {
 
     sendFeedback("SPEED SET TO " + String(maxSpeed));
   } else {
-    if (debugEnabled) {
-      debugSerial.print("SLAVE ");
-      debugSerial.print(slaveId);
-      debugSerial.println(": Invalid speed value");
-    }
+    DEBUG_PRINT("SLAVE ");
+    DEBUG_PRINT(slaveId);
+    DEBUG_PRINTLN(": Invalid speed value");
     sendFeedback("INVALID SPEED VALUE");
   }
 }
 
 void StepperSlave::parsePositionSequence(const String& params) {
-  debugPrintln("SLAVE " + String(slaveId) + ": Parsing position sequence: " + params);
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Parsing position sequence: " + params);
 
   int semicolonPos = -1;
   int startPos = 0;
@@ -194,7 +188,7 @@ void StepperSlave::parsePositionSequence(const String& params) {
     String param = (semicolonPos == -1) ? params.substring(startPos) : params.substring(startPos, semicolonPos);
     param.trim();
 
-    debugPrintln("SLAVE " + String(slaveId) + ": Parsing parameter: " + param);
+    DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Parsing parameter: " + param);
 
     if (queuedMotionsCount < MAX_MOTIONS) {
       motionQueue[queuedMotionsCount].speed = maxSpeed;
@@ -206,14 +200,14 @@ void StepperSlave::parsePositionSequence(const String& params) {
         motionQueue[queuedMotionsCount].position = 0;
         motionQueue[queuedMotionsCount].isDelayOnly = true;
 
-        debugPrintln("SLAVE " + String(slaveId) + ": Queueing delay " + String(queuedMotionsCount) + " - Delay: " + String(delayValue) + "ms");
+        DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Queueing delay " + String(queuedMotionsCount) + " - Delay: " + String(delayValue) + "ms");
       } else {
         long position = param.toInt();
         motionQueue[queuedMotionsCount].position = position;
         motionQueue[queuedMotionsCount].delayMs = 0;
         motionQueue[queuedMotionsCount].isDelayOnly = false;
 
-        debugPrintln("SLAVE " + String(slaveId) + ": Queueing position " + String(queuedMotionsCount) + " - Pos: " + String(position));
+        DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Queueing position " + String(queuedMotionsCount) + " - Pos: " + String(position));
       }
 
       queuedMotionsCount++;
@@ -222,7 +216,7 @@ void StepperSlave::parsePositionSequence(const String& params) {
     startPos = semicolonPos + 1;
   } while (semicolonPos != -1 && startPos < params.length() && queuedMotionsCount < MAX_MOTIONS);
 
-  debugPrintln("SLAVE " + String(slaveId) + ": Total queued motions: " + String(queuedMotionsCount));
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Total queued motions: " + String(queuedMotionsCount));
 }
 
 void StepperSlave::handleMotion() {
@@ -230,7 +224,7 @@ void StepperSlave::handleMotion() {
 
   if (motorState == MOTOR_DELAYING) {
     if (millis() - delayStartTime >= motionQueue[currentMotionIndex].delayMs) {
-      debugPrintln("SLAVE " + String(slaveId) + ": Delay completed");
+      DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Delay completed");
       motorState = MOTOR_IDLE;
       motionQueue[currentMotionIndex].completed = true;
 
@@ -315,7 +309,7 @@ void StepperSlave::executeCurrentMotion() {
 }
 
 void StepperSlave::performHoming() {
-  debugPrintln("SLAVE " + String(slaveId) + ": Starting homing sequence");
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Starting homing sequence");
   setIndicator(true);
 
   float originalSpeed = stepper.maxSpeed();
@@ -333,7 +327,7 @@ void StepperSlave::performHoming() {
   int count = 20000;
 
   if (digitalRead(sensorPin) == HIGH) {
-    debugPrintln("SLAVE " + String(slaveId) + ": Already in sensor area, moving out first");
+    DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Already in sensor area, moving out first");
     stepper.move(count);
     while (digitalRead(sensorPin) == HIGH && stepper.distanceToGo() != 0) {
       stepper.run();
@@ -342,14 +336,14 @@ void StepperSlave::performHoming() {
     if (stepper.distanceToGo() != 0) {
       stepper.stop();
       stepper.setCurrentPosition(stepper.currentPosition());
-      debugPrintln("SLAVE " + String(slaveId) + ": Moving back to sensor");
+      DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Moving back to sensor");
       stepper.move(-count);
       while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
         stepper.run();
       }
     }
   } else {
-    debugPrintln("SLAVE " + String(slaveId) + ": Outside sensor area, moving to sensor");
+    DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Outside sensor area, moving to sensor");
     stepper.move(-count);
     while (digitalRead(sensorPin) == LOW && stepper.distanceToGo() != 0) {
       stepper.run();
@@ -357,16 +351,16 @@ void StepperSlave::performHoming() {
   }
 
   stepper.stop();
-  debugPrintln("SLAVE " + String(slaveId) + ": Sensor detected");
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Sensor detected");
 
   distance = stepper.distanceToGo();
   stepper.runToPosition();
 
-  debugPrintln("SLAVE " + String(slaveId) + ": Correcting overshot by " + String(distance) + " steps");
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Correcting overshot by " + String(distance) + " steps");
   stepper.move(-distance);
   stepper.runToPosition();
 
-  debugPrintln("SLAVE " + String(slaveId) + ": Setting home position (0)");
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Setting home position (0)");
   stepper.setCurrentPosition(0);
 
   stepper.setMaxSpeed(originalSpeed);
@@ -381,7 +375,7 @@ void StepperSlave::performHoming() {
 
   setIndicator(false);
 
-  debugPrintln("SLAVE " + String(slaveId) + ": Homing completed");
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Homing completed");
 }
 
 void StepperSlave::setBrake(bool engaged) {
@@ -444,17 +438,5 @@ void StepperSlave::setEnableWithDelay(bool active) {
 void StepperSlave::setIndicator(bool active) {
   if (indicatorPin != NOT_CONNECTED) {
     digitalWrite(indicatorPin, active ? LOW : HIGH);
-  }
-}
-
-void StepperSlave::debugPrint(const String& message) {
-  if (debugEnabled) {
-    debugSerial.print(message);
-  }
-}
-
-void StepperSlave::debugPrintln(const String& message) {
-  if (debugEnabled) {
-    debugSerial.println(message);
   }
 }

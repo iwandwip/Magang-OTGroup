@@ -21,12 +21,12 @@ void PalletizerMaster::begin() {
 
   if (indicatorEnabled) {
     pinMode(indicatorPin, INPUT_PULLUP);
-    debugSerial.println("MASTER: Indicator pin enabled on pin " + String(indicatorPin));
+    DEBUG_PRINTLN("MASTER: Indicator pin enabled on pin " + String(indicatorPin));
   } else {
-    debugSerial.println("MASTER: Indicator pin disabled");
+    DEBUG_PRINTLN("MASTER: Indicator pin disabled");
   }
 
-  debugSerial.println("MASTER: System initialized");
+  DEBUG_PRINTLN("MASTER: System initialized");
 }
 
 void PalletizerMaster::update() {
@@ -41,10 +41,10 @@ void PalletizerMaster::update() {
         sequenceRunning = false;
         waitingForCompletion = false;
         bluetoothSerial.println("DONE");
-        debugSerial.println("MASTER: All slaves completed sequence");
+        DEBUG_PRINTLN("MASTER: All slaves completed sequence");
 
         if (!isQueueEmpty()) {
-          debugSerial.println("MASTER: Processing next command from queue");
+          DEBUG_PRINTLN("MASTER: Processing next command from queue");
           processNextCommand();
         } else if (!requestNextCommand) {
           requestCommand();
@@ -67,7 +67,7 @@ void PalletizerMaster::onSlaveDataWrapper(const String& data) {
 }
 
 void PalletizerMaster::onBluetoothData(const String& data) {
-  debugSerial.println("ANDROID→MASTER: " + data);
+  DEBUG_PRINTLN("ANDROID→MASTER: " + data);
   if (requestNextCommand) {
     requestNextCommand = false;
     if (data != "END_QUEUE") {
@@ -103,7 +103,7 @@ void PalletizerMaster::onBluetoothData(const String& data) {
 void PalletizerMaster::processStandardCommand(const String& command) {
   if (command == "ZERO") {
     currentCommand = CMD_ZERO;
-    debugSerial.println("MASTER: Command set to ZERO");
+    DEBUG_PRINTLN("MASTER: Command set to ZERO");
     sendCommandToAllSlaves(CMD_ZERO);
     sequenceRunning = true;
     waitingForCompletion = indicatorEnabled;
@@ -123,19 +123,19 @@ void PalletizerMaster::processSpeedCommand(const String& data) {
     String command = slaveId + ";" + String(CMD_SETSPEED) + ";" + speedValue;
 
     slaveSerial.println(command);
-    debugSerial.println("MASTER→SLAVE: " + command);
+    DEBUG_PRINTLN("MASTER→SLAVE: " + command);
   } else {
     const char* slaveIds[] = { "x", "y", "z", "t", "g" };
     for (int i = 0; i < 5; i++) {
       String command = String(slaveIds[i]) + ";" + String(CMD_SETSPEED) + ";" + params;
       slaveSerial.println(command);
-      debugSerial.println("MASTER→SLAVE: " + command);
+      DEBUG_PRINTLN("MASTER→SLAVE: " + command);
     }
   }
 }
 
 void PalletizerMaster::processCoordinateData(const String& data) {
-  debugSerial.println("MASTER: Processing coordinates");
+  DEBUG_PRINTLN("MASTER: Processing coordinates");
   currentCommand = CMD_RUN;  // Set to RUN when processing coordinates
   parseCoordinateData(data);
   sequenceRunning = true;
@@ -148,17 +148,17 @@ void PalletizerMaster::processCoordinateData(const String& data) {
 }
 
 void PalletizerMaster::onSlaveData(const String& data) {
-  debugSerial.println("SLAVE→MASTER: " + data);
+  DEBUG_PRINTLN("SLAVE→MASTER: " + data);
 
   if (!indicatorEnabled && waitingForCompletion && sequenceRunning) {
     if (data.indexOf("SEQUENCE COMPLETED") != -1) {
       sequenceRunning = false;
       waitingForCompletion = false;
       bluetoothSerial.println("DONE");
-      debugSerial.println("MASTER: All slaves completed sequence (based on message)");
+      DEBUG_PRINTLN("MASTER: All slaves completed sequence (based on message)");
 
       if (!isQueueEmpty()) {
-        debugSerial.println("MASTER: Processing next command from queue");
+        DEBUG_PRINTLN("MASTER: Processing next command from queue");
         processNextCommand();
       } else if (!requestNextCommand) {
         requestCommand();
@@ -172,7 +172,7 @@ void PalletizerMaster::sendCommandToAllSlaves(Command cmd) {
   for (int i = 0; i < 5; i++) {
     String command = String(slaveIds[i]) + ";" + String(cmd);
     slaveSerial.println(command);
-    debugSerial.println("MASTER→SLAVE: " + command);
+    DEBUG_PRINTLN("MASTER→SLAVE: " + command);
   }
 }
 
@@ -197,7 +197,7 @@ void PalletizerMaster::parseCoordinateData(const String& data) {
 
     String command = slaveId + ";" + String(currentCommand) + ";" + params;
     slaveSerial.println(command);
-    debugSerial.println("MASTER→SLAVE: " + command);
+    DEBUG_PRINTLN("MASTER→SLAVE: " + command);
 
     pos = data.indexOf(',', closePos);
     pos = (pos == -1) ? data.length() : pos + 1;
@@ -213,7 +213,7 @@ bool PalletizerMaster::checkAllSlavesCompleted() {
 
 void PalletizerMaster::addToQueue(const String& command) {
   if (isQueueFull()) {
-    debugSerial.println("MASTER: Command queue is full, dropping command: " + command);
+    DEBUG_PRINTLN("MASTER: Command queue is full, dropping command: " + command);
     return;
   }
 
@@ -221,7 +221,7 @@ void PalletizerMaster::addToQueue(const String& command) {
   queueTail = (queueTail + 1) % MAX_QUEUE_SIZE;
   queueSize++;
 
-  debugSerial.println("MASTER: Added command to queue: " + command + " (Queue size: " + String(queueSize) + ")");
+  DEBUG_PRINTLN("MASTER: Added command to queue: " + command + " (Queue size: " + String(queueSize) + ")");
 }
 
 String PalletizerMaster::getFromQueue() {
@@ -233,7 +233,7 @@ String PalletizerMaster::getFromQueue() {
   queueHead = (queueHead + 1) % MAX_QUEUE_SIZE;
   queueSize--;
 
-  debugSerial.println("MASTER: Processing command from queue: " + command + " (Queue size: " + String(queueSize) + ")");
+  DEBUG_PRINTLN("MASTER: Processing command from queue: " + command + " (Queue size: " + String(queueSize) + ")");
 
   return command;
 }
@@ -248,7 +248,7 @@ bool PalletizerMaster::isQueueFull() {
 
 void PalletizerMaster::processNextCommand() {
   if (isQueueEmpty()) {
-    debugSerial.println("MASTER: Command queue is empty");
+    DEBUG_PRINTLN("MASTER: Command queue is empty");
     return;
   }
 
@@ -268,17 +268,13 @@ void PalletizerMaster::processNextCommand() {
     processCoordinateData(command);
   }
 
-  // If the queue is getting low and we're not waiting for completion,
-  // request more commands
-  if (queueSize < 3 && !waitingForCompletion && !sequenceRunning) {
-    requestCommand();
-  }
+  requestCommand();
 }
 
 void PalletizerMaster::requestCommand() {
   if (!isQueueFull()) {
     requestNextCommand = true;
-    bluetoothSerial.println("NEXT");  // Request next command from bluetooth
-    debugSerial.println("MASTER: Requesting next command");
+    bluetoothSerial.println("NEXT");
+    DEBUG_PRINTLN("MASTER: Requesting next command");
   }
 }

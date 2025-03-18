@@ -3,6 +3,16 @@
 
 #define ENABLE_MODULE_NODEF_SERIAL_ENHANCED
 
+#define DEBUG 0
+
+#if DEBUG
+#define DEBUG_PRINT(x) debugSerial.print(x)
+#define DEBUG_PRINTLN(x) debugSerial.println(x)
+#else
+#define DEBUG_PRINT(x)
+#define DEBUG_PRINTLN(x)
+#endif
+
 #include "Kinematrix.h"
 #include "SoftwareSerial.h"
 #include "AccelStepper.h"
@@ -59,8 +69,7 @@ public:
     unsigned long brakeReleaseDelayMs = 500,
     unsigned long brakeEngageDelayMs = 1500,
     unsigned long enableReleaseDelayMs = 500,
-    unsigned long enableEngageDelayMs = 1500,
-    bool enableDebug = true);
+    unsigned long enableEngageDelayMs = 1500);
 
   void begin();
   void update();
@@ -81,7 +90,6 @@ private:
   int indicatorPin;
   bool invertBrakeLogic;
   bool invertEnableLogic;
-  bool debugEnabled;
 
   SoftwareSerial masterCommSerial;
   EnhancedSerial masterSerial;
@@ -128,9 +136,6 @@ private:
   void setEnable(bool active);
   void setEnableWithDelay(bool active);
   void setIndicator(bool active);
-
-  void debugPrint(const String& message);
-  void debugPrintln(const String& message);
 };
 
 #endif

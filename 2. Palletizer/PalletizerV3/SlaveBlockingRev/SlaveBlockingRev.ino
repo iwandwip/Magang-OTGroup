@@ -10,7 +10,6 @@
 #define TX_PIN 9
 #define SENSOR_PIN 6
 #define INDICATOR_PIN 13
-#define DEBUG_MODE false
 
 #if SLAVE_ADDR == X_AXIS
 #define EN_PIN 12
@@ -57,8 +56,7 @@ StepperSlave slave(
   INDICATOR_PIN,
   INVERT_ENABLE,
   BRAKE_RELEASE_DELAY, BRAKE_ENGAGE_DELAY,
-  ENABLE_RELEASE_DELAY, ENABLE_ENGAGE_DELAY,
-  DEBUG_MODE);
+  ENABLE_RELEASE_DELAY, ENABLE_ENGAGE_DELAY);
 
 void setup() {
   slave.begin();

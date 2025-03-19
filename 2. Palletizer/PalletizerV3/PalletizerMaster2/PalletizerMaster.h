@@ -25,6 +25,13 @@ public:
     CMD_SETSPEED = 6
   };
 
+  enum SystemState {
+    STATE_IDLE = 0,
+    STATE_RUNNING = 1,
+    STATE_PAUSED = 2,
+    STATE_STOPPING = 3
+  };
+
   PalletizerMaster(int rxPin, int txPin, int indicatorPin = -1);
   void begin();
   void update();
@@ -40,6 +47,7 @@ private:
   EnhancedSerial debugSerial;
 
   Command currentCommand = CMD_NONE;
+  SystemState systemState = STATE_IDLE;
   bool sequenceRunning = false;
   bool waitingForCompletion = false;
 
@@ -60,6 +68,7 @@ private:
   void processStandardCommand(const String& command);
   void processSpeedCommand(const String& data);
   void processCoordinateData(const String& data);
+  void processSystemStateCommand(const String& command);
 
   void sendCommandToAllSlaves(Command cmd);
   void parseCoordinateData(const String& data);
@@ -71,6 +80,10 @@ private:
   bool isQueueFull();
   void processNextCommand();
   void requestCommand();
+  void clearQueue();
+
+  void setSystemState(SystemState newState);
+  void sendStateUpdate();
 };
 
 #endif

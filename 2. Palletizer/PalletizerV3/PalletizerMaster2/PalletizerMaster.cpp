@@ -106,60 +106,27 @@ void PalletizerMaster::onBluetoothData(const String& data) {
   }
 }
 
-void PalletizerMaster::processSystemStateCommand(const String& command) {
-  DEBUG_PRINTLN("MASTER: Processing system state command: " + command);
+void PalletizerMaster::onSlaveData(const String& data) {
+  DEBUG_PRINTLN("SLAVE→MASTER: " + data);
 
-  if (command == "IDLE") {
-    if (systemState == STATE_RUNNING || systemState == STATE_PAUSED) {
-      if (sequenceRunning) {
-        setSystemState(STATE_STOPPING);
-      } else {
+  if (!indicatorEnabled && waitingForCompletion && sequenceRunning) {
+    if (data.indexOf("SEQUENCE COMPLETED") != -1) {
+      sequenceRunning = false;
+      waitingForCompletion = false;
+      bluetoothSerial.println("DONE");
+      DEBUG_PRINTLN("MASTER: All slaves completed sequence (based on message)");
+
+      if (!isQueueEmpty() && systemState == STATE_RUNNING) {
+        DEBUG_PRINTLN("MASTER: Processing next command from queue");
+        processNextCommand();
+      } else if (isQueueEmpty() && systemState == STATE_RUNNING) {
+        setSystemState(STATE_IDLE);
+      } else if (systemState == STATE_STOPPING) {
         clearQueue();
         setSystemState(STATE_IDLE);
       }
-    } else {
-      setSystemState(STATE_IDLE);
-    }
-  } else if (command == "START") {
-    setSystemState(STATE_RUNNING);
-    if (!sequenceRunning && !waitingForCompletion && !isQueueEmpty()) {
-      processNextCommand();
-    }
-  } else if (command == "PAUSE") {
-    setSystemState(STATE_PAUSED);
-  } else if (command == "STOP") {
-    if (sequenceRunning) {
-      setSystemState(STATE_STOPPING);
-    } else {
-      clearQueue();
-      setSystemState(STATE_IDLE);
     }
   }
-}
-
-void PalletizerMaster::setSystemState(SystemState newState) {
-  if (systemState != newState) {
-    systemState = newState;
-    DEBUG_PRINTLN("MASTER: System state changed to " + String(systemState));
-    sendStateUpdate();
-
-    if (newState == STATE_RUNNING && !sequenceRunning && !waitingForCompletion && !isQueueEmpty()) {
-      processNextCommand();
-    }
-  }
-}
-
-void PalletizerMaster::sendStateUpdate() {
-  String stateStr;
-  switch (systemState) {
-    case STATE_IDLE: stateStr = "IDLE"; break;
-    case STATE_RUNNING: stateStr = "RUNNING"; break;
-    case STATE_PAUSED: stateStr = "PAUSED"; break;
-    case STATE_STOPPING: stateStr = "STOPPING"; break;
-    default: stateStr = "UNKNOWN"; break;
-  }
-  bluetoothSerial.println("STATE:" + stateStr);
-  DEBUG_PRINTLN("MASTER→ANDROID: STATE:" + stateStr);
 }
 
 void PalletizerMaster::processStandardCommand(const String& command) {
@@ -209,25 +176,33 @@ void PalletizerMaster::processCoordinateData(const String& data) {
   }
 }
 
-void PalletizerMaster::onSlaveData(const String& data) {
-  DEBUG_PRINTLN("SLAVE→MASTER: " + data);
+void PalletizerMaster::processSystemStateCommand(const String& command) {
+  DEBUG_PRINTLN("MASTER: Processing system state command: " + command);
 
-  if (!indicatorEnabled && waitingForCompletion && sequenceRunning) {
-    if (data.indexOf("SEQUENCE COMPLETED") != -1) {
-      sequenceRunning = false;
-      waitingForCompletion = false;
-      bluetoothSerial.println("DONE");
-      DEBUG_PRINTLN("MASTER: All slaves completed sequence (based on message)");
-
-      if (!isQueueEmpty() && systemState == STATE_RUNNING) {
-        DEBUG_PRINTLN("MASTER: Processing next command from queue");
-        processNextCommand();
-      } else if (isQueueEmpty() && systemState == STATE_RUNNING) {
-        setSystemState(STATE_IDLE);
-      } else if (systemState == STATE_STOPPING) {
+  if (command == "IDLE") {
+    if (systemState == STATE_RUNNING || systemState == STATE_PAUSED) {
+      if (sequenceRunning) {
+        setSystemState(STATE_STOPPING);
+      } else {
         clearQueue();
         setSystemState(STATE_IDLE);
       }
+    } else {
+      setSystemState(STATE_IDLE);
+    }
+  } else if (command == "START") {
+    setSystemState(STATE_RUNNING);
+    if (!sequenceRunning && !waitingForCompletion && !isQueueEmpty()) {
+      processNextCommand();
+    }
+  } else if (command == "PAUSE") {
+    setSystemState(STATE_PAUSED);
+  } else if (command == "STOP") {
+    if (sequenceRunning) {
+      setSystemState(STATE_STOPPING);
+    } else {
+      clearQueue();
+      setSystemState(STATE_IDLE);
     }
   }
 }
@@ -303,13 +278,6 @@ String PalletizerMaster::getFromQueue() {
   return command;
 }
 
-void PalletizerMaster::clearQueue() {
-  queueHead = 0;
-  queueTail = 0;
-  queueSize = 0;
-  DEBUG_PRINTLN("MASTER: Command queue cleared");
-}
-
 bool PalletizerMaster::isQueueEmpty() {
   return queueSize == 0;
 }
@@ -350,4 +318,36 @@ void PalletizerMaster::requestCommand() {
     bluetoothSerial.println("NEXT");
     DEBUG_PRINTLN("MASTER: Requesting next command");
   }
+}
+
+void PalletizerMaster::clearQueue() {
+  queueHead = 0;
+  queueTail = 0;
+  queueSize = 0;
+  DEBUG_PRINTLN("MASTER: Command queue cleared");
+}
+
+void PalletizerMaster::setSystemState(SystemState newState) {
+  if (systemState != newState) {
+    systemState = newState;
+    DEBUG_PRINTLN("MASTER: System state changed to " + String(systemState));
+    sendStateUpdate();
+
+    if (newState == STATE_RUNNING && !sequenceRunning && !waitingForCompletion && !isQueueEmpty()) {
+      processNextCommand();
+    }
+  }
+}
+
+void PalletizerMaster::sendStateUpdate() {
+  String stateStr;
+  switch (systemState) {
+    case STATE_IDLE: stateStr = "IDLE"; break;
+    case STATE_RUNNING: stateStr = "RUNNING"; break;
+    case STATE_PAUSED: stateStr = "PAUSED"; break;
+    case STATE_STOPPING: stateStr = "STOPPING"; break;
+    default: stateStr = "UNKNOWN"; break;
+  }
+  bluetoothSerial.println("STATE:" + stateStr);
+  DEBUG_PRINTLN("MASTER→ANDROID: STATE:" + stateStr);
 }

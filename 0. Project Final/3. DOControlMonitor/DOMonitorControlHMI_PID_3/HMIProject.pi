@@ -11,7 +11,7 @@
 		<ServerSet ServerAddr="hmi.weconcloud.com" />
 		<DDNSSet UseDDNS="0" />
 		<Extend GotoBackSetType="2" PushTime="5" BackSetPsw="" IsAudio="0" IsKeyBoard="0" IsShortcutKey="0" IsCamera="0" UseTTF="1" IsUsbPopScreen="0" IsPicCompress="0" IsFtpServer="0" FtpServerPwd="" IsPacketSVG="1" IsMultiLink="0" MultiType="0" />
-		<BaseSet IsProjBackup="0" StorePattern="0" AlarmPath="0" Background="1200" AlarmScrSave="0" JianGe="0" OsLanguage="0" IsScrIdVar="0" ScrIdWordAddr="" CurScrIdAddr="" SysLen="0" IsScrFast="0" IsUDKeyboard="0" IsNShowPOPUP="0" IsEncrypt="0" IsuseTTS="0" IsUseAuthority="0" IsUseOptLogFunc="0" ChangeTime="0" nWallId="1" FloatHiLowReverse="0" HMINAME="" ProtectScreen="0" ProtectScreenTime="10" ProtectScreenNo="0" IsShowNC="0" IsHighWord="0" IsShowCursor="0" IsDownValid="0" HeadLang="1" UseScrSaver="0" ScrSaverTime="1" ScrSaverType="0" />
+		<BaseSet IsProjBackup="0" StorePattern="0" AlarmPath="0" Background="-1" AlarmScrSave="0" JianGe="0" OsLanguage="0" IsScrIdVar="0" ScrIdWordAddr="" CurScrIdAddr="" SysLen="0" IsScrFast="0" IsUDKeyboard="0" IsNShowPOPUP="0" IsEncrypt="0" IsuseTTS="0" IsUseAuthority="0" IsUseOptLogFunc="0" ChangeTime="0" nWallId="1" FloatHiLowReverse="0" HMINAME="" ProtectScreen="0" ProtectScreenTime="10" ProtectScreenNo="0" IsShowNC="0" IsHighWord="0" IsShowCursor="0" IsDownValid="0" HeadLang="1" UseScrSaver="0" ScrSaverTime="1" ScrSaverType="0" />
 		<DataSourceSet UseDataSource="0" DataSourceName="" SQLDataFilePath="0" SQLDataFileType="0" SQLDataGroupNum="1" />
 	</SysSet>
 	<ScreenSet>

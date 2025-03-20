@@ -47,7 +47,7 @@
 	<PartInfo PartType="Numeric" PartName="NUM_0" PartClassifyType="InputAndShow" PartID="0_NUM_0">
 		<General Desc="NUM_0" Area="246 178 364 237" CharSize="2014141414141414" WordAddr="4113" Fast="0" nuCount="1" HighLowChange="0" IsInput="1" WriteAddr="4113" KbdScreen="1000" IsPopKeyBrod="0" FigureFile="" IsKeyBoardRemark="0" LaStartPt="0 0" BorderColor="0xf7e7ad 0" LaFrnColor="0x0 0" BgColor="0xfdf0c4 0" BmpIndex="-1" IsHideNum="0" HighZeroPad="0" IsShowPwd="0" ZeroNoDisplay="0" IsIndirectR="0" IsIndirectW="0" KbdContinue="0" KbdContinueNum="0" KbdContinueGroup="0" KbdContinueEnd="0" IsShowNaturalDecimals="0" Locking="0" />
 		<SVGColor svgfile="Rectangle\Rectangle0001.svg" dark="0x0 0" light="0x80ff80 0" hlight="0x0 0" shadow="0x0 0" shape="0x0 0" gstartcolor="0x0 0" gmidcolor="0x0 0" gendcolor="0x0 0" />
-		<DispFormat DispType="206" DigitCount="5 2" DataLimit="0206 05 02 -99999.99 99999.99" IsVar="0" Zoom="0" Mutiple="1.000000000000000" Round="0" IsInputLabelL="0" IsInputLabelR="0" IsInputDefault="0" bShowRange="0" IsVar1="0" ColorHText="0x0 0" ColorHBag="0x0 0" ColorLText="0x0 0" ColorLBag="0x0 0" UseOutRangeText="0" />
+		<DispFormat DispType="206" DigitCount="3 4" DataLimit="0206 03 04 -999.99 999.99" IsVar="0" Zoom="0" Mutiple="1.000000000000000" Round="0" IsInputLabelL="0" IsInputLabelR="0" IsInputDefault="0" bShowRange="0" IsVar1="0" ColorHText="0x0 0" ColorHBag="0x0 0" ColorLText="0x0 0" ColorLBag="0x0 0" UseOutRangeText="0" />
 		<MoveZoom DataFormatMZ="4" MutipleMZ="1.000000000000000" />
 		<TrigHide UseShowHide="0" HideType="0" IsHideAllTime="0" />
 		<Extension TouchState="1" Buzzer="1" IsCheck="0" AckTime="0" CtrlType="0" DataFormat="105" />
@@ -59,7 +59,7 @@
 	<PartInfo PartType="Numeric" PartName="NUM_1" PartClassifyType="InputAndShow" PartID="0_NUM_1">
 		<General Desc="NUM_0" Area="245 250 364 309" CharSize="2014141414141414" WordAddr="4115" Fast="0" nuCount="1" HighLowChange="0" IsInput="1" WriteAddr="4115" KbdScreen="1000" IsPopKeyBrod="0" FigureFile="" IsKeyBoardRemark="0" LaStartPt="0 0" BorderColor="0xf7e7ad 0" LaFrnColor="0x0 0" BgColor="0xfdf0c4 0" BmpIndex="-1" IsHideNum="0" HighZeroPad="0" IsShowPwd="0" ZeroNoDisplay="0" IsIndirectR="0" IsIndirectW="0" KbdContinue="0" KbdContinueNum="0" KbdContinueGroup="0" KbdContinueEnd="0" IsShowNaturalDecimals="0" Locking="0" />
 		<SVGColor svgfile="Rectangle\Rectangle0001.svg" dark="0x0 0" light="0x80ff80 0" hlight="0x0 0" shadow="0x0 0" shape="0x0 0" gstartcolor="0x0 0" gmidcolor="0x0 0" gendcolor="0x0 0" />
-		<DispFormat DispType="206" DigitCount="5 2" DataLimit="0206 05 02 -99999.99 99999.99" IsVar="0" Zoom="0" Mutiple="1.000000000000000" Round="0" IsInputLabelL="0" IsInputLabelR="0" IsInputDefault="0" bShowRange="0" IsVar1="0" ColorHText="0x0 0" ColorHBag="0x0 0" ColorLText="0x0 0" ColorLBag="0x0 0" UseOutRangeText="0" />
+		<DispFormat DispType="206" DigitCount="3 4" DataLimit="0206 03 04 -999.99 999.99" IsVar="0" Zoom="0" Mutiple="1.000000000000000" Round="0" IsInputLabelL="0" IsInputLabelR="0" IsInputDefault="0" bShowRange="0" IsVar1="0" ColorHText="0x0 0" ColorHBag="0x0 0" ColorLText="0x0 0" ColorLBag="0x0 0" UseOutRangeText="0" />
 		<MoveZoom DataFormatMZ="0" MutipleMZ="1.000000000000000" />
 		<TrigHide UseShowHide="0" HideType="0" IsHideAllTime="0" />
 		<Extension TouchState="1" Buzzer="1" IsCheck="0" AckTime="0" CtrlType="0" DataFormat="105" />
@@ -71,7 +71,7 @@
 	<PartInfo PartType="Numeric" PartName="NUM_2" PartClassifyType="InputAndShow" PartID="0_NUM_2">
 		<General Desc="NUM_0" Area="244 324 362 383" CharSize="2014141414141414" WordAddr="4117" Fast="0" nuCount="1" HighLowChange="0" IsInput="1" WriteAddr="4117" KbdScreen="1000" IsPopKeyBrod="0" FigureFile="" IsKeyBoardRemark="0" LaStartPt="0 0" BorderColor="0xf7e7ad 0" LaFrnColor="0x0 0" BgColor="0xfdf0c4 0" BmpIndex="-1" IsHideNum="0" HighZeroPad="0" IsShowPwd="0" ZeroNoDisplay="0" IsIndirectR="0" IsIndirectW="0" KbdContinue="0" KbdContinueNum="0" KbdContinueGroup="0" KbdContinueEnd="0" IsShowNaturalDecimals="0" Locking="0" />
 		<SVGColor svgfile="Rectangle\Rectangle0001.svg" dark="0x0 0" light="0x80ff80 0" hlight="0x0 0" shadow="0x0 0" shape="0x0 0" gstartcolor="0x0 0" gmidcolor="0x0 0" gendcolor="0x0 0" />
-		<DispFormat DispType="206" DigitCount="5 2" DataLimit="0206 05 02 -99999.99 99999.99" IsVar="0" Zoom="0" Mutiple="1.000000000000000" Round="0" IsInputLabelL="0" IsInputLabelR="0" IsInputDefault="0" bShowRange="0" IsVar1="0" ColorHText="0x0 0" ColorHBag="0x0 0" ColorLText="0x0 0" ColorLBag="0x0 0" UseOutRangeText="0" />
+		<DispFormat DispType="206" DigitCount="3 4" DataLimit="0206 03 04 -999.99 999.99" IsVar="0" Zoom="0" Mutiple="1.000000000000000" Round="0" IsInputLabelL="0" IsInputLabelR="0" IsInputDefault="0" bShowRange="0" IsVar1="0" ColorHText="0x0 0" ColorHBag="0x0 0" ColorLText="0x0 0" ColorLBag="0x0 0" UseOutRangeText="0" />
 		<MoveZoom DataFormatMZ="0" MutipleMZ="1.000000000000000" />
 		<TrigHide UseShowHide="0" HideType="0" IsHideAllTime="0" />
 		<Extension TouchState="1" Buzzer="1" IsCheck="0" AckTime="20" CtrlType="0" DataFormat="105" />

@@ -2,8 +2,9 @@
 #define PALLETIZER_MASTER_H
 
 #define ENABLE_MODULE_NODEF_SERIAL_ENHANCED
+#define ENABLE_MODULE_NODEF_DIGITAL_OUTPUT
 
-#define DEBUG 0
+#define DEBUG 1
 
 #if DEBUG
 #define DEBUG_PRINT(x) debugSerial.print(x)
@@ -32,6 +33,13 @@ public:
     STATE_STOPPING = 3
   };
 
+  enum LedIndicator {
+    LED_GREEN = 0,
+    LED_YELLOW = 1,
+    LED_RED = 2,
+    LED_OFF = 3,
+  };
+
   PalletizerMaster(int rxPin, int txPin, int indicatorPin = -1);
   void begin();
   void update();
@@ -45,6 +53,9 @@ private:
   EnhancedSerial bluetoothSerial;
   EnhancedSerial slaveSerial;
   EnhancedSerial debugSerial;
+
+  static const int MAX_LED_INDICATOR_SIZE = 3;
+  DigitalOut ledIndicator[MAX_LED_INDICATOR_SIZE];
 
   Command currentCommand = CMD_NONE;
   SystemState systemState = STATE_IDLE;
@@ -84,6 +95,7 @@ private:
 
   void setSystemState(SystemState newState);
   void sendStateUpdate(bool send = false);
+  void setOnLedIndicator(LedIndicator index);
 };
 
 #endif

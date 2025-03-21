@@ -3,7 +3,11 @@
 PalletizerMaster* PalletizerMaster::instance = nullptr;
 
 PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
-  : slaveCommSerial(rxPin, txPin), indicatorPin(indicatorPin) {
+  : slaveCommSerial(rxPin, txPin), indicatorPin(indicatorPin), ledIndicator{
+      DigitalOut(4, true),
+      DigitalOut(5, true),
+      DigitalOut(6, true),
+    } {
   instance = this;
   indicatorEnabled = (indicatorPin != -1);
 }
@@ -61,6 +65,10 @@ void PalletizerMaster::update() {
 
   if (systemState == STATE_STOPPING && !sequenceRunning && !waitingForCompletion) {
     setSystemState(STATE_IDLE);
+  }
+
+  for (int i = 0; i < MAX_LED_INDICATOR_SIZE; i++) {
+    ledIndicator[i].update();
   }
 }
 
@@ -342,14 +350,39 @@ void PalletizerMaster::setSystemState(SystemState newState) {
 void PalletizerMaster::sendStateUpdate(bool send) {
   String stateStr;
   switch (systemState) {
-    case STATE_IDLE: stateStr = "IDLE"; break;
-    case STATE_RUNNING: stateStr = "RUNNING"; break;
-    case STATE_PAUSED: stateStr = "PAUSED"; break;
-    case STATE_STOPPING: stateStr = "STOPPING"; break;
-    default: stateStr = "UNKNOWN"; break;
+    case STATE_IDLE:
+      setOnLedIndicator(LED_RED);
+      stateStr = "IDLE";
+      break;
+    case STATE_RUNNING:
+      setOnLedIndicator(LED_GREEN);
+      stateStr = "RUNNING";
+      break;
+    case STATE_PAUSED:
+      setOnLedIndicator(LED_YELLOW);
+      stateStr = "PAUSED";
+      break;
+    case STATE_STOPPING:
+      setOnLedIndicator(LED_RED);
+      stateStr = "STOPPING";
+      break;
+    default:
+      setOnLedIndicator(LED_OFF);
+      stateStr = "UNKNOWN";
+      break;
   }
   if (send) {
     bluetoothSerial.println("STATE:" + stateStr);
   }
   DEBUG_PRINTLN("MASTER→ANDROID: STATE:" + stateStr);
+}
+
+void PalletizerMaster::setOnLedIndicator(LedIndicator index) {
+  for (int i = 0; i < MAX_LED_INDICATOR_SIZE; i++) {
+    ledIndicator[i].off();
+  }
+  if (index >= MAX_LED_INDICATOR_SIZE || index == LED_OFF) {
+    return;
+  }
+  ledIndicator[index].on();
 }

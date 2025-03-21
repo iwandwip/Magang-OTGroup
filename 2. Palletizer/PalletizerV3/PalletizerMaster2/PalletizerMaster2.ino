@@ -1,4 +1,5 @@
 #define ENABLE_MODULE_SERIAL_ENHANCED
+#define ENABLE_MODULE_DIGITAL_OUTPUT
 
 #include "PalletizerMaster.h"
 

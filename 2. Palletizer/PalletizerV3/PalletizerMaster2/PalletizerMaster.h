@@ -83,7 +83,7 @@ private:
   void clearQueue();
 
   void setSystemState(SystemState newState);
-  void sendStateUpdate();
+  void sendStateUpdate(bool send = false);
 };
 
 #endif

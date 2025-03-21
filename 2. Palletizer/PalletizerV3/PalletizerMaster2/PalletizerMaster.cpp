@@ -84,7 +84,7 @@ void PalletizerMaster::onBluetoothData(const String& data) {
   upperData.trim();
   upperData.toUpperCase();
 
-  if (upperData == "IDLE" || upperData == "START" || upperData == "PAUSE" || upperData == "STOP") {
+  if (upperData == "IDLE" || upperData == "PLAY" || upperData == "PAUSE" || upperData == "STOP") {
     processSystemStateCommand(upperData);
     return;
   }
@@ -190,7 +190,7 @@ void PalletizerMaster::processSystemStateCommand(const String& command) {
     } else {
       setSystemState(STATE_IDLE);
     }
-  } else if (command == "START") {
+  } else if (command == "PLAY") {
     setSystemState(STATE_RUNNING);
     if (!sequenceRunning && !waitingForCompletion && !isQueueEmpty()) {
       processNextCommand();
@@ -339,7 +339,7 @@ void PalletizerMaster::setSystemState(SystemState newState) {
   }
 }
 
-void PalletizerMaster::sendStateUpdate() {
+void PalletizerMaster::sendStateUpdate(bool send) {
   String stateStr;
   switch (systemState) {
     case STATE_IDLE: stateStr = "IDLE"; break;
@@ -348,6 +348,8 @@ void PalletizerMaster::sendStateUpdate() {
     case STATE_STOPPING: stateStr = "STOPPING"; break;
     default: stateStr = "UNKNOWN"; break;
   }
-  bluetoothSerial.println("STATE:" + stateStr);
+  if (send) {
+    bluetoothSerial.println("STATE:" + stateStr);
+  }
   DEBUG_PRINTLN("MASTER→ANDROID: STATE:" + stateStr);
 }

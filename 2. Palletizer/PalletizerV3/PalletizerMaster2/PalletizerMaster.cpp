@@ -176,12 +176,13 @@ void PalletizerMaster::processCoordinateData(const String& data) {
   currentCommand = CMD_RUN;
   parseCoordinateData(data);
   sequenceRunning = true;
-  waitingForCompletion = indicatorEnabled;
+  waitingForCompletion = true;
   lastCheckTime = millis();
 
-  if (!indicatorEnabled) {
-    bluetoothSerial.println("DONE");
-  }
+  // Remove the immediate DONE message
+  // if (!indicatorEnabled) {
+  //   bluetoothSerial.println("DONE");
+  // }
 }
 
 void PalletizerMaster::processSystemStateCommand(const String& command) {

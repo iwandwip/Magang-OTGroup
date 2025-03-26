@@ -395,16 +395,15 @@ void StepperSlave::setBrakeWithDelay(bool engaged) {
       return;
     }
 
-
     if (engaged && brakeEngageDelay > 0) {
       setBrake(engaged);
       delay(brakeEngageDelay);
     } else if (!engaged && brakeReleaseDelay > 0) {
       delay(brakeReleaseDelay);
       setBrake(engaged);
+    } else {
+      setBrake(engaged);
     }
-  } else {
-    setBrake(engaged);
   }
 }
 
@@ -425,12 +424,14 @@ void StepperSlave::setEnableWithDelay(bool active) {
       return;
     }
 
-    setEnable(active);
-
     if (active && enableReleaseDelay > 0) {
+      setEnable(active);
       delay(enableReleaseDelay);
     } else if (!active && enableEngageDelay > 0) {
       delay(enableEngageDelay);
+      setEnable(active);
+    } else {
+      setEnable(active);
     }
   }
 }

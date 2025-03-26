@@ -5,8 +5,7 @@ StepperSlave* StepperSlave::instance = nullptr;
 StepperSlave::StepperSlave(
   char id, int rxPin, int txPin, int clkPin, int cwPin, int enPin, int sensorPin,
   int brakePin, bool invertBrakeLogic, int indicatorPin, bool invertEnableLogic,
-  unsigned long brakeReleaseDelayMs, unsigned long brakeEngageDelayMs,
-  unsigned long enableReleaseDelayMs, unsigned long enableEngageDelayMs)
+  unsigned long brakeReleaseDelayMs, unsigned long brakeEngageDelayMs)
   : slaveId(id),
     masterCommSerial(rxPin, txPin),
     stepper(AccelStepper::DRIVER, clkPin, cwPin),
@@ -21,8 +20,6 @@ StepperSlave::StepperSlave(
 
   brakeReleaseDelay = brakeReleaseDelayMs;
   brakeEngageDelay = brakeEngageDelayMs;
-  enableReleaseDelay = enableReleaseDelayMs;
-  enableEngageDelay = enableEngageDelayMs;
 
   acceleration = maxSpeed * SPEED_RATIO;
 }
@@ -30,7 +27,7 @@ StepperSlave::StepperSlave(
 void StepperSlave::begin() {
   Serial.begin(9600);
   masterCommSerial.begin(9600);
-  masterSerial.begin(&Serial);  // masterCommSerial
+  masterSerial.begin(&masterCommSerial);  
   debugSerial.begin(&Serial);
   masterSerial.setDataCallback(onMasterDataWrapper);
 
@@ -261,15 +258,7 @@ void StepperSlave::executeCurrentMotion() {
 
   motorState = MOTOR_MOVING;
 
-  setBrake(false);
-  if (brakeReleaseDelay > 0) {
-    delay(brakeReleaseDelay);
-  }
-
-  setEnable(true);
-  if (enableReleaseDelay > 0) {
-    delay(enableReleaseDelay);
-  }
+  activateMotor();
 
   long targetPosition = motionQueue[currentMotionIndex].position;
   stepper.setMaxSpeed(motionQueue[currentMotionIndex].speed);
@@ -277,23 +266,15 @@ void StepperSlave::executeCurrentMotion() {
   sendFeedback("MOVING TO " + String(targetPosition));
   reportPosition();
 
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Moving to position: " + String(targetPosition));
   stepper.moveTo(targetPosition);
   stepper.runToPosition();
 
   reportPosition();
   sendFeedback("POSITION REACHED");
+  DEBUG_PRINTLN("SLAVE " + String(slaveId) + ": Position reached");
 
-  if (brakeEngageDelay > 0) {
-    delay(brakeEngageDelay);
-  }
-  setBrake(true);
-
-  if (isEnableActive) {
-    setEnable(false);
-    if (enableEngageDelay > 0) {
-      delay(enableEngageDelay);
-    }
-  }
+  deactivateMotor();
 
   motionQueue[currentMotionIndex].completed = true;
   motorState = MOTOR_IDLE;
@@ -318,10 +299,7 @@ void StepperSlave::performHoming() {
   stepper.setMaxSpeed(HOMING_SPEED);
   stepper.setAcceleration(HOMING_ACCEL);
 
-  setBrake(false);
-  isBrakeEngaged = false;
-  setEnable(true);
-  isEnableActive = true;
+  activateMotor();
 
   long distance = 0;
   int count = 20000;
@@ -365,13 +343,8 @@ void StepperSlave::performHoming() {
 
   stepper.setMaxSpeed(originalSpeed);
   stepper.setAcceleration(originalAccel);
-  setBrake(true);
-  isBrakeEngaged = true;
 
-  if (enPin != NOT_CONNECTED) {
-    setEnable(false);
-    isEnableActive = false;
-  }
+  deactivateMotor();
 
   setIndicator(false);
 
@@ -389,24 +362,6 @@ void StepperSlave::setBrake(bool engaged) {
   }
 }
 
-void StepperSlave::setBrakeWithDelay(bool engaged) {
-  if (brakePin != NOT_CONNECTED) {
-    if (engaged == isBrakeEngaged) {
-      return;
-    }
-
-    if (engaged && brakeEngageDelay > 0) {
-      setBrake(engaged);
-      delay(brakeEngageDelay);
-    } else if (!engaged && brakeReleaseDelay > 0) {
-      delay(brakeReleaseDelay);
-      setBrake(engaged);
-    } else {
-      setBrake(engaged);
-    }
-  }
-}
-
 void StepperSlave::setEnable(bool active) {
   if (enPin != NOT_CONNECTED) {
     bool enableState = active;
@@ -418,22 +373,20 @@ void StepperSlave::setEnable(bool active) {
   }
 }
 
-void StepperSlave::setEnableWithDelay(bool active) {
-  if (enPin != NOT_CONNECTED) {
-    if (active == isEnableActive) {
-      return;
-    }
-
-    if (active && enableReleaseDelay > 0) {
-      setEnable(active);
-      delay(enableReleaseDelay);
-    } else if (!active && enableEngageDelay > 0) {
-      delay(enableEngageDelay);
-      setEnable(active);
-    } else {
-      setEnable(active);
-    }
+void StepperSlave::activateMotor() {
+  setBrake(false);
+  setEnable(true);
+  if (brakeReleaseDelay > 0) {
+    delay(brakeReleaseDelay);
   }
+}
+
+void StepperSlave::deactivateMotor() {
+  if (brakeEngageDelay > 0) {
+    delay(brakeEngageDelay);
+  }
+  setBrake(true);
+  setEnable(false);
 }
 
 void StepperSlave::setIndicator(bool active) {

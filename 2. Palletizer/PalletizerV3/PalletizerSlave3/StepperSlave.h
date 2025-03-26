@@ -3,7 +3,7 @@
 
 #define ENABLE_MODULE_NODEF_SERIAL_ENHANCED
 
-#define DEBUG 1
+#define DEBUG 0
 
 #if DEBUG
 #define DEBUG_PRINT(x) debugSerial.print(x)
@@ -67,9 +67,7 @@ public:
     int indicatorPin = NOT_CONNECTED,
     bool invertEnableLogic = false,
     unsigned long brakeReleaseDelayMs = 500,
-    unsigned long brakeEngageDelayMs = 1500,
-    unsigned long enableReleaseDelayMs = 500,
-    unsigned long enableEngageDelayMs = 1500);
+    unsigned long brakeEngageDelayMs = 1500);
 
   void begin();
   void update();
@@ -107,9 +105,6 @@ private:
   unsigned long brakeReleaseDelay = 500;
   unsigned long brakeEngageDelay = 1500;
   bool isBrakeEngaged = true;
-
-  unsigned long enableReleaseDelay = 500;
-  unsigned long enableEngageDelay = 1500;
   bool isEnableActive = false;
 
   MotionStep motionQueue[MAX_MOTIONS];
@@ -132,9 +127,9 @@ private:
   void performHoming();
 
   void setBrake(bool engaged);
-  void setBrakeWithDelay(bool engaged);
   void setEnable(bool active);
-  void setEnableWithDelay(bool active);
+  void activateMotor();
+  void deactivateMotor();
   void setIndicator(bool active);
 };
 

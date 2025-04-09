@@ -1,0 +1,35 @@
+axis_inverted:
+  g: false
+  t: false
+  x: true
+  y: false
+  z: false
+axis_ranges:
+  g:
+    max: 10000
+    min: -10000
+  t:
+    max: 10000
+    min: -10000
+  x:
+    max: 1320
+    min: 0
+  y:
+    max: 940
+    min: 0
+  z:
+    max: 1420
+    min: 0
+camera:
+  azimuth: 45
+  distance: 2000
+  elevation: 30
+name: config
+rail_lengths:
+  x: 1320
+  y: 940
+  z: 1420
+relative_positions:
+  x_offset: 610
+  y_offset: 300
+  z_offset: 0

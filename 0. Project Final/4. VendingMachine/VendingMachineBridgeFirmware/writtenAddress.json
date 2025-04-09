@@ -1,0 +1,14 @@
+{
+  "writtenAddress": [
+    {
+      "device": "Arduino Uno",
+      "createdAt": "02-03-2025 10:22",
+      "address": "OT0001",
+    },
+    {
+      "device": "Arduino Uno",
+      "createdAt": "09-04-2025 09:48",
+      "address": "OT0002",
+    }
+  ]
+}

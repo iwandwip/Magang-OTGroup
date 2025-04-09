@@ -12,7 +12,7 @@ void setup() {
   altSerial.begin(9600);
   driver.begin();
   android.begin();
-  android.writeOTAddress("OT0001");
+  android.writeOTAddress("OT0002");
 }
 
 void loop() {

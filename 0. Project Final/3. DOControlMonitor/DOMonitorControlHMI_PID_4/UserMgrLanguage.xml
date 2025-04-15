@@ -28,4 +28,12 @@
 		<Name LaIndexID="user6user6user6user6user6user6user6user6" />
 		<Description LaIndexID="user6user6user6user6user6user6user6user6" />
 	</User>
+	<User ID="8" UserName="user7">
+		<Name LaIndexID="user7user7user7user7user7user7user7user7" />
+		<Description LaIndexID="user7user7user7user7user7user7user7user7" />
+	</User>
+	<User ID="9" UserName="user8">
+		<Name LaIndexID="user8user8user8user8user8user8user8user8" />
+		<Description LaIndexID="user8user8user8user8user8user8user8user8" />
+	</User>
 </UserMgr>

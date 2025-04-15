@@ -15,7 +15,6 @@
 #endif
 
 #include "Kinematrix.h"
-#include "SoftwareSerial.h"
 
 class PalletizerMaster {
 public:
@@ -49,7 +48,7 @@ public:
 private:
   static PalletizerMaster* instance;
 
-  SoftwareSerial slaveCommSerial;
+  HardwareSerial& slaveCommSerial = Serial2;
   EnhancedSerial bluetoothSerial;
   EnhancedSerial slaveSerial;
   EnhancedSerial debugSerial;
@@ -64,6 +63,7 @@ private:
 
   int indicatorPin;
   bool indicatorEnabled;
+  int rxPin, txPin;
   unsigned long lastCheckTime = 0;
 
   static const int MAX_QUEUE_SIZE = 5;
@@ -75,16 +75,13 @@ private:
 
   void onBluetoothData(const String& data);
   void onSlaveData(const String& data);
-
   void processStandardCommand(const String& command);
   void processSpeedCommand(const String& data);
   void processCoordinateData(const String& data);
   void processSystemStateCommand(const String& command);
-
   void sendCommandToAllSlaves(Command cmd);
   void parseCoordinateData(const String& data);
   bool checkAllSlavesCompleted();
-
   void addToQueue(const String& command);
   String getFromQueue();
   bool isQueueEmpty();
@@ -92,7 +89,6 @@ private:
   void processNextCommand();
   void requestCommand();
   void clearQueue();
-
   void setSystemState(SystemState newState);
   void sendStateUpdate(bool send = false);
   void setOnLedIndicator(LedIndicator index);

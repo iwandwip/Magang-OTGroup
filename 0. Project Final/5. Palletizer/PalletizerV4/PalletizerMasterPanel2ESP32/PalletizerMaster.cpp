@@ -3,7 +3,7 @@
 PalletizerMaster* PalletizerMaster::instance = nullptr;
 
 PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
-  : slaveCommSerial(rxPin, txPin), indicatorPin(indicatorPin), ledIndicator{
+  : indicatorPin(indicatorPin), rxPin(rxPin), txPin(txPin), ledIndicator{
       DigitalOut(4, true),
       DigitalOut(5, true),
       DigitalOut(6, true),
@@ -14,7 +14,7 @@ PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
 
 void PalletizerMaster::begin() {
   Serial.begin(9600);
-  slaveCommSerial.begin(9600);
+  Serial2.begin(9600, SERIAL_8N1, rxPin, txPin);
 
   bluetoothSerial.begin(&Serial);
   slaveSerial.begin(&slaveCommSerial);
@@ -178,11 +178,6 @@ void PalletizerMaster::processCoordinateData(const String& data) {
   sequenceRunning = true;
   waitingForCompletion = true;
   lastCheckTime = millis();
-
-  // Remove the immediate DONE message
-  // if (!indicatorEnabled) {
-  //   bluetoothSerial.println("DONE");
-  // }
 }
 
 void PalletizerMaster::processSystemStateCommand(const String& command) {

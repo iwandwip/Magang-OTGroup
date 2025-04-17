@@ -3,9 +3,15 @@
 
 #include "PalletizerMaster.h"
 
+#if defined(ESP32)
 #define RX_PIN 16
 #define TX_PIN 17
 #define INDICATOR_PIN 26
+#else
+#define RX_PIN 8
+#define TX_PIN 9
+#define INDICATOR_PIN 2
+#endif
 
 PalletizerMaster master(RX_PIN, TX_PIN, INDICATOR_PIN);
 

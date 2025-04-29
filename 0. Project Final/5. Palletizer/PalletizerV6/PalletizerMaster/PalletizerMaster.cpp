@@ -5,9 +5,9 @@ PalletizerMaster* PalletizerMaster::instance = nullptr;
 #if IS_ESP32
 PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
   : indicatorPin(indicatorPin), rxPin(rxPin), txPin(txPin), ledIndicator{
-      DigitalOut(4, true),
-      DigitalOut(5, true),
-      DigitalOut(6, true),
+      DigitalOut(27, true),
+      DigitalOut(14, true),
+      DigitalOut(13, true),
     } {
   instance = this;
   indicatorEnabled = (indicatorPin != -1);

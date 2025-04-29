@@ -10,7 +10,7 @@
 #define IS_ESP32 0
 #endif
 
-#define DEBUG 0
+#define DEBUG 1
 
 #if DEBUG
 #define DEBUG_PRINT(x) debugSerial.print(x)

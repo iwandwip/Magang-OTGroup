@@ -7,14 +7,15 @@
 #define DEBUG 1
 
 #if DEBUG
-#define DEBUG_PRINT(x) debugSerial.print(x)
-#define DEBUG_PRINTLN(x) debugSerial.println(x)
+#define DEBUG_PRINT(x) Serial.print(x)
+#define DEBUG_PRINTLN(x) Serial.println(x)
 #else
 #define DEBUG_PRINT(x)
 #define DEBUG_PRINTLN(x)
 #endif
 
 #include "Kinematrix.h"
+#include "PalletizerMasterComms.h"
 
 class PalletizerMaster {
 public:
@@ -48,11 +49,7 @@ public:
 private:
   static PalletizerMaster* instance;
 
-  HardwareSerial& slaveCommSerial = Serial2;
-
-  EnhancedSerial bluetoothSerial;
-  EnhancedSerial slaveSerial;
-  EnhancedSerial debugSerial;
+  PalletizerMasterComms comms;
 
   static const int MAX_LED_INDICATOR_SIZE = 3;
   DigitalOut ledIndicator[MAX_LED_INDICATOR_SIZE];
@@ -64,7 +61,6 @@ private:
 
   int indicatorPin;
   bool indicatorEnabled;
-  int rxPin, txPin;
   unsigned long lastCheckTime = 0;
 
   static const int MAX_QUEUE_SIZE = 5;

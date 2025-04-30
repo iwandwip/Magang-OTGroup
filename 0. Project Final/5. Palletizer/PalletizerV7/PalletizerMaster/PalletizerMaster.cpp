@@ -3,7 +3,7 @@
 PalletizerMaster* PalletizerMaster::instance = nullptr;
 
 PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
-  : indicatorPin(indicatorPin), rxPin(rxPin), txPin(txPin), ledIndicator{
+  : comms(rxPin, txPin), indicatorPin(indicatorPin), ledIndicator{
       DigitalOut(27, true),
       DigitalOut(14, true),
       DigitalOut(13, true),
@@ -13,15 +13,9 @@ PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
 }
 
 void PalletizerMaster::begin() {
-  Serial.begin(9600);
-  Serial2.begin(9600, SERIAL_8N1, rxPin, txPin);
-
-  bluetoothSerial.begin(&Serial);
-  slaveSerial.begin(&slaveCommSerial);
-  debugSerial.begin(&Serial);
-
-  bluetoothSerial.setDataCallback(onBluetoothDataWrapper);
-  slaveSerial.setDataCallback(onSlaveDataWrapper);
+  comms.begin();
+  comms.setBluetoothDataCallback(onBluetoothDataWrapper);
+  comms.setSlaveDataCallback(onSlaveDataWrapper);
 
   if (indicatorEnabled) {
     pinMode(indicatorPin, INPUT_PULLUP);
@@ -35,9 +29,20 @@ void PalletizerMaster::begin() {
   DEBUG_PRINTLN("MASTER: System initialized");
 }
 
+void PalletizerMaster::onBluetoothDataWrapper(const String& data) {
+  if (instance) {
+    instance->onBluetoothData(data);
+  }
+}
+
+void PalletizerMaster::onSlaveDataWrapper(const String& data) {
+  if (instance) {
+    instance->onSlaveData(data);
+  }
+}
+
 void PalletizerMaster::update() {
-  bluetoothSerial.checkCallback();
-  slaveSerial.checkCallback();
+  comms.update();
 
   if (queueSize < MAX_QUEUE_SIZE - 1 && !requestNextCommand && !isQueueFull()) {
     requestCommand();
@@ -50,7 +55,7 @@ void PalletizerMaster::update() {
       if (checkAllSlavesCompleted()) {
         sequenceRunning = false;
         waitingForCompletion = false;
-        bluetoothSerial.println("DONE");
+        comms.sendToBluetooth("DONE");
         DEBUG_PRINTLN("MASTER: All slaves completed sequence");
 
         if (!isQueueEmpty() && systemState == STATE_RUNNING) {
@@ -69,18 +74,6 @@ void PalletizerMaster::update() {
 
   for (int i = 0; i < MAX_LED_INDICATOR_SIZE; i++) {
     ledIndicator[i].update();
-  }
-}
-
-void PalletizerMaster::onBluetoothDataWrapper(const String& data) {
-  if (instance) {
-    instance->onBluetoothData(data);
-  }
-}
-
-void PalletizerMaster::onSlaveDataWrapper(const String& data) {
-  if (instance) {
-    instance->onSlaveData(data);
   }
 }
 
@@ -121,7 +114,7 @@ void PalletizerMaster::onSlaveData(const String& data) {
     if (data.indexOf("SEQUENCE COMPLETED") != -1) {
       sequenceRunning = false;
       waitingForCompletion = false;
-      bluetoothSerial.println("DONE");
+      comms.sendToBluetooth("DONE");
       DEBUG_PRINTLN("MASTER: All slaves completed sequence (based on message)");
 
       if (!isQueueEmpty() && systemState == STATE_RUNNING) {
@@ -159,13 +152,13 @@ void PalletizerMaster::processSpeedCommand(const String& data) {
     slaveId.toLowerCase();
     String command = slaveId + ";" + String(CMD_SETSPEED) + ";" + speedValue;
 
-    slaveSerial.println(command);
+    comms.sendToSlave(command);
     DEBUG_PRINTLN("MASTER→SLAVE: " + command);
   } else {
     const char* slaveIds[] = { "x", "y", "z", "t", "g" };
     for (int i = 0; i < 5; i++) {
       String command = String(slaveIds[i]) + ";" + String(CMD_SETSPEED) + ";" + params;
-      slaveSerial.println(command);
+      comms.sendToSlave(command);
       DEBUG_PRINTLN("MASTER→SLAVE: " + command);
     }
   }
@@ -215,7 +208,7 @@ void PalletizerMaster::sendCommandToAllSlaves(Command cmd) {
   const char* slaveIds[] = { "x", "y", "z", "t", "g" };
   for (int i = 0; i < 5; i++) {
     String command = String(slaveIds[i]) + ";" + String(cmd);
-    slaveSerial.println(command);
+    comms.sendToSlave(command);
     DEBUG_PRINTLN("MASTER→SLAVE: " + command);
   }
 }
@@ -240,7 +233,7 @@ void PalletizerMaster::parseCoordinateData(const String& data) {
     }
 
     String command = slaveId + ";" + String(currentCommand) + ";" + params;
-    slaveSerial.println(command);
+    comms.sendToSlave(command);
     DEBUG_PRINTLN("MASTER→SLAVE: " + command);
 
     pos = data.indexOf(',', closePos);
@@ -319,7 +312,7 @@ void PalletizerMaster::processNextCommand() {
 void PalletizerMaster::requestCommand() {
   if (!isQueueFull() && !requestNextCommand) {
     requestNextCommand = true;
-    bluetoothSerial.println("NEXT");
+    comms.sendToBluetooth("NEXT");
     DEBUG_PRINTLN("MASTER: Requesting next command");
   }
 }
@@ -368,7 +361,7 @@ void PalletizerMaster::sendStateUpdate(bool send) {
       break;
   }
   if (send) {
-    bluetoothSerial.println("STATE:" + stateStr);
+    comms.sendToBluetooth("STATE:" + stateStr);
   }
   DEBUG_PRINTLN("MASTER→ANDROID: STATE:" + stateStr);
 }

@@ -3,7 +3,7 @@
 PalletizerMasterComms* PalletizerMasterComms::instance = nullptr;
 
 PalletizerMasterComms::PalletizerMasterComms(int rxPin, int txPin)
-  : rxPin(rxPin), txPin(txPin) {
+  : rxPin(rxPin), txPin(txPin), rxIndicatorLed(2) {
   instance = this;
 }
 
@@ -14,14 +14,11 @@ void PalletizerMasterComms::begin() {
   SerialBT.begin("ESP32_Palletizer");
   bluetoothSerial.begin(&SerialBT);
   slaveSerial.begin(&slaveCommSerial);
-
-  bluetoothSerial.setDataCallback(onBluetoothDataWrapper);
-  slaveSerial.setDataCallback(onSlaveDataWrapper);
 }
 
 void PalletizerMasterComms::update() {
-  bluetoothSerial.checkCallback();
-  slaveSerial.checkCallback();
+  checkBluetoothData();
+  checkSlaveData();
 }
 
 void PalletizerMasterComms::setBluetoothDataCallback(DataCallback callback) {
@@ -38,6 +35,50 @@ void PalletizerMasterComms::sendToSlave(const String& data) {
 
 void PalletizerMasterComms::sendToBluetooth(const String& data) {
   bluetoothSerial.println(data);
+}
+
+void PalletizerMasterComms::checkBluetoothData() {
+  if (bluetoothSerial.available() > 0) {
+    while (bluetoothSerial.available() > 0) {
+      rxIndicatorLed.on();
+      char c = bluetoothSerial.read();
+
+      if (c == '\n' || c == '\r') {
+        if (btPartialBuffer.length() > 0) {
+          btPartialBuffer.trim();
+          if (bluetoothDataCallback) {
+            bluetoothDataCallback(btPartialBuffer);
+          }
+          btPartialBuffer = "";
+        }
+      } else {
+        btPartialBuffer += c;
+      }
+      rxIndicatorLed.off();
+    }
+  }
+}
+
+void PalletizerMasterComms::checkSlaveData() {
+  if (slaveSerial.available() > 0) {
+    while (slaveSerial.available() > 0) {
+      rxIndicatorLed.on();
+      char c = slaveSerial.read();
+
+      if (c == '\n' || c == '\r') {
+        if (slavePartialBuffer.length() > 0) {
+          slavePartialBuffer.trim();
+          if (slaveDataCallback) {
+            slaveDataCallback(slavePartialBuffer);
+          }
+          slavePartialBuffer = "";
+        }
+      } else {
+        slavePartialBuffer += c;
+      }
+      rxIndicatorLed.off();
+    }
+  }
 }
 
 void PalletizerMasterComms::onBluetoothDataWrapper(const String& data) {

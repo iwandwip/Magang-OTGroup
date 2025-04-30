@@ -26,10 +26,17 @@ public:
 private:
   int rxPin, txPin;
   HardwareSerial& slaveCommSerial = Serial2;
+  DigitalOut rxIndicatorLed;
 
   BluetoothSerial SerialBT;
   EnhancedSerial bluetoothSerial;
   EnhancedSerial slaveSerial;
+
+  String btPartialBuffer = "";
+  String slavePartialBuffer = "";
+
+  void checkBluetoothData();
+  void checkSlaveData();
 
   static PalletizerMasterComms* instance;
   static void onBluetoothDataWrapper(const String& data);

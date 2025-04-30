@@ -5,6 +5,11 @@
 #define ENABLE_MODULE_NODEF_DIGITAL_OUTPUT
 
 #include "Kinematrix.h"
+#include "BluetoothSerial.h"
+
+#if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
+#error Bluetooth tidak tersedia atau tidak diaktifkan
+#endif
 
 class PalletizerMasterComms {
 public:
@@ -22,6 +27,7 @@ private:
   int rxPin, txPin;
   HardwareSerial& slaveCommSerial = Serial2;
 
+  BluetoothSerial SerialBT;
   EnhancedSerial bluetoothSerial;
   EnhancedSerial slaveSerial;
 

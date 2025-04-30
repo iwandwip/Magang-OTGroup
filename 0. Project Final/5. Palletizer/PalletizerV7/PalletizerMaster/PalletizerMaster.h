@@ -14,8 +14,14 @@
 #define DEBUG_PRINTLN(x)
 #endif
 
+#define QUEUE_MODE_APPEND 0
+#define QUEUE_MODE_OVERWRITE 1
+#define QUEUE_OPERATION_MODE QUEUE_MODE_OVERWRITE
+
 #include "Kinematrix.h"
 #include "PalletizerMasterComms.h"
+#include "FS.h"
+#include "SPIFFS.h"
 
 class PalletizerMaster {
 public:
@@ -63,12 +69,12 @@ private:
   bool indicatorEnabled;
   unsigned long lastCheckTime = 0;
 
-  static const int MAX_QUEUE_SIZE = 5;
-  String commandQueue[MAX_QUEUE_SIZE];
-  int queueHead = 0;
-  int queueTail = 0;
-  int queueSize = 0;
   bool requestNextCommand = false;
+
+  const String queueFilePath = "/queue.txt";
+  const String queueIndexPath = "/queue_index.txt";
+  int queueSize = 0;
+  int queueHead = 0;
 
   void onBluetoothData(const String& data);
   void onSlaveData(const String& data);
@@ -79,6 +85,7 @@ private:
   void sendCommandToAllSlaves(Command cmd);
   void parseCoordinateData(const String& data);
   bool checkAllSlavesCompleted();
+
   void addToQueue(const String& command);
   String getFromQueue();
   bool isQueueEmpty();
@@ -86,6 +93,14 @@ private:
   void processNextCommand();
   void requestCommand();
   void clearQueue();
+
+  bool initFileSystem();
+  bool writeQueueIndex();
+  bool readQueueIndex();
+  bool appendToQueueFile(const String& command);
+  String readQueueCommandAt(int index);
+  int getQueueCount();
+
   void setSystemState(SystemState newState);
   void sendStateUpdate(bool send = false);
   void setOnLedIndicator(LedIndicator index);

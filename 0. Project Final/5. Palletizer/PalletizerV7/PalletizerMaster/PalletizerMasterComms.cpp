@@ -11,7 +11,8 @@ void PalletizerMasterComms::begin() {
   Serial.begin(9600);
   slaveCommSerial.begin(9600, SERIAL_8N1, rxPin, txPin);
 
-  bluetoothSerial.begin(&Serial);
+  SerialBT.begin("ESP32_Palletizer");
+  bluetoothSerial.begin(&SerialBT);
   slaveSerial.begin(&slaveCommSerial);
 
   bluetoothSerial.setDataCallback(onBluetoothDataWrapper);

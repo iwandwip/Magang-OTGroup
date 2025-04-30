@@ -24,9 +24,109 @@ void PalletizerMaster::begin() {
     DEBUG_PRINTLN("MASTER: Indicator pin disabled");
   }
 
+  if (!initFileSystem()) {
+    DEBUG_PRINTLN("MASTER: Failed to initialize file system");
+  } else {
+    DEBUG_PRINTLN("MASTER: File system initialized");
+    clearQueue();
+  }
+
   systemState = STATE_IDLE;
   sendStateUpdate();
   DEBUG_PRINTLN("MASTER: System initialized");
+}
+
+bool PalletizerMaster::initFileSystem() {
+  if (!SPIFFS.begin(true)) {
+    return false;
+  }
+
+  if (!SPIFFS.exists(queueIndexPath)) {
+    File indexFile = SPIFFS.open(queueIndexPath, "w");
+    if (!indexFile) {
+      return false;
+    }
+    indexFile.println("0");
+    indexFile.println("0");
+    indexFile.close();
+  }
+
+  readQueueIndex();
+  return true;
+}
+
+bool PalletizerMaster::writeQueueIndex() {
+  File indexFile = SPIFFS.open(queueIndexPath, "w");
+  if (!indexFile) {
+    return false;
+  }
+  indexFile.println(String(queueHead));
+  indexFile.println(String(queueSize));
+  indexFile.close();
+  return true;
+}
+
+bool PalletizerMaster::readQueueIndex() {
+  File indexFile = SPIFFS.open(queueIndexPath, "r");
+  if (!indexFile) {
+    return false;
+  }
+
+  String headStr = indexFile.readStringUntil('\n');
+  String sizeStr = indexFile.readStringUntil('\n');
+  indexFile.close();
+
+  queueHead = headStr.toInt();
+  queueSize = sizeStr.toInt();
+  return true;
+}
+
+bool PalletizerMaster::appendToQueueFile(const String& command) {
+  File queueFile = SPIFFS.open(queueFilePath, "a");
+  if (!queueFile) {
+    return false;
+  }
+  queueFile.println(command);
+  queueFile.close();
+  return true;
+}
+
+String PalletizerMaster::readQueueCommandAt(int index) {
+  File queueFile = SPIFFS.open(queueFilePath, "r");
+  if (!queueFile) {
+    return "";
+  }
+
+  String command = "";
+  int currentLine = 0;
+
+  while (queueFile.available()) {
+    String line = queueFile.readStringUntil('\n');
+    if (currentLine == index) {
+      command = line;
+      break;
+    }
+    currentLine++;
+  }
+
+  queueFile.close();
+  return command;
+}
+
+int PalletizerMaster::getQueueCount() {
+  File queueFile = SPIFFS.open(queueFilePath, "r");
+  if (!queueFile) {
+    return 0;
+  }
+
+  int count = 0;
+  while (queueFile.available()) {
+    queueFile.readStringUntil('\n');
+    count++;
+  }
+
+  queueFile.close();
+  return count;
 }
 
 void PalletizerMaster::onBluetoothDataWrapper(const String& data) {
@@ -44,7 +144,7 @@ void PalletizerMaster::onSlaveDataWrapper(const String& data) {
 void PalletizerMaster::update() {
   comms.update();
 
-  if (queueSize < MAX_QUEUE_SIZE - 1 && !requestNextCommand && !isQueueFull()) {
+  if (!requestNextCommand && !isQueueFull()) {
     requestCommand();
   }
 
@@ -95,15 +195,67 @@ void PalletizerMaster::onBluetoothData(const String& data) {
       processStandardCommand(upperData);
     } else if (upperData.startsWith("SPEED;")) {
       processSpeedCommand(data);
-    } else if (upperData != "END_QUEUE") {
-      if (systemState == STATE_RUNNING) {
-        processCoordinateData(data);
-      } else {
-        addToQueue(data);
+    } else if (upperData == "END_QUEUE") {
+      DEBUG_PRINTLN("MASTER: Queue loading completed");
+    } else {
+      bool isCoordinateCommand = upperData.indexOf('(') != -1;
+
+      if (isCoordinateCommand) {
+#if QUEUE_OPERATION_MODE == QUEUE_MODE_OVERWRITE
+        clearQueue();
+#endif
+      }
+
+      int startPos = 0;
+      int nextPos = data.indexOf("NEXT", startPos);
+
+      while (startPos < data.length()) {
+        if (nextPos == -1) {
+          String command = data.substring(startPos);
+          command.trim();
+          if (command.length() > 0) {
+            addToQueue(command);
+          }
+          break;
+        } else {
+          String command = data.substring(startPos, nextPos);
+          command.trim();
+          if (command.length() > 0) {
+            addToQueue(command);
+          }
+          startPos = nextPos + 4;
+          nextPos = data.indexOf("NEXT", startPos);
+        }
       }
     }
   } else if (data != "END_QUEUE") {
-    addToQueue(data);
+#if QUEUE_OPERATION_MODE == QUEUE_MODE_OVERWRITE
+    if (data.indexOf('(') != -1) {
+      clearQueue();
+    }
+#endif
+
+    int startPos = 0;
+    int nextPos = data.indexOf("NEXT", startPos);
+
+    while (startPos < data.length()) {
+      if (nextPos == -1) {
+        String command = data.substring(startPos);
+        command.trim();
+        if (command.length() > 0) {
+          addToQueue(command);
+        }
+        break;
+      } else {
+        String command = data.substring(startPos, nextPos);
+        command.trim();
+        if (command.length() > 0) {
+          addToQueue(command);
+        }
+        startPos = nextPos + 4;
+        nextPos = data.indexOf("NEXT", startPos);
+      }
+    }
   }
 }
 
@@ -249,16 +401,13 @@ bool PalletizerMaster::checkAllSlavesCompleted() {
 }
 
 void PalletizerMaster::addToQueue(const String& command) {
-  if (isQueueFull()) {
-    DEBUG_PRINTLN("MASTER: Command queue is full, dropping command: " + command);
-    return;
+  if (appendToQueueFile(command)) {
+    queueSize++;
+    writeQueueIndex();
+    DEBUG_PRINTLN("MASTER: Added command to queue: " + command + " (Queue size: " + String(queueSize) + ")");
+  } else {
+    DEBUG_PRINTLN("MASTER: Failed to add command to queue: " + command);
   }
-
-  commandQueue[queueTail] = command;
-  queueTail = (queueTail + 1) % MAX_QUEUE_SIZE;
-  queueSize++;
-
-  DEBUG_PRINTLN("MASTER: Added command to queue: " + command + " (Queue size: " + String(queueSize) + ")");
 }
 
 String PalletizerMaster::getFromQueue() {
@@ -266,9 +415,10 @@ String PalletizerMaster::getFromQueue() {
     return "";
   }
 
-  String command = commandQueue[queueHead];
-  queueHead = (queueHead + 1) % MAX_QUEUE_SIZE;
+  String command = readQueueCommandAt(queueHead);
+  queueHead++;
   queueSize--;
+  writeQueueIndex();
 
   DEBUG_PRINTLN("MASTER: Processing command from queue: " + command + " (Queue size: " + String(queueSize) + ")");
 
@@ -280,7 +430,7 @@ bool PalletizerMaster::isQueueEmpty() {
 }
 
 bool PalletizerMaster::isQueueFull() {
-  return queueSize >= MAX_QUEUE_SIZE;
+  return queueSize >= 100;
 }
 
 void PalletizerMaster::processNextCommand() {
@@ -318,9 +468,17 @@ void PalletizerMaster::requestCommand() {
 }
 
 void PalletizerMaster::clearQueue() {
+  if (SPIFFS.exists(queueFilePath)) {
+    SPIFFS.remove(queueFilePath);
+  }
+
+  File queueFile = SPIFFS.open(queueFilePath, "w");
+  queueFile.close();
+
   queueHead = 0;
-  queueTail = 0;
   queueSize = 0;
+  writeQueueIndex();
+
   DEBUG_PRINTLN("MASTER: Command queue cleared");
 }
 

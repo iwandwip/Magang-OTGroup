@@ -4,12 +4,6 @@
 #define ENABLE_MODULE_NODEF_SERIAL_ENHANCED
 #define ENABLE_MODULE_NODEF_DIGITAL_OUTPUT
 
-#if defined(ESP32)
-#define IS_ESP32 1
-#else
-#define IS_ESP32 0
-#endif
-
 #define DEBUG 1
 
 #if DEBUG
@@ -21,10 +15,6 @@
 #endif
 
 #include "Kinematrix.h"
-
-#if !IS_ESP32
-#include "SoftwareSerial.h"
-#endif
 
 class PalletizerMaster {
 public:
@@ -58,11 +48,7 @@ public:
 private:
   static PalletizerMaster* instance;
 
-#if IS_ESP32
   HardwareSerial& slaveCommSerial = Serial2;
-#else
-  SoftwareSerial slaveCommSerial;
-#endif
 
   EnhancedSerial bluetoothSerial;
   EnhancedSerial slaveSerial;

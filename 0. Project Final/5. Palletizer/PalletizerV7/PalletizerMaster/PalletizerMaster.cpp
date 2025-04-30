@@ -2,7 +2,6 @@
 
 PalletizerMaster* PalletizerMaster::instance = nullptr;
 
-#if IS_ESP32
 PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
   : indicatorPin(indicatorPin), rxPin(rxPin), txPin(txPin), ledIndicator{
       DigitalOut(27, true),
@@ -12,26 +11,10 @@ PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
   instance = this;
   indicatorEnabled = (indicatorPin != -1);
 }
-#else
-PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
-  : slaveCommSerial(rxPin, txPin), indicatorPin(indicatorPin), rxPin(rxPin), txPin(txPin), ledIndicator{
-      DigitalOut(4, true),
-      DigitalOut(5, true),
-      DigitalOut(6, true),
-    } {
-  instance = this;
-  indicatorEnabled = (indicatorPin != -1);
-}
-#endif
 
 void PalletizerMaster::begin() {
   Serial.begin(9600);
-
-#if IS_ESP32
   Serial2.begin(9600, SERIAL_8N1, rxPin, txPin);
-#else
-  slaveCommSerial.begin(9600);
-#endif
 
   bluetoothSerial.begin(&Serial);
   slaveSerial.begin(&slaveCommSerial);

@@ -11,12 +11,6 @@
 #error Bluetooth tidak tersedia atau tidak diaktifkan
 #endif
 
-enum ParserState {
-  WAITING_FOR_START,
-  READING_PAYLOAD,
-  MESSAGE_COMPLETE
-};
-
 class PalletizerMasterComms {
 public:
   typedef void (*DataCallback)(const String& data);
@@ -38,11 +32,8 @@ private:
   EnhancedSerial bluetoothSerial;
   EnhancedSerial slaveSerial;
 
-  String btBuffer = "";
-  String slaveBuffer = "";
-
-  ParserState btState = WAITING_FOR_START;
-  ParserState slaveState = WAITING_FOR_START;
+  String btPartialBuffer = "";
+  String slavePartialBuffer = "";
 
   void checkBluetoothData();
   void checkSlaveData();

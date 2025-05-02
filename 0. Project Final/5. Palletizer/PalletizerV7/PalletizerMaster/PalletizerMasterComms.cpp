@@ -38,74 +38,46 @@ void PalletizerMasterComms::sendToBluetooth(const String& data) {
 }
 
 void PalletizerMasterComms::checkBluetoothData() {
-  while (bluetoothSerial.available() > 0) {
-    rxIndicatorLed.on();
-    char c = bluetoothSerial.read();
+  if (bluetoothSerial.available() > 0) {
+    while (bluetoothSerial.available() > 0) {
+      rxIndicatorLed.on();
+      char c = bluetoothSerial.read();
 
-    switch (btState) {
-      case WAITING_FOR_START:
-        if (c == '#') {
-          btState = READING_PAYLOAD;
-          btBuffer = "";
+      if (c == '\n' || c == '\r') {
+        if (btPartialBuffer.length() > 0) {
+          btPartialBuffer.trim();
+          if (bluetoothDataCallback) {
+            bluetoothDataCallback(btPartialBuffer);
+          }
+          btPartialBuffer = "";
         }
-        break;
-
-      case READING_PAYLOAD:
-        if (c == '$') {
-          btState = MESSAGE_COMPLETE;
-        } else {
-          btBuffer += c;
-        }
-        break;
-
-      case MESSAGE_COMPLETE:
-        btState = WAITING_FOR_START;
-        break;
-    }
-
-    if (btState == MESSAGE_COMPLETE) {
-      if (bluetoothDataCallback) {
-        bluetoothDataCallback(btBuffer);
+      } else {
+        btPartialBuffer += c;
       }
-      btState = WAITING_FOR_START;
+      rxIndicatorLed.off();
     }
-    rxIndicatorLed.off();
   }
 }
 
 void PalletizerMasterComms::checkSlaveData() {
-  while (slaveSerial.available() > 0) {
-    rxIndicatorLed.on();
-    char c = slaveSerial.read();
+  if (slaveSerial.available() > 0) {
+    while (slaveSerial.available() > 0) {
+      rxIndicatorLed.on();
+      char c = slaveSerial.read();
 
-    switch (slaveState) {
-      case WAITING_FOR_START:
-        if (c == '#') {
-          slaveState = READING_PAYLOAD;
-          slaveBuffer = "";
+      if (c == '\n' || c == '\r') {
+        if (slavePartialBuffer.length() > 0) {
+          slavePartialBuffer.trim();
+          if (slaveDataCallback) {
+            slaveDataCallback(slavePartialBuffer);
+          }
+          slavePartialBuffer = "";
         }
-        break;
-
-      case READING_PAYLOAD:
-        if (c == '$') {
-          slaveState = MESSAGE_COMPLETE;
-        } else {
-          slaveBuffer += c;
-        }
-        break;
-
-      case MESSAGE_COMPLETE:
-        slaveState = WAITING_FOR_START;
-        break;
-    }
-
-    if (slaveState == MESSAGE_COMPLETE) {
-      if (slaveDataCallback) {
-        slaveDataCallback(slaveBuffer);
+      } else {
+        slavePartialBuffer += c;
       }
-      slaveState = WAITING_FOR_START;
+      rxIndicatorLed.off();
     }
-    rxIndicatorLed.off();
   }
 }
 

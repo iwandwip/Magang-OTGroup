@@ -157,7 +157,13 @@ void PalletizerServer::setupRoutes() {
 }
 
 void PalletizerServer::handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
+  static String tempBuffer = "";
+
   if (!index) {
+    tempBuffer = "";
+    if (LittleFS.exists("/queue.txt")) {
+      LittleFS.remove("/queue.txt");
+    }
     File file = LittleFS.open("/queue.txt", "w");
     if (!file) {
       Serial.println("Failed to open file for writing");
@@ -166,51 +172,66 @@ void PalletizerServer::handleUpload(AsyncWebServerRequest *request, String filen
     file.close();
   }
 
-  File file = LittleFS.open("/queue.txt", "a");
-  if (!file) {
-    Serial.println("Failed to open file for appending");
-    return;
-  }
-
-  String dataStr = String((char *)data);
-  int startPos = 0;
-  int endPos;
-
-  while ((endPos = dataStr.indexOf('\n', startPos)) != -1) {
-    String command = dataStr.substring(startPos, endPos);
-    command.trim();
-    if (command.length() > 0) {
-      file.println(command);
-    }
-    startPos = endPos + 1;
-  }
-
-  if (startPos < dataStr.length()) {
-    String command = dataStr.substring(startPos);
-    command.trim();
-    if (command.length() > 0) {
-      file.println(command);
-    }
-  }
-
-  file.close();
+  String dataStr = String((char *)data, len);
+  tempBuffer += dataStr;
 
   if (final) {
+    File file = LittleFS.open("/queue.txt", "w");
+    if (!file) {
+      Serial.println("Failed to open file for writing");
+      return;
+    }
+
+    int startPos = 0;
+    int endPos;
+
+    while ((endPos = tempBuffer.indexOf('\n', startPos)) != -1) {
+      String command = tempBuffer.substring(startPos, endPos);
+      command.trim();
+      if (command.length() > 0) {
+        file.println(command);
+      }
+      startPos = endPos + 1;
+    }
+
+    if (startPos < tempBuffer.length()) {
+      String command = tempBuffer.substring(startPos);
+      command.trim();
+      if (command.length() > 0) {
+        file.println(command);
+      }
+    }
+
+    file.close();
+
     File readFile = LittleFS.open("/queue.txt", "r");
     if (readFile) {
-      PalletizerMaster::processCommand("IDLE");
-
+      String commands = "";
       while (readFile.available()) {
         String line = readFile.readStringUntil('\n');
         line.trim();
         if (line.length() > 0) {
-          PalletizerMaster::processCommand(line);
+          commands += line + "\n";
         }
       }
-
-      PalletizerMaster::processCommand("END_QUEUE");
       readFile.close();
+
+      palletizerMaster->processCommand("IDLE");
+
+      startPos = 0;
+      while ((endPos = commands.indexOf('\n', startPos)) != -1) {
+        String command = commands.substring(startPos, endPos);
+        command.trim();
+        if (command.length() > 0) {
+          palletizerMaster->processCommand(command);
+        }
+        startPos = endPos + 1;
+      }
+
+      palletizerMaster->processCommand("END_QUEUE");
     }
+
+    tempBuffer = "";
   }
 }
 
@@ -222,7 +243,7 @@ void PalletizerServer::handleCommand(AsyncWebServerRequest *request) {
   }
 
   if (command.length() > 0) {
-    PalletizerMaster::processCommand(command);
+    palletizerMaster->processCommand(command);
     request->send(200, "text/plain", "Command sent: " + command);
   } else {
     request->send(400, "text/plain", "No command provided");
@@ -237,16 +258,15 @@ void PalletizerServer::handleWriteCommand(AsyncWebServerRequest *request) {
   }
 
   if (commands.length() > 0) {
+    if (LittleFS.exists("/queue.txt")) {
+      LittleFS.remove("/queue.txt");
+    }
+
     File file = LittleFS.open("/queue.txt", "w");
     if (!file) {
       request->send(500, "text/plain", "Failed to open file for writing");
       return;
     }
-
-    file.print(commands);
-    file.close();
-
-    PalletizerMaster::processCommand("IDLE");
 
     int startPos = 0;
     int endPos;
@@ -255,7 +275,7 @@ void PalletizerServer::handleWriteCommand(AsyncWebServerRequest *request) {
       String cmd = commands.substring(startPos, endPos);
       cmd.trim();
       if (cmd.length() > 0) {
-        PalletizerMaster::processCommand(cmd);
+        file.println(cmd);
       }
       startPos = endPos + 1;
     }
@@ -264,12 +284,38 @@ void PalletizerServer::handleWriteCommand(AsyncWebServerRequest *request) {
       String cmd = commands.substring(startPos);
       cmd.trim();
       if (cmd.length() > 0) {
-        PalletizerMaster::processCommand(cmd);
+        file.println(cmd);
       }
     }
 
-    PalletizerMaster::processCommand("END_QUEUE");
+    file.close();
 
+    palletizerMaster->processCommand("IDLE");
+
+    File readFile = LittleFS.open("/queue.txt", "r");
+    if (readFile) {
+      String fileContents = "";
+      while (readFile.available()) {
+        String line = readFile.readStringUntil('\n');
+        line.trim();
+        if (line.length() > 0) {
+          fileContents += line + "\n";
+        }
+      }
+      readFile.close();
+
+      startPos = 0;
+      while ((endPos = fileContents.indexOf('\n', startPos)) != -1) {
+        String cmd = fileContents.substring(startPos, endPos);
+        cmd.trim();
+        if (cmd.length() > 0) {
+          palletizerMaster->processCommand(cmd);
+        }
+        startPos = endPos + 1;
+      }
+    }
+
+    palletizerMaster->processCommand("END_QUEUE");
     request->send(200, "text/plain", "Commands saved and loaded");
   } else {
     request->send(400, "text/plain", "No commands provided");

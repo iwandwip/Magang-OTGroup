@@ -489,12 +489,34 @@ void PalletizerMaster::requestCommand() {
 }
 
 void PalletizerMaster::clearQueue() {
-  if (LittleFS.exists(queueFilePath)) {
-    LittleFS.remove(queueFilePath);
+  bool isRemoved = false;
+  int retryCount = 0;
+  const int maxRetry = 3;
+
+  while (!isRemoved && retryCount < maxRetry) {
+    if (LittleFS.exists(queueFilePath)) {
+      isRemoved = LittleFS.remove(queueFilePath);
+      if (!isRemoved) {
+        DEBUG_PRINTLN("MASTER: Failed to remove queue file, retrying...");
+        delay(100);
+        retryCount++;
+      }
+    } else {
+      isRemoved = true;
+      break;
+    }
+  }
+
+  if (!isRemoved && retryCount >= maxRetry) {
+    DEBUG_PRINTLN("MASTER: Failed to remove queue file after multiple attempts");
   }
 
   File queueFile = LittleFS.open(queueFilePath, "w");
-  queueFile.close();
+  if (queueFile) {
+    queueFile.close();
+  } else {
+    DEBUG_PRINTLN("MASTER: Failed to create new queue file");
+  }
 
   queueHead = 0;
   queueSize = 0;

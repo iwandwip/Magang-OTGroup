@@ -1,46 +1,102 @@
 #include "PalletizerServer.h"
 
-PalletizerServer::PalletizerServer(PalletizerMaster *master, const char *ap_ssid, const char *ap_password)
-  : palletizerMaster(master), server(80), events("/events"), ssid(ap_ssid), password(ap_password) {
+PalletizerServer::PalletizerServer(PalletizerMaster *master, WiFiMode mode, const char *ap_ssid, const char *ap_password)
+  : palletizerMaster(master), server(80), events("/events"), wifiMode(mode), ssid(ap_ssid), password(ap_password) {
 }
 
 void PalletizerServer::begin() {
-  WiFi.softAP(ssid, password);
+  if (wifiMode == MODE_AP) {
+    WiFi.softAP(ssid, password);
+    IPAddress IP = WiFi.softAPIP();
+    Serial.print("AP Mode - IP address: ");
+    Serial.println(IP);
+  } else {
+    WiFi.begin(ssid, password);
+    int attempts = 0;
+    Serial.print("Connecting to WiFi");
+    while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+      delay(500);
+      Serial.print(".");
+      attempts++;
+    }
 
-  IPAddress IP = WiFi.softAPIP();
-  Serial.print("AP IP address: ");
-  Serial.println(IP);
+    if (WiFi.status() == WL_CONNECTED) {
+      Serial.println();
+      Serial.print("STA Mode - Connected to WiFi. IP address: ");
+      Serial.println(WiFi.localIP());
+    } else {
+      Serial.println();
+      Serial.println("Failed to connect to WiFi. Falling back to AP mode.");
+      WiFi.disconnect();
+      WiFi.softAP("ESP32_Palletizer_Fallback", "palletizer123");
+      IPAddress IP = WiFi.softAPIP();
+      Serial.print("Fallback AP Mode - IP address: ");
+      Serial.println(IP);
+    }
+  }
 
   setupRoutes();
-
   server.begin();
   Serial.println("HTTP server started");
 }
 
 void PalletizerServer::update() {
-  // Any periodic tasks needed
+  if (wifiMode == MODE_STA && WiFi.status() != WL_CONNECTED) {
+    Serial.println("WiFi connection lost. Reconnecting...");
+    WiFi.begin(ssid, password);
+  }
+
+  PalletizerMaster::SystemState currentState = palletizerMaster->getSystemState();
+  String statusStr;
+
+  switch (currentState) {
+    case PalletizerMaster::STATE_IDLE:
+      statusStr = "IDLE";
+      break;
+    case PalletizerMaster::STATE_RUNNING:
+      statusStr = "RUNNING";
+      break;
+    case PalletizerMaster::STATE_PAUSED:
+      statusStr = "PAUSED";
+      break;
+    case PalletizerMaster::STATE_STOPPING:
+      statusStr = "STOPPING";
+      break;
+    default:
+      statusStr = "UNKNOWN";
+      break;
+  }
+
+  static PalletizerMaster::SystemState lastState = PalletizerMaster::STATE_IDLE;
+  if (currentState != lastState) {
+    sendStatusEvent(statusStr);
+    lastState = currentState;
+  }
 }
 
 void PalletizerServer::setupRoutes() {
-  // Set up file server for LittleFS
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
 
-  // Command routes
   server.on("/command", HTTP_POST, [this](AsyncWebServerRequest *request) {
     this->handleCommand(request);
   });
 
-  // Write command route
   server.on("/write", HTTP_POST, [this](AsyncWebServerRequest *request) {
     this->handleWriteCommand(request);
   });
 
-  // Status route
   server.on("/status", HTTP_GET, [this](AsyncWebServerRequest *request) {
     this->handleGetStatus(request);
   });
 
-  // Upload route
+  server.on("/get_commands", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    this->handleGetCommands(request);
+  });
+
+  server.on("/download_commands", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    this->handleDownloadCommands(request);
+  });
+
   server.on(
     "/upload", HTTP_POST,
     [](AsyncWebServerRequest *request) {
@@ -50,13 +106,11 @@ void PalletizerServer::setupRoutes() {
       this->handleUpload(request, filename, index, data, len, final);
     });
 
-  // Set up event source for server-sent events
   events.onConnect([this](AsyncEventSourceClient *client) {
     if (client->lastId()) {
       Serial.printf("Client reconnected! Last message ID: %u\n", client->lastId());
     }
 
-    // Send current status when client connects
     String statusStr;
     switch (palletizerMaster->getSystemState()) {
       case PalletizerMaster::STATE_IDLE:
@@ -81,7 +135,22 @@ void PalletizerServer::setupRoutes() {
 
   server.addHandler(&events);
 
-  // Handle 404
+  server.on("/wifi_info", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    String info = "{";
+    if (wifiMode == MODE_AP) {
+      info += "\"mode\":\"AP\",";
+      info += "\"ssid\":\"" + String(ssid) + "\",";
+      info += "\"ip\":\"" + WiFi.softAPIP().toString() + "\"";
+    } else {
+      info += "\"mode\":\"STA\",";
+      info += "\"ssid\":\"" + String(ssid) + "\",";
+      info += "\"ip\":\"" + WiFi.localIP().toString() + "\",";
+      info += "\"connected\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false");
+    }
+    info += "}";
+    request->send(200, "application/json", info);
+  });
+
   server.onNotFound([](AsyncWebServerRequest *request) {
     request->send(404, "text/plain", "Not found");
   });
@@ -89,7 +158,6 @@ void PalletizerServer::setupRoutes() {
 
 void PalletizerServer::handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
   if (!index) {
-    // Open the file for writing on first call
     File file = LittleFS.open("/queue.txt", "w");
     if (!file) {
       Serial.println("Failed to open file for writing");
@@ -104,10 +172,7 @@ void PalletizerServer::handleUpload(AsyncWebServerRequest *request, String filen
     return;
   }
 
-  // Convert data to string and process
   String dataStr = String((char *)data);
-
-  // Split by lines and add each command
   int startPos = 0;
   int endPos;
 
@@ -120,7 +185,6 @@ void PalletizerServer::handleUpload(AsyncWebServerRequest *request, String filen
     startPos = endPos + 1;
   }
 
-  // Handle last line if there is no final newline
   if (startPos < dataStr.length()) {
     String command = dataStr.substring(startPos);
     command.trim();
@@ -132,26 +196,19 @@ void PalletizerServer::handleUpload(AsyncWebServerRequest *request, String filen
   file.close();
 
   if (final) {
-    // After file is uploaded, load the commands to the palletizer
     File readFile = LittleFS.open("/queue.txt", "r");
     if (readFile) {
-      // Clear current queue in the palletizer
-      // Send "IDLE" to clear queue and then add each command
-      String command = "IDLE";
-      PalletizerMaster::onBluetoothDataWrapper(command);
+      PalletizerMaster::processCommand("IDLE");
 
       while (readFile.available()) {
         String line = readFile.readStringUntil('\n');
         line.trim();
         if (line.length() > 0) {
-          // Simulate sending over Bluetooth
-          PalletizerMaster::onBluetoothDataWrapper(line);
+          PalletizerMaster::processCommand(line);
         }
       }
 
-      // End queue
-      PalletizerMaster::onBluetoothDataWrapper("END_QUEUE");
-
+      PalletizerMaster::processCommand("END_QUEUE");
       readFile.close();
     }
   }
@@ -160,14 +217,12 @@ void PalletizerServer::handleUpload(AsyncWebServerRequest *request, String filen
 void PalletizerServer::handleCommand(AsyncWebServerRequest *request) {
   String command = "";
 
-  // Get command from parameters
   if (request->hasParam("cmd", true)) {
     command = request->getParam("cmd", true)->value();
   }
 
   if (command.length() > 0) {
-    // Simulate sending over Bluetooth
-    PalletizerMaster::onBluetoothDataWrapper(command);
+    PalletizerMaster::processCommand(command);
     request->send(200, "text/plain", "Command sent: " + command);
   } else {
     request->send(400, "text/plain", "No command provided");
@@ -177,28 +232,22 @@ void PalletizerServer::handleCommand(AsyncWebServerRequest *request) {
 void PalletizerServer::handleWriteCommand(AsyncWebServerRequest *request) {
   String commands = "";
 
-  // Get commands from parameters
   if (request->hasParam("text", true)) {
     commands = request->getParam("text", true)->value();
   }
 
   if (commands.length() > 0) {
-    // Open file for writing
     File file = LittleFS.open("/queue.txt", "w");
     if (!file) {
       request->send(500, "text/plain", "Failed to open file for writing");
       return;
     }
 
-    // Write commands to file
     file.print(commands);
     file.close();
 
-    // Clear current queue in the palletizer
-    String command = "IDLE";
-    PalletizerMaster::onBluetoothDataWrapper(command);
+    PalletizerMaster::processCommand("IDLE");
 
-    // Split commands by lines and add each one
     int startPos = 0;
     int endPos;
 
@@ -206,23 +255,20 @@ void PalletizerServer::handleWriteCommand(AsyncWebServerRequest *request) {
       String cmd = commands.substring(startPos, endPos);
       cmd.trim();
       if (cmd.length() > 0) {
-        // Simulate sending over Bluetooth
-        PalletizerMaster::onBluetoothDataWrapper(cmd);
+        PalletizerMaster::processCommand(cmd);
       }
       startPos = endPos + 1;
     }
 
-    // Handle last line if there is no final newline
     if (startPos < commands.length()) {
       String cmd = commands.substring(startPos);
       cmd.trim();
       if (cmd.length() > 0) {
-        PalletizerMaster::onBluetoothDataWrapper(cmd);
+        PalletizerMaster::processCommand(cmd);
       }
     }
 
-    // End queue
-    PalletizerMaster::onBluetoothDataWrapper("END_QUEUE");
+    PalletizerMaster::processCommand("END_QUEUE");
 
     request->send(200, "text/plain", "Commands saved and loaded");
   } else {
@@ -253,6 +299,46 @@ void PalletizerServer::handleGetStatus(AsyncWebServerRequest *request) {
 
   String response = "{\"status\":\"" + statusStr + "\"}";
   request->send(200, "application/json", response);
+}
+
+void PalletizerServer::handleGetCommands(AsyncWebServerRequest *request) {
+  File file = LittleFS.open("/queue.txt", "r");
+  if (!file) {
+    request->send(404, "text/plain", "File not found");
+    return;
+  }
+
+  String content = "";
+  while (file.available()) {
+    content += file.readStringUntil('\n');
+    if (file.available()) {
+      content += "\n";
+    }
+  }
+  file.close();
+
+  request->send(200, "text/plain", content);
+}
+
+void PalletizerServer::handleDownloadCommands(AsyncWebServerRequest *request) {
+  File file = LittleFS.open("/queue.txt", "r");
+  if (!file) {
+    request->send(404, "text/plain", "File not found");
+    return;
+  }
+
+  String content = "";
+  while (file.available()) {
+    content += file.readStringUntil('\n');
+    if (file.available()) {
+      content += "\n";
+    }
+  }
+  file.close();
+
+  AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", content);
+  response->addHeader("Content-Disposition", "attachment; filename=palletizer_commands.txt");
+  request->send(response);
 }
 
 void PalletizerServer::sendStatusEvent(const String &status) {

@@ -9,7 +9,15 @@
 
 class PalletizerServer {
 public:
-  PalletizerServer(PalletizerMaster* master, const char* ssid = "ESP32_Palletizer_AP", const char* password = "palletizer123");
+  enum WiFiMode {
+    MODE_AP,
+    MODE_STA
+  };
+
+  PalletizerServer(PalletizerMaster* master,
+                   WiFiMode mode = MODE_AP,
+                   const char* ssid = "ESP32_Palletizer_AP",
+                   const char* password = "palletizer123");
   void begin();
   void update();
 
@@ -17,6 +25,8 @@ private:
   PalletizerMaster* palletizerMaster;
   AsyncWebServer server;
   AsyncEventSource events;
+
+  WiFiMode wifiMode;
   const char* ssid;
   const char* password;
 
@@ -25,6 +35,8 @@ private:
   void handleCommand(AsyncWebServerRequest* request);
   void handleWriteCommand(AsyncWebServerRequest* request);
   void handleGetStatus(AsyncWebServerRequest* request);
+  void handleGetCommands(AsyncWebServerRequest* request);
+  void handleDownloadCommands(AsyncWebServerRequest* request);
   void sendStatusEvent(const String& status);
 };
 

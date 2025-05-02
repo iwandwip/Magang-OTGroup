@@ -3,7 +3,7 @@
 PalletizerMaster* PalletizerMaster::instance = nullptr;
 
 PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
-  : comms(rxPin, txPin), indicatorPin(indicatorPin), ledIndicator{
+  : rxPin(rxPin), txPin(txPin), rxIndicatorLed(2), indicatorPin(indicatorPin), ledIndicator{
       DigitalOut(27, true),
       DigitalOut(14, true),
       DigitalOut(13, true),
@@ -13,9 +13,8 @@ PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
 }
 
 void PalletizerMaster::begin() {
-  comms.begin();
-  comms.setBluetoothDataCallback(onBluetoothDataWrapper);
-  comms.setSlaveDataCallback(onSlaveDataWrapper);
+  slaveCommSerial.begin(9600, SERIAL_8N1, rxPin, txPin);
+  slaveSerial.begin(&slaveCommSerial);
 
   if (indicatorEnabled) {
     pinMode(indicatorPin, INPUT_PULLUP);
@@ -34,6 +33,43 @@ void PalletizerMaster::begin() {
   systemState = STATE_IDLE;
   sendStateUpdate();
   DEBUG_PRINTLN("MASTER: System initialized");
+}
+
+void PalletizerMaster::setSlaveDataCallback(DataCallback callback) {
+  slaveDataCallback = callback;
+}
+
+void PalletizerMaster::sendToSlave(const String& data) {
+  slaveSerial.println(data);
+}
+
+void PalletizerMaster::processCommand(const String& data) {
+  if (instance) {
+    instance->onCommandReceived(data);
+  }
+}
+
+void PalletizerMaster::checkSlaveData() {
+  if (slaveSerial.available() > 0) {
+    while (slaveSerial.available() > 0) {
+      rxIndicatorLed.on();
+      char c = slaveSerial.read();
+
+      if (c == '\n' || c == '\r') {
+        if (slavePartialBuffer.length() > 0) {
+          slavePartialBuffer.trim();
+          if (slaveDataCallback) {
+            slaveDataCallback(slavePartialBuffer);
+          }
+          onSlaveData(slavePartialBuffer);
+          slavePartialBuffer = "";
+        }
+      } else {
+        slavePartialBuffer += c;
+      }
+      rxIndicatorLed.off();
+    }
+  }
 }
 
 bool PalletizerMaster::initFileSystem() {
@@ -129,20 +165,8 @@ int PalletizerMaster::getQueueCount() {
   return count;
 }
 
-void PalletizerMaster::onBluetoothDataWrapper(const String& data) {
-  if (instance) {
-    instance->onBluetoothData(data);
-  }
-}
-
-void PalletizerMaster::onSlaveDataWrapper(const String& data) {
-  if (instance) {
-    instance->onSlaveData(data);
-  }
-}
-
 void PalletizerMaster::update() {
-  comms.update();
+  checkSlaveData();
 
   if (!requestNextCommand && !isQueueFull()) {
     requestCommand();
@@ -155,7 +179,6 @@ void PalletizerMaster::update() {
       if (checkAllSlavesCompleted()) {
         sequenceRunning = false;
         waitingForCompletion = false;
-        comms.sendToBluetooth("DONE");
         DEBUG_PRINTLN("MASTER: All slaves completed sequence");
 
         if (!isQueueEmpty() && systemState == STATE_RUNNING) {
@@ -177,8 +200,8 @@ void PalletizerMaster::update() {
   }
 }
 
-void PalletizerMaster::onBluetoothData(const String& data) {
-  DEBUG_PRINTLN("ANDROID→MASTER: " + data);
+void PalletizerMaster::onCommandReceived(const String& data) {
+  DEBUG_PRINTLN("COMMAND→MASTER: " + data);
   requestNextCommand = false;
 
   String upperData = data;
@@ -266,7 +289,6 @@ void PalletizerMaster::onSlaveData(const String& data) {
     if (data.indexOf("SEQUENCE COMPLETED") != -1) {
       sequenceRunning = false;
       waitingForCompletion = false;
-      comms.sendToBluetooth("DONE");
       DEBUG_PRINTLN("MASTER: All slaves completed sequence (based on message)");
 
       if (!isQueueEmpty() && systemState == STATE_RUNNING) {
@@ -304,13 +326,13 @@ void PalletizerMaster::processSpeedCommand(const String& data) {
     slaveId.toLowerCase();
     String command = slaveId + ";" + String(CMD_SETSPEED) + ";" + speedValue;
 
-    comms.sendToSlave(command);
+    sendToSlave(command);
     DEBUG_PRINTLN("MASTER→SLAVE: " + command);
   } else {
     const char* slaveIds[] = { "x", "y", "z", "t", "g" };
     for (int i = 0; i < 5; i++) {
       String command = String(slaveIds[i]) + ";" + String(CMD_SETSPEED) + ";" + params;
-      comms.sendToSlave(command);
+      sendToSlave(command);
       DEBUG_PRINTLN("MASTER→SLAVE: " + command);
     }
   }
@@ -360,7 +382,7 @@ void PalletizerMaster::sendCommandToAllSlaves(Command cmd) {
   const char* slaveIds[] = { "x", "y", "z", "t", "g" };
   for (int i = 0; i < 5; i++) {
     String command = String(slaveIds[i]) + ";" + String(cmd);
-    comms.sendToSlave(command);
+    sendToSlave(command);
     DEBUG_PRINTLN("MASTER→SLAVE: " + command);
   }
 }
@@ -385,7 +407,7 @@ void PalletizerMaster::parseCoordinateData(const String& data) {
     }
 
     String command = slaveId + ";" + String(currentCommand) + ";" + params;
-    comms.sendToSlave(command);
+    sendToSlave(command);
     DEBUG_PRINTLN("MASTER→SLAVE: " + command);
 
     pos = data.indexOf(',', closePos);
@@ -462,8 +484,7 @@ void PalletizerMaster::processNextCommand() {
 void PalletizerMaster::requestCommand() {
   if (!isQueueFull() && !requestNextCommand) {
     requestNextCommand = true;
-    comms.sendToBluetooth("NEXT");
-    DEBUG_PRINTLN("MASTER: Requesting next command");
+    DEBUG_PRINTLN("MASTER: Ready for next command");
   }
 }
 
@@ -494,7 +515,7 @@ void PalletizerMaster::setSystemState(SystemState newState) {
   }
 }
 
-void PalletizerMaster::sendStateUpdate(bool send) {
+void PalletizerMaster::sendStateUpdate() {
   String stateStr;
   switch (systemState) {
     case STATE_IDLE:
@@ -518,10 +539,7 @@ void PalletizerMaster::sendStateUpdate(bool send) {
       stateStr = "UNKNOWN";
       break;
   }
-  if (send) {
-    comms.sendToBluetooth("STATE:" + stateStr);
-  }
-  DEBUG_PRINTLN("MASTER→ANDROID: STATE:" + stateStr);
+  DEBUG_PRINTLN("MASTER: STATE:" + stateStr);
 }
 
 void PalletizerMaster::setOnLedIndicator(LedIndicator index) {

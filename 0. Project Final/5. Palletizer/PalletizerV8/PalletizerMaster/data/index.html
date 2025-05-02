@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ESP32 Palletizer Control</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f4;
+      }
+      .navbar {
+        background-color: #333;
+        color: white;
+        padding: 15px;
+        text-align: center;
+      }
+      .container {
+        padding: 20px;
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      .card {
+        background-color: #fff;
+        border-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      h2 {
+        color: #333;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 10px;
+        margin-top: 0;
+      }
+      .btn {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        border-radius: 4px;
+      }
+      .btn-primary {
+        background-color: #2196f3;
+      }
+      .btn-success {
+        background-color: #4caf50;
+      }
+      .btn-warning {
+        background-color: #ff9800;
+      }
+      .btn-danger {
+        background-color: #f44336;
+      }
+      .btn-info {
+        background-color: #00bcd4;
+      }
+
+      .control-panel {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 10px;
+      }
+
+      textarea {
+        width: 100%;
+        height: 300px;
+        padding: 12px 20px;
+        box-sizing: border-box;
+        border: 2px solid #ccc;
+        border-radius: 4px;
+        background-color: #f8f8f8;
+        font-size: 14px;
+        resize: vertical;
+        font-family: monospace;
+      }
+
+      .upload-form {
+        margin-bottom: 20px;
+      }
+
+      input[type="file"] {
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        width: 100%;
+        margin-bottom: 10px;
+      }
+
+      .speed-control {
+        display: flex;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+
+      .speed-control label {
+        margin-right: 10px;
+        width: 100px;
+      }
+
+      .speed-control input {
+        flex: 1;
+      }
+
+      .speed-control .speed-value {
+        width: 50px;
+        text-align: right;
+        margin-left: 10px;
+      }
+
+      .status {
+        padding: 10px;
+        margin-top: 10px;
+        border-radius: 4px;
+        display: none;
+      }
+
+      .status-success {
+        background-color: #dff0d8;
+        color: #3c763d;
+      }
+
+      .status-error {
+        background-color: #f2dede;
+        color: #a94442;
+      }
+
+      .system-status {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: 4px;
+        background-color: #f8f8f8;
+        font-weight: bold;
+      }
+
+      .status-idle {
+        color: #f44336;
+      }
+      .status-running {
+        color: #4caf50;
+      }
+      .status-paused {
+        color: #ff9800;
+      }
+      .status-stopping {
+        color: #f44336;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="navbar">
+      <h1>ESP32 Palletizer Control</h1>
+    </div>
+
+    <div class="container">
+      <!-- Control Buttons -->
+      <div class="card">
+        <h2>Control Panel</h2>
+        <div class="control-panel">
+          <button class="btn btn-success" onclick="sendCommand('PLAY')">
+            PLAY
+          </button>
+          <button class="btn btn-warning" onclick="sendCommand('PAUSE')">
+            PAUSE
+          </button>
+          <button class="btn btn-danger" onclick="sendCommand('STOP')">
+            STOP
+          </button>
+          <button class="btn btn-info" onclick="sendCommand('IDLE')">
+            IDLE
+          </button>
+          <button class="btn btn-primary" onclick="sendCommand('ZERO')">
+            ZERO
+          </button>
+        </div>
+
+        <div class="system-status" id="systemStatus">
+          Status: <span id="statusText" class="status-idle">IDLE</span>
+        </div>
+
+        <h3>Speed Control</h3>
+        <div>
+          <div class="speed-control">
+            <label>All Axes:</label>
+            <input
+              type="range"
+              min="10"
+              max="1000"
+              value="200"
+              class="slider"
+              id="speedAll"
+            />
+            <span class="speed-value" id="speedAllValue">200</span>
+          </div>
+
+          <div class="speed-control">
+            <label>X Axis:</label>
+            <input
+              type="range"
+              min="10"
+              max="1000"
+              value="200"
+              class="slider"
+              id="speedX"
+            />
+            <span class="speed-value" id="speedXValue">200</span>
+            <button class="btn btn-primary" onclick="setSpeed('x')">Set</button>
+          </div>
+
+          <div class="speed-control">
+            <label>Y Axis:</label>
+            <input
+              type="range"
+              min="10"
+              max="1000"
+              value="200"
+              class="slider"
+              id="speedY"
+            />
+            <span class="speed-value" id="speedYValue">200</span>
+            <button class="btn btn-primary" onclick="setSpeed('y')">Set</button>
+          </div>
+
+          <div class="speed-control">
+            <label>Z Axis:</label>
+            <input
+              type="range"
+              min="10"
+              max="1000"
+              value="200"
+              class="slider"
+              id="speedZ"
+            />
+            <span class="speed-value" id="speedZValue">200</span>
+            <button class="btn btn-primary" onclick="setSpeed('z')">Set</button>
+          </div>
+
+          <div class="speed-control">
+            <label>T Axis:</label>
+            <input
+              type="range"
+              min="10"
+              max="1000"
+              value="200"
+              class="slider"
+              id="speedT"
+            />
+            <span class="speed-value" id="speedTValue">200</span>
+            <button class="btn btn-primary" onclick="setSpeed('t')">Set</button>
+          </div>
+
+          <div class="speed-control">
+            <label>G Axis:</label>
+            <input
+              type="range"
+              min="10"
+              max="1000"
+              value="200"
+              class="slider"
+              id="speedG"
+            />
+            <span class="speed-value" id="speedGValue">200</span>
+            <button class="btn btn-primary" onclick="setSpeed('g')">Set</button>
+          </div>
+
+          <button class="btn btn-success" onclick="setAllSpeeds()">
+            Set All Speeds
+          </button>
+        </div>
+      </div>
+
+      <!-- Upload Command File -->
+      <div class="card">
+        <h2>Upload Command File</h2>
+        <form id="uploadForm" class="upload-form" enctype="multipart/form-data">
+          <input type="file" id="fileInput" accept=".txt" />
+          <button type="button" class="btn btn-primary" onclick="uploadFile()">
+            Upload
+          </button>
+        </form>
+        <div id="uploadStatus" class="status"></div>
+      </div>
+
+      <!-- Write Command -->
+      <div class="card">
+        <h2>Write Commands</h2>
+        <textarea
+          id="commandText"
+          placeholder="Enter commands here, one per line...
+Example:
+X(1,10,100),Y(1,10,100),Z(1,10,100) NEXT
+X(2,20,200),Y(2,20,200),Z(2,20,200) NEXT
+X(3,30,300),Y(3,30,300),Z(3,30,300)"
+        ></textarea>
+        <button class="btn btn-primary" onclick="saveCommands()">
+          Save & Load Commands
+        </button>
+
+        <div class="btn-group">
+          <button class="btn btn-info" onclick="getCommands()">
+            Load Current Commands
+          </button>
+          <button class="btn btn-primary" onclick="downloadCommands()">
+            Download Commands
+          </button>
+        </div>
+
+        <div id="writeStatus" class="status"></div>
+      </div>
+    </div>
+
+    <script>
+      // Update speed value displays when sliders change
+      document.getElementById("speedAll").oninput = function () {
+        document.getElementById("speedAllValue").textContent = this.value;
+        // Update all other sliders
+        document.getElementById("speedX").value = this.value;
+        document.getElementById("speedXValue").textContent = this.value;
+        document.getElementById("speedY").value = this.value;
+        document.getElementById("speedYValue").textContent = this.value;
+        document.getElementById("speedZ").value = this.value;
+        document.getElementById("speedZValue").textContent = this.value;
+        document.getElementById("speedT").value = this.value;
+        document.getElementById("speedTValue").textContent = this.value;
+        document.getElementById("speedG").value = this.value;
+        document.getElementById("speedGValue").textContent = this.value;
+      };
+
+      document.getElementById("speedX").oninput = function () {
+        document.getElementById("speedXValue").textContent = this.value;
+      };
+
+      document.getElementById("speedY").oninput = function () {
+        document.getElementById("speedYValue").textContent = this.value;
+      };
+
+      document.getElementById("speedZ").oninput = function () {
+        document.getElementById("speedZValue").textContent = this.value;
+      };
+
+      document.getElementById("speedT").oninput = function () {
+        document.getElementById("speedTValue").textContent = this.value;
+      };
+
+      document.getElementById("speedG").oninput = function () {
+        document.getElementById("speedGValue").textContent = this.value;
+      };
+
+      // Event source for status updates
+      const eventSource = new EventSource("/events");
+
+      eventSource.onmessage = function (event) {
+        const data = JSON.parse(event.data);
+
+        if (data.type === "status") {
+          updateSystemStatus(data.value);
+        }
+      };
+
+      eventSource.onerror = function (err) {
+        console.error("EventSource error:", err);
+        setTimeout(() => {
+          // Try to reconnect after 5 seconds
+          eventSource.close();
+          const newEventSource = new EventSource("/events");
+          eventSource = newEventSource;
+        }, 5000);
+      };
+
+      function updateSystemStatus(status) {
+        const statusElement = document.getElementById("statusText");
+        statusElement.textContent = status;
+
+        // Remove all status classes
+        statusElement.classList.remove(
+          "status-idle",
+          "status-running",
+          "status-paused",
+          "status-stopping"
+        );
+
+        // Add appropriate class
+        switch (status) {
+          case "IDLE":
+            statusElement.classList.add("status-idle");
+            break;
+          case "RUNNING":
+            statusElement.classList.add("status-running");
+            break;
+          case "PAUSED":
+            statusElement.classList.add("status-paused");
+            break;
+          case "STOPPING":
+            statusElement.classList.add("status-stopping");
+            break;
+        }
+      }
+
+      // Send command to ESP32
+      function sendCommand(cmd) {
+        fetch("/command", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: "cmd=" + cmd,
+        })
+          .then((response) => response.text())
+          .then((data) => {
+            console.log("Command sent:", data);
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
+      }
+
+      // Set speed for a specific axis
+      function setSpeed(axis) {
+        const speed = document.getElementById(
+          "speed" + axis.toUpperCase()
+        ).value;
+        sendCommand("SPEED;" + axis + ";" + speed);
+      }
+
+      // Set speed for all axes
+      function setAllSpeeds() {
+        const speed = document.getElementById("speedAll").value;
+        sendCommand("SPEED;" + speed);
+      }
+
+      // Upload command file
+      function uploadFile() {
+        const fileInput = document.getElementById("fileInput");
+        const file = fileInput.files[0];
+        const statusDiv = document.getElementById("uploadStatus");
+
+        if (!file) {
+          statusDiv.textContent = "Please select a file";
+          statusDiv.className = "status status-error";
+          statusDiv.style.display = "block";
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        statusDiv.textContent = "Uploading...";
+        statusDiv.className = "status status-success";
+        statusDiv.style.display = "block";
+
+        fetch("/upload", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.text())
+          .then((data) => {
+            console.log("Upload result:", data);
+            statusDiv.textContent = "File uploaded successfully";
+            statusDiv.className = "status status-success";
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            statusDiv.textContent = "Error uploading file: " + error;
+            statusDiv.className = "status status-error";
+          });
+      }
+
+      // Save and load commands from textarea
+      function saveCommands() {
+        const commandText = document.getElementById("commandText").value;
+        const statusDiv = document.getElementById("writeStatus");
+
+        if (!commandText.trim()) {
+          statusDiv.textContent = "Please enter commands";
+          statusDiv.className = "status status-error";
+          statusDiv.style.display = "block";
+          return;
+        }
+
+        statusDiv.textContent = "Saving...";
+        statusDiv.className = "status status-success";
+        statusDiv.style.display = "block";
+
+        fetch("/write", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: "text=" + encodeURIComponent(commandText),
+        })
+          .then((response) => response.text())
+          .then((data) => {
+            console.log("Save result:", data);
+            statusDiv.textContent = "Commands saved and loaded successfully";
+            statusDiv.className = "status status-success";
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            statusDiv.textContent = "Error saving commands: " + error;
+            statusDiv.className = "status status-error";
+          });
+      }
+
+      // Function to get current commands from ESP32
+      function getCommands() {
+        const statusDiv = document.getElementById("writeStatus");
+        statusDiv.textContent = "Loading commands...";
+        statusDiv.className = "status status-success";
+        statusDiv.style.display = "block";
+
+        fetch("/get_commands")
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Failed to fetch commands");
+            }
+            return response.text();
+          })
+          .then((data) => {
+            document.getElementById("commandText").value = data;
+            statusDiv.textContent = "Commands loaded successfully";
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            statusDiv.textContent = "Error loading commands: " + error;
+            statusDiv.className = "status status-error";
+          });
+      }
+
+      // Function to download commands
+      function downloadCommands() {
+        window.location.href = "/download_commands";
+      }
+
+      // Check status on page load
+      fetch("/status")
+        .then((response) => response.json())
+        .then((data) => {
+          updateSystemStatus(data.status);
+        })
+        .catch((error) => {
+          console.error("Error fetching status:", error);
+        });
+    </script>
+  </body>
+</html>

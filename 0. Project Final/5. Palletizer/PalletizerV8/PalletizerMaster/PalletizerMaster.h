@@ -19,7 +19,6 @@
 #define QUEUE_OPERATION_MODE QUEUE_MODE_OVERWRITE
 
 #include "Kinematrix.h"
-#include "PalletizerMasterComms.h"
 #include "FS.h"
 #include "LittleFS.h"
 
@@ -46,11 +45,18 @@ public:
     LED_OFF = 3,
   };
 
+  typedef void (*DataCallback)(const String& data);
+
   PalletizerMaster(int rxPin, int txPin, int indicatorPin = -1);
   void begin();
   void update();
-  static void onBluetoothDataWrapper(const String& data);
-  static void onSlaveDataWrapper(const String& data);
+
+  // Exposed public methods that were previously in PalletizerMasterComms
+  void sendToSlave(const String& data);
+  void setSlaveDataCallback(DataCallback callback);
+
+  // Public methods for web control
+  static void processCommand(const String& data);
   SystemState getSystemState() {
     return systemState;
   }
@@ -58,7 +64,14 @@ public:
 private:
   static PalletizerMaster* instance;
 
-  PalletizerMasterComms comms;
+  // Slave communication
+  int rxPin, txPin;
+  HardwareSerial& slaveCommSerial = Serial2;
+  DigitalOut rxIndicatorLed;
+  EnhancedSerial slaveSerial;
+  String slavePartialBuffer = "";
+  DataCallback slaveDataCallback = nullptr;
+  void checkSlaveData();
 
   static const int MAX_LED_INDICATOR_SIZE = 3;
   DigitalOut ledIndicator[MAX_LED_INDICATOR_SIZE];
@@ -79,7 +92,8 @@ private:
   int queueSize = 0;
   int queueHead = 0;
 
-  void onBluetoothData(const String& data);
+  // Process commands
+  void onCommandReceived(const String& data);
   void onSlaveData(const String& data);
   void processStandardCommand(const String& command);
   void processSpeedCommand(const String& data);
@@ -89,6 +103,7 @@ private:
   void parseCoordinateData(const String& data);
   bool checkAllSlavesCompleted();
 
+  // Queue management
   void addToQueue(const String& command);
   String getFromQueue();
   bool isQueueEmpty();
@@ -97,6 +112,7 @@ private:
   void requestCommand();
   void clearQueue();
 
+  // File system operations
   bool initFileSystem();
   bool writeQueueIndex();
   bool readQueueIndex();
@@ -104,8 +120,9 @@ private:
   String readQueueCommandAt(int index);
   int getQueueCount();
 
+  // State management
   void setSystemState(SystemState newState);
-  void sendStateUpdate(bool send = false);
+  void sendStateUpdate();
   void setOnLedIndicator(LedIndicator index);
 };
 

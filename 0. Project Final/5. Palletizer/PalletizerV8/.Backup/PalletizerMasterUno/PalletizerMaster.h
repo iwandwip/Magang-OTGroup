@@ -4,24 +4,18 @@
 #define ENABLE_MODULE_NODEF_SERIAL_ENHANCED
 #define ENABLE_MODULE_NODEF_DIGITAL_OUTPUT
 
-#define DEBUG 1
+#define DEBUG 0
 
 #if DEBUG
-#define DEBUG_PRINT(x) Serial.print(x)
-#define DEBUG_PRINTLN(x) Serial.println(x)
+#define DEBUG_PRINT(x) debugSerial.print(x)
+#define DEBUG_PRINTLN(x) debugSerial.println(x)
 #else
 #define DEBUG_PRINT(x)
 #define DEBUG_PRINTLN(x)
 #endif
 
-#define QUEUE_MODE_APPEND 0
-#define QUEUE_MODE_OVERWRITE 1
-#define QUEUE_OPERATION_MODE QUEUE_MODE_OVERWRITE
-
 #include "Kinematrix.h"
-#include "PalletizerMasterComms.h"
-#include "FS.h"
-#include "LittleFS.h"
+#include "SoftwareSerial.h"
 
 class PalletizerMaster {
 public:
@@ -51,14 +45,14 @@ public:
   void update();
   static void onBluetoothDataWrapper(const String& data);
   static void onSlaveDataWrapper(const String& data);
-  SystemState getSystemState() {
-    return systemState;
-  }
 
 private:
   static PalletizerMaster* instance;
 
-  PalletizerMasterComms comms;
+  SoftwareSerial slaveCommSerial;
+  EnhancedSerial bluetoothSerial;
+  EnhancedSerial slaveSerial;
+  EnhancedSerial debugSerial;
 
   static const int MAX_LED_INDICATOR_SIZE = 3;
   DigitalOut ledIndicator[MAX_LED_INDICATOR_SIZE];
@@ -72,19 +66,21 @@ private:
   bool indicatorEnabled;
   unsigned long lastCheckTime = 0;
 
-  bool requestNextCommand = false;
-
-  const String queueFilePath = "/queue.txt";
-  const String queueIndexPath = "/queue_index.txt";
-  int queueSize = 0;
+  static const int MAX_QUEUE_SIZE = 5;
+  String commandQueue[MAX_QUEUE_SIZE];
   int queueHead = 0;
+  int queueTail = 0;
+  int queueSize = 0;
+  bool requestNextCommand = false;
 
   void onBluetoothData(const String& data);
   void onSlaveData(const String& data);
+
   void processStandardCommand(const String& command);
   void processSpeedCommand(const String& data);
   void processCoordinateData(const String& data);
   void processSystemStateCommand(const String& command);
+
   void sendCommandToAllSlaves(Command cmd);
   void parseCoordinateData(const String& data);
   bool checkAllSlavesCompleted();
@@ -96,13 +92,6 @@ private:
   void processNextCommand();
   void requestCommand();
   void clearQueue();
-
-  bool initFileSystem();
-  bool writeQueueIndex();
-  bool readQueueIndex();
-  bool appendToQueueFile(const String& command);
-  String readQueueCommandAt(int index);
-  int getQueueCount();
 
   void setSystemState(SystemState newState);
   void sendStateUpdate(bool send = false);

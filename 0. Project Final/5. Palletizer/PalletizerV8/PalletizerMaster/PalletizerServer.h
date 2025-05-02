@@ -14,10 +14,7 @@ public:
     MODE_STA
   };
 
-  PalletizerServer(PalletizerMaster* master,
-                   WiFiMode mode = MODE_AP,
-                   const char* ssid = "ESP32_Palletizer_AP",
-                   const char* password = "palletizer123");
+  PalletizerServer(PalletizerMaster* master, WiFiMode mode = MODE_AP, const char* ssid = "ESP32_Palletizer_AP", const char* password = "palletizer123");
   void begin();
   void update();
 

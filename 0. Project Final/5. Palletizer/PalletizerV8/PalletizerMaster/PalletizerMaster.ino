@@ -5,21 +5,18 @@
 #include "PalletizerServer.h"
 #include "LittleFS.h"
 
-// Pin definitions
 #define RX_PIN 16
 #define TX_PIN 17
 #define INDICATOR_PIN 26
 
-// WiFi configuration
-#define WIFI_MODE PalletizerServer::MODE_STA  // Change to MODE_STA to connect to existing WiFi
-#define WIFI_SSID "silenceAndSleep"           // AP mode: access point name, STA mode: WiFi to connect to
-#define WIFI_PASSWORD "11111111"              // AP mode: access point password, STA mode: WiFi password
+#define WIFI_MODE PalletizerServer::MODE_AP
+#define WIFI_SSID "ESP32-Palletizer"
+#define WIFI_PASSWORD ""
 
 PalletizerMaster master(RX_PIN, TX_PIN, INDICATOR_PIN);
 PalletizerServer server(&master, WIFI_MODE, WIFI_SSID, WIFI_PASSWORD);
 
 void onSlaveData(const String& data) {
-  // Forward slave data to any external system if needed
   Serial.println("SLAVE DATA: " + data);
 }
 
@@ -33,7 +30,6 @@ void setup() {
     Serial.println("LittleFS mounted successfully");
   }
 
-  // Set callback for slave data
   master.setSlaveDataCallback(onSlaveData);
 
   master.begin();

@@ -51,11 +51,9 @@ public:
   void begin();
   void update();
 
-  // Exposed public methods that were previously in PalletizerMasterComms
   void sendToSlave(const String& data);
   void setSlaveDataCallback(DataCallback callback);
 
-  // Public methods for web control
   static void processCommand(const String& data);
   SystemState getSystemState() {
     return systemState;
@@ -64,7 +62,6 @@ public:
 private:
   static PalletizerMaster* instance;
 
-  // Slave communication
   int rxPin, txPin;
   HardwareSerial& slaveCommSerial = Serial2;
   DigitalOut rxIndicatorLed;
@@ -92,7 +89,6 @@ private:
   int queueSize = 0;
   int queueHead = 0;
 
-  // Process commands
   void onCommandReceived(const String& data);
   void onSlaveData(const String& data);
   void processStandardCommand(const String& command);
@@ -103,7 +99,6 @@ private:
   void parseCoordinateData(const String& data);
   bool checkAllSlavesCompleted();
 
-  // Queue management
   void addToQueue(const String& command);
   String getFromQueue();
   bool isQueueEmpty();
@@ -112,7 +107,6 @@ private:
   void requestCommand();
   void clearQueue();
 
-  // File system operations
   bool initFileSystem();
   bool writeQueueIndex();
   bool readQueueIndex();
@@ -120,7 +114,6 @@ private:
   String readQueueCommandAt(int index);
   int getQueueCount();
 
-  // State management
   void setSystemState(SystemState newState);
   void sendStateUpdate();
   void setOnLedIndicator(LedIndicator index);

@@ -3,558 +3,703 @@
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ESP32 Palletizer Control</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
     <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 0;
-        background-color: #f4f4f4;
-      }
-      .navbar {
-        background-color: #333;
-        color: white;
-        padding: 15px;
-        text-align: center;
-      }
-      .container {
-        padding: 20px;
-        max-width: 1200px;
-        margin: 0 auto;
-      }
-      .card {
-        background-color: #fff;
-        border-radius: 5px;
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-        padding: 20px;
-        margin-bottom: 20px;
-      }
-      h2 {
-        color: #333;
-        border-bottom: 1px solid #eee;
-        padding-bottom: 10px;
-        margin-top: 0;
-      }
-      .btn {
-        background-color: #4caf50;
-        color: white;
-        border: none;
-        padding: 10px 15px;
-        text-align: center;
-        text-decoration: none;
-        display: inline-block;
-        font-size: 16px;
-        margin: 4px 2px;
-        cursor: pointer;
-        border-radius: 4px;
-      }
-      .btn-primary {
-        background-color: #2196f3;
-      }
-      .btn-success {
-        background-color: #4caf50;
-      }
-      .btn-warning {
-        background-color: #ff9800;
-      }
-      .btn-danger {
-        background-color: #f44336;
-      }
-      .btn-info {
-        background-color: #00bcd4;
+      :root {
+        --primary: #2196f3;
+        --success: #4caf50;
+        --warning: #ff9800;
+        --danger: #f44336;
+        --info: #00bcd4;
+        --light: #f8f9fa;
+        --dark: #343a40;
+        --gray: #6c757d;
+        --border-radius: 6px;
+        --box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        --transition: all 0.3s ease;
       }
 
-      .control-panel {
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f6f8;
+        color: #333;
+        line-height: 1.5;
+      }
+
+      .app-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .navbar {
+        background-color: var(--primary);
+        color: white;
+        padding: 1rem;
         display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: var(--box-shadow);
+        border-radius: var(--border-radius);
         margin-bottom: 20px;
+      }
+
+      .navbar h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+
+      .system-info {
+        display: flex;
+        align-items: center;
+        font-weight: 500;
+      }
+
+      .status-badge {
+        display: flex;
+        align-items: center;
+        padding: 0.4rem 0.8rem;
+        border-radius: 50px;
+        background: rgba(255, 255, 255, 0.2);
+        margin-left: 10px;
+      }
+
+      .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 8px;
+      }
+
+      .card {
+        background-color: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        padding: 1.5rem;
+        margin-bottom: 20px;
+        transition: var(--transition);
+      }
+
+      .card:hover {
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      }
+
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid #eee;
+        padding-bottom: 0.8rem;
+        margin-bottom: 1rem;
+      }
+
+      .card-header h2 {
+        margin: 0;
+        font-size: 1.2rem;
+        color: var(--dark);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+
+      .col-full {
+        grid-column: 1 / -1;
+      }
+
+      .btn {
+        background-color: var(--primary);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 500;
+        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none;
+      }
+
+      .btn:hover {
+        filter: brightness(1.1);
+      }
+
+      .btn:active {
+        transform: translateY(1px);
+      }
+
+      .btn-success {
+        background-color: var(--success);
+      }
+      .btn-warning {
+        background-color: var(--warning);
+      }
+      .btn-danger {
+        background-color: var(--danger);
+      }
+      .btn-info {
+        background-color: var(--info);
+      }
+      .btn-outline {
+        background-color: transparent;
+        border: 1px solid var(--primary);
+        color: var(--primary);
+      }
+      .btn-outline:hover {
+        background-color: var(--primary);
+        color: white;
       }
 
       .btn-group {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 10px;
+        gap: 8px;
+      }
+
+      .form-group {
+        margin-bottom: 15px;
+      }
+
+      .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        color: var(--gray);
+      }
+
+      .slider-control {
+        display: flex;
+        align-items: center;
+      }
+
+      .slider-control input[type="range"] {
+        flex: 1;
+        height: 5px;
+        -webkit-appearance: none;
+        background: #ddd;
+        border-radius: 5px;
+        outline: none;
+      }
+
+      .slider-control input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--primary);
+        cursor: pointer;
+      }
+
+      .slider-value {
+        width: 60px;
+        text-align: center;
+        font-weight: 600;
+        color: var(--primary);
       }
 
       textarea {
         width: 100%;
         height: 300px;
-        padding: 12px 20px;
+        padding: 12px;
         box-sizing: border-box;
-        border: 2px solid #ccc;
-        border-radius: 4px;
-        background-color: #f8f8f8;
+        border: 1px solid #ddd;
+        border-radius: var(--border-radius);
+        background-color: #f9f9f9;
         font-size: 14px;
-        resize: vertical;
         font-family: monospace;
+        resize: vertical;
+        transition: var(--transition);
       }
 
-      .upload-form {
-        margin-bottom: 20px;
+      textarea:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+        outline: none;
+      }
+
+      .upload-zone {
+        border: 2px dashed #ddd;
+        border-radius: var(--border-radius);
+        padding: 20px;
+        text-align: center;
+        transition: var(--transition);
+        margin-bottom: 15px;
+      }
+
+      .upload-zone:hover {
+        border-color: var(--primary);
       }
 
       input[type="file"] {
-        padding: 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        width: 100%;
-        margin-bottom: 10px;
-      }
-
-      .speed-control {
-        display: flex;
-        align-items: center;
-        margin-bottom: 10px;
-      }
-
-      .speed-control label {
-        margin-right: 10px;
-        width: 100px;
-      }
-
-      .speed-control input {
-        flex: 1;
-      }
-
-      .speed-control .speed-value {
-        width: 50px;
-        text-align: right;
-        margin-left: 10px;
-      }
-
-      .status {
-        padding: 10px;
-        margin-top: 10px;
-        border-radius: 4px;
         display: none;
       }
 
+      .file-label {
+        display: inline-block;
+        padding: 10px 15px;
+        background: var(--light);
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        transition: var(--transition);
+      }
+
+      .file-label:hover {
+        background: #e9ecef;
+      }
+
+      .file-name {
+        margin-top: 8px;
+        font-size: 0.9rem;
+      }
+
+      .status-message {
+        margin-top: 10px;
+        padding: 10px;
+        border-radius: var(--border-radius);
+        font-size: 0.9rem;
+        transition: var(--transition);
+      }
+
       .status-success {
-        background-color: #dff0d8;
-        color: #3c763d;
+        background-color: rgba(76, 175, 80, 0.1);
+        color: var(--success);
       }
 
       .status-error {
-        background-color: #f2dede;
-        color: #a94442;
-      }
-
-      .system-status {
-        margin-top: 10px;
-        padding: 10px;
-        border-radius: 4px;
-        background-color: #f8f8f8;
-        font-weight: bold;
+        background-color: rgba(244, 67, 54, 0.1);
+        color: var(--danger);
       }
 
       .status-idle {
-        color: #f44336;
+        color: var(--danger);
       }
       .status-running {
-        color: #4caf50;
+        color: var(--success);
       }
       .status-paused {
-        color: #ff9800;
+        color: var(--warning);
       }
       .status-stopping {
-        color: #f44336;
+        color: var(--danger);
+      }
+
+      @media (max-width: 768px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+
+        .btn-group {
+          flex-direction: column;
+        }
+
+        .navbar {
+          flex-direction: column;
+          text-align: center;
+        }
+
+        .system-info {
+          margin-top: 10px;
+        }
       }
     </style>
   </head>
   <body>
-    <div class="navbar">
-      <h1>ESP32 Palletizer Control</h1>
-    </div>
-
-    <div class="container">
-      <!-- Control Buttons -->
-      <div class="card">
-        <h2>Control Panel</h2>
-        <div class="control-panel">
-          <button class="btn btn-success" onclick="sendCommand('PLAY')">
-            PLAY
-          </button>
-          <button class="btn btn-warning" onclick="sendCommand('PAUSE')">
-            PAUSE
-          </button>
-          <button class="btn btn-danger" onclick="sendCommand('STOP')">
-            STOP
-          </button>
-          <button class="btn btn-info" onclick="sendCommand('IDLE')">
-            IDLE
-          </button>
-          <button class="btn btn-primary" onclick="sendCommand('ZERO')">
-            ZERO
-          </button>
-        </div>
-
-        <div class="system-status" id="systemStatus">
-          Status: <span id="statusText" class="status-idle">IDLE</span>
-        </div>
-
-        <h3>Speed Control</h3>
-        <div>
-          <div class="speed-control">
-            <label>All Axes:</label>
-            <input
-              type="range"
-              min="10"
-              max="1000"
-              value="200"
-              class="slider"
-              id="speedAll"
-            />
-            <span class="speed-value" id="speedAllValue">200</span>
+    <div id="app">
+      <div class="navbar">
+        <h1>ESP32 Palletizer Control</h1>
+        <div class="system-info">
+          <span>System Status:</span>
+          <div class="status-badge">
+            <span class="status-indicator" :style="statusIndicatorStyle"></span>
+            <span :class="'status-' + systemStatus.toLowerCase()"
+              >{{ systemStatus }}</span
+            >
           </div>
-
-          <div class="speed-control">
-            <label>X Axis:</label>
-            <input
-              type="range"
-              min="10"
-              max="1000"
-              value="200"
-              class="slider"
-              id="speedX"
-            />
-            <span class="speed-value" id="speedXValue">200</span>
-            <button class="btn btn-primary" onclick="setSpeed('x')">Set</button>
-          </div>
-
-          <div class="speed-control">
-            <label>Y Axis:</label>
-            <input
-              type="range"
-              min="10"
-              max="1000"
-              value="200"
-              class="slider"
-              id="speedY"
-            />
-            <span class="speed-value" id="speedYValue">200</span>
-            <button class="btn btn-primary" onclick="setSpeed('y')">Set</button>
-          </div>
-
-          <div class="speed-control">
-            <label>Z Axis:</label>
-            <input
-              type="range"
-              min="10"
-              max="1000"
-              value="200"
-              class="slider"
-              id="speedZ"
-            />
-            <span class="speed-value" id="speedZValue">200</span>
-            <button class="btn btn-primary" onclick="setSpeed('z')">Set</button>
-          </div>
-
-          <div class="speed-control">
-            <label>T Axis:</label>
-            <input
-              type="range"
-              min="10"
-              max="1000"
-              value="200"
-              class="slider"
-              id="speedT"
-            />
-            <span class="speed-value" id="speedTValue">200</span>
-            <button class="btn btn-primary" onclick="setSpeed('t')">Set</button>
-          </div>
-
-          <div class="speed-control">
-            <label>G Axis:</label>
-            <input
-              type="range"
-              min="10"
-              max="1000"
-              value="200"
-              class="slider"
-              id="speedG"
-            />
-            <span class="speed-value" id="speedGValue">200</span>
-            <button class="btn btn-primary" onclick="setSpeed('g')">Set</button>
-          </div>
-
-          <button class="btn btn-success" onclick="setAllSpeeds()">
-            Set All Speeds
-          </button>
         </div>
       </div>
 
-      <!-- Upload Command File -->
-      <div class="card">
-        <h2>Upload Command File</h2>
-        <form id="uploadForm" class="upload-form" enctype="multipart/form-data">
-          <input type="file" id="fileInput" accept=".txt" />
-          <button type="button" class="btn btn-primary" onclick="uploadFile()">
+      <div class="app-container">
+        <!-- Control Panel -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Control Panel</h2>
+          </div>
+
+          <div class="btn-group">
+            <button class="btn btn-success" @click="sendCommand('PLAY')">
+              PLAY
+            </button>
+            <button class="btn btn-warning" @click="sendCommand('PAUSE')">
+              PAUSE
+            </button>
+            <button class="btn btn-danger" @click="sendCommand('STOP')">
+              STOP
+            </button>
+            <button class="btn btn-info" @click="sendCommand('IDLE')">
+              IDLE
+            </button>
+            <button class="btn" @click="sendCommand('ZERO')">ZERO</button>
+          </div>
+
+          <div class="grid">
+            <div class="form-group col-full">
+              <label>All Axes Speed</label>
+              <div class="slider-control">
+                <input
+                  type="range"
+                  min="10"
+                  max="1000"
+                  v-model="speedAll"
+                  @input="updateAllSpeeds"
+                />
+                <span class="slider-value">{{ speedAll }}</span>
+                <button class="btn" @click="setAllSpeeds">Set All</button>
+              </div>
+            </div>
+
+            <div class="form-group" v-for="axis in axes" :key="axis.id">
+              <label>{{ axis.name }} Axis</label>
+              <div class="slider-control">
+                <input type="range" min="10" max="1000" v-model="axis.speed" />
+                <span class="slider-value">{{ axis.speed }}</span>
+                <button class="btn btn-outline" @click="setSpeed(axis.id)">
+                  Set
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upload Command File -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Upload Command File</h2>
+          </div>
+
+          <div class="upload-zone" @click="triggerFileInput">
+            <label class="file-label">Choose File</label>
+            <input
+              type="file"
+              id="fileInput"
+              ref="fileInput"
+              accept=".txt"
+              @change="handleFileChange"
+            />
+            <div class="file-name" v-if="fileName">{{ fileName }}</div>
+            <div class="file-name" v-else>No file selected</div>
+          </div>
+
+          <button class="btn" :disabled="!selectedFile" @click="uploadFile">
             Upload
           </button>
-        </form>
-        <div id="uploadStatus" class="status"></div>
-      </div>
 
-      <!-- Write Command -->
-      <div class="card">
-        <h2>Write Commands</h2>
-        <textarea
-          id="commandText"
-          placeholder="Enter commands here, one per line...
+          <div
+            class="status-message"
+            v-if="uploadStatus"
+            :class="uploadStatus.type"
+          >
+            {{ uploadStatus.message }}
+          </div>
+        </div>
+
+        <!-- Write Commands -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Write Commands</h2>
+          </div>
+
+          <textarea
+            v-model="commandText"
+            placeholder="Enter commands here, one per line...
 Example:
 X(1,10,100),Y(1,10,100),Z(1,10,100) NEXT
 X(2,20,200),Y(2,20,200),Z(2,20,200) NEXT
 X(3,30,300),Y(3,30,300),Z(3,30,300)"
-        ></textarea>
-        <button class="btn btn-primary" onclick="saveCommands()">
-          Save & Load Commands
-        </button>
+          ></textarea>
 
-        <div class="btn-group">
-          <button class="btn btn-info" onclick="getCommands()">
-            Load Current Commands
-          </button>
-          <button class="btn btn-primary" onclick="downloadCommands()">
-            Download Commands
-          </button>
+          <div class="btn-group" style="margin-top: 15px">
+            <button class="btn" @click="saveCommands">
+              Save & Load Commands
+            </button>
+            <button class="btn btn-outline" @click="getCommands">
+              Load Current Commands
+            </button>
+            <a class="btn btn-outline" href="/download_commands">
+              Download Commands
+            </a>
+          </div>
+
+          <div
+            class="status-message"
+            v-if="writeStatus"
+            :class="writeStatus.type"
+          >
+            {{ writeStatus.message }}
+          </div>
         </div>
-
-        <div id="writeStatus" class="status"></div>
       </div>
     </div>
 
     <script>
-      // Update speed value displays when sliders change
-      document.getElementById("speedAll").oninput = function () {
-        document.getElementById("speedAllValue").textContent = this.value;
-        // Update all other sliders
-        document.getElementById("speedX").value = this.value;
-        document.getElementById("speedXValue").textContent = this.value;
-        document.getElementById("speedY").value = this.value;
-        document.getElementById("speedYValue").textContent = this.value;
-        document.getElementById("speedZ").value = this.value;
-        document.getElementById("speedZValue").textContent = this.value;
-        document.getElementById("speedT").value = this.value;
-        document.getElementById("speedTValue").textContent = this.value;
-        document.getElementById("speedG").value = this.value;
-        document.getElementById("speedGValue").textContent = this.value;
-      };
+      const { createApp, ref, computed, onMounted } = Vue;
 
-      document.getElementById("speedX").oninput = function () {
-        document.getElementById("speedXValue").textContent = this.value;
-      };
+      createApp({
+        setup() {
+          // System status
+          const systemStatus = ref("IDLE");
 
-      document.getElementById("speedY").oninput = function () {
-        document.getElementById("speedYValue").textContent = this.value;
-      };
+          // Speeds
+          const speedAll = ref(200);
+          const axes = ref([
+            { id: "x", name: "X", speed: 200 },
+            { id: "y", name: "Y", speed: 200 },
+            { id: "z", name: "Z", speed: 200 },
+            { id: "t", name: "T", speed: 200 },
+            { id: "g", name: "G", speed: 200 },
+          ]);
 
-      document.getElementById("speedZ").oninput = function () {
-        document.getElementById("speedZValue").textContent = this.value;
-      };
+          // Commands
+          const commandText = ref("");
+          const writeStatus = ref(null);
 
-      document.getElementById("speedT").oninput = function () {
-        document.getElementById("speedTValue").textContent = this.value;
-      };
+          // File upload
+          const fileInput = ref(null);
+          const selectedFile = ref(null);
+          const fileName = ref("");
+          const uploadStatus = ref(null);
 
-      document.getElementById("speedG").oninput = function () {
-        document.getElementById("speedGValue").textContent = this.value;
-      };
-
-      // Event source for status updates
-      const eventSource = new EventSource("/events");
-
-      eventSource.onmessage = function (event) {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "status") {
-          updateSystemStatus(data.value);
-        }
-      };
-
-      eventSource.onerror = function (err) {
-        console.error("EventSource error:", err);
-        setTimeout(() => {
-          // Try to reconnect after 5 seconds
-          eventSource.close();
-          const newEventSource = new EventSource("/events");
-          eventSource = newEventSource;
-        }, 5000);
-      };
-
-      function updateSystemStatus(status) {
-        const statusElement = document.getElementById("statusText");
-        statusElement.textContent = status;
-
-        // Remove all status classes
-        statusElement.classList.remove(
-          "status-idle",
-          "status-running",
-          "status-paused",
-          "status-stopping"
-        );
-
-        // Add appropriate class
-        switch (status) {
-          case "IDLE":
-            statusElement.classList.add("status-idle");
-            break;
-          case "RUNNING":
-            statusElement.classList.add("status-running");
-            break;
-          case "PAUSED":
-            statusElement.classList.add("status-paused");
-            break;
-          case "STOPPING":
-            statusElement.classList.add("status-stopping");
-            break;
-        }
-      }
-
-      // Send command to ESP32
-      function sendCommand(cmd) {
-        fetch("/command", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: "cmd=" + cmd,
-        })
-          .then((response) => response.text())
-          .then((data) => {
-            console.log("Command sent:", data);
-          })
-          .catch((error) => {
-            console.error("Error:", error);
+          // Status indicator style
+          const statusIndicatorStyle = computed(() => {
+            const colors = {
+              IDLE: "var(--danger)",
+              RUNNING: "var(--success)",
+              PAUSED: "var(--warning)",
+              STOPPING: "var(--danger)",
+            };
+            return {
+              backgroundColor: colors[systemStatus.value] || "var(--danger)",
+            };
           });
-      }
 
-      // Set speed for a specific axis
-      function setSpeed(axis) {
-        const speed = document.getElementById(
-          "speed" + axis.toUpperCase()
-        ).value;
-        sendCommand("SPEED;" + axis + ";" + speed);
-      }
+          // Methods
+          function updateAllSpeeds() {
+            axes.value.forEach((axis) => {
+              axis.speed = speedAll.value;
+            });
+          }
 
-      // Set speed for all axes
-      function setAllSpeeds() {
-        const speed = document.getElementById("speedAll").value;
-        sendCommand("SPEED;" + speed);
-      }
-
-      // Upload command file
-      function uploadFile() {
-        const fileInput = document.getElementById("fileInput");
-        const file = fileInput.files[0];
-        const statusDiv = document.getElementById("uploadStatus");
-
-        if (!file) {
-          statusDiv.textContent = "Please select a file";
-          statusDiv.className = "status status-error";
-          statusDiv.style.display = "block";
-          return;
-        }
-
-        const formData = new FormData();
-        formData.append("file", file);
-
-        statusDiv.textContent = "Uploading...";
-        statusDiv.className = "status status-success";
-        statusDiv.style.display = "block";
-
-        fetch("/upload", {
-          method: "POST",
-          body: formData,
-        })
-          .then((response) => response.text())
-          .then((data) => {
-            console.log("Upload result:", data);
-            statusDiv.textContent = "File uploaded successfully";
-            statusDiv.className = "status status-success";
-          })
-          .catch((error) => {
-            console.error("Error:", error);
-            statusDiv.textContent = "Error uploading file: " + error;
-            statusDiv.className = "status status-error";
-          });
-      }
-
-      // Save and load commands from textarea
-      function saveCommands() {
-        const commandText = document.getElementById("commandText").value;
-        const statusDiv = document.getElementById("writeStatus");
-
-        if (!commandText.trim()) {
-          statusDiv.textContent = "Please enter commands";
-          statusDiv.className = "status status-error";
-          statusDiv.style.display = "block";
-          return;
-        }
-
-        statusDiv.textContent = "Saving...";
-        statusDiv.className = "status status-success";
-        statusDiv.style.display = "block";
-
-        fetch("/write", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: "text=" + encodeURIComponent(commandText),
-        })
-          .then((response) => response.text())
-          .then((data) => {
-            console.log("Save result:", data);
-            statusDiv.textContent = "Commands saved and loaded successfully";
-            statusDiv.className = "status status-success";
-          })
-          .catch((error) => {
-            console.error("Error:", error);
-            statusDiv.textContent = "Error saving commands: " + error;
-            statusDiv.className = "status status-error";
-          });
-      }
-
-      // Function to get current commands from ESP32
-      function getCommands() {
-        const statusDiv = document.getElementById("writeStatus");
-        statusDiv.textContent = "Loading commands...";
-        statusDiv.className = "status status-success";
-        statusDiv.style.display = "block";
-
-        fetch("/get_commands")
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error("Failed to fetch commands");
+          function setSpeed(axisId) {
+            const axis = axes.value.find((a) => a.id === axisId);
+            if (axis) {
+              sendCommand(`SPEED;${axisId};${axis.speed}`);
             }
-            return response.text();
-          })
-          .then((data) => {
-            document.getElementById("commandText").value = data;
-            statusDiv.textContent = "Commands loaded successfully";
-          })
-          .catch((error) => {
-            console.error("Error:", error);
-            statusDiv.textContent = "Error loading commands: " + error;
-            statusDiv.className = "status status-error";
+          }
+
+          function setAllSpeeds() {
+            sendCommand(`SPEED;${speedAll.value}`);
+          }
+
+          function sendCommand(cmd) {
+            fetch("/command", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: "cmd=" + cmd,
+            })
+              .then((response) => response.text())
+              .then((data) => {
+                console.log("Command sent:", data);
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+              });
+          }
+
+          function triggerFileInput() {
+            fileInput.value.click();
+          }
+
+          function handleFileChange(event) {
+            selectedFile.value = event.target.files[0];
+            fileName.value = selectedFile.value ? selectedFile.value.name : "";
+          }
+
+          function uploadFile() {
+            if (!selectedFile.value) {
+              uploadStatus.value = {
+                type: "status-error",
+                message: "Please select a file",
+              };
+              return;
+            }
+
+            uploadStatus.value = {
+              type: "status-success",
+              message: "Uploading...",
+            };
+
+            const formData = new FormData();
+            formData.append("file", selectedFile.value);
+
+            fetch("/upload", {
+              method: "POST",
+              body: formData,
+            })
+              .then((response) => response.text())
+              .then((data) => {
+                console.log("Upload result:", data);
+                uploadStatus.value = {
+                  type: "status-success",
+                  message: "File uploaded successfully",
+                };
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+                uploadStatus.value = {
+                  type: "status-error",
+                  message: "Error uploading file: " + error,
+                };
+              });
+          }
+
+          function saveCommands() {
+            if (!commandText.value.trim()) {
+              writeStatus.value = {
+                type: "status-error",
+                message: "Please enter commands",
+              };
+              return;
+            }
+
+            writeStatus.value = {
+              type: "status-success",
+              message: "Saving...",
+            };
+
+            fetch("/write", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/x-www-form-urlencoded",
+              },
+              body: "text=" + encodeURIComponent(commandText.value),
+            })
+              .then((response) => response.text())
+              .then((data) => {
+                console.log("Save result:", data);
+                writeStatus.value = {
+                  type: "status-success",
+                  message: "Commands saved and loaded successfully",
+                };
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+                writeStatus.value = {
+                  type: "status-error",
+                  message: "Error saving commands: " + error,
+                };
+              });
+          }
+
+          function getCommands() {
+            writeStatus.value = {
+              type: "status-success",
+              message: "Loading commands...",
+            };
+
+            fetch("/get_commands")
+              .then((response) => {
+                if (!response.ok) {
+                  throw new Error("Failed to fetch commands");
+                }
+                return response.text();
+              })
+              .then((data) => {
+                commandText.value = data;
+                writeStatus.value = {
+                  type: "status-success",
+                  message: "Commands loaded successfully",
+                };
+              })
+              .catch((error) => {
+                console.error("Error:", error);
+                writeStatus.value = {
+                  type: "status-error",
+                  message: "Error loading commands: " + error,
+                };
+              });
+          }
+
+          // Initialize event source for status updates
+          onMounted(() => {
+            const eventSource = new EventSource("/events");
+
+            eventSource.onmessage = function (event) {
+              try {
+                const data = JSON.parse(event.data);
+                if (data.type === "status") {
+                  systemStatus.value = data.value;
+                }
+              } catch (error) {
+                console.error("Error parsing event data:", error);
+              }
+            };
+
+            eventSource.onerror = function (err) {
+              console.error("EventSource error:", err);
+              setTimeout(() => {
+                // Try to reconnect after 5 seconds
+                eventSource.close();
+                const newEventSource = new EventSource("/events");
+                eventSource = newEventSource;
+              }, 5000);
+            };
+
+            // Initial status check
+            fetch("/status")
+              .then((response) => response.json())
+              .then((data) => {
+                systemStatus.value = data.status;
+              })
+              .catch((error) => {
+                console.error("Error fetching status:", error);
+              });
           });
-      }
 
-      // Function to download commands
-      function downloadCommands() {
-        window.location.href = "/download_commands";
-      }
+          return {
+            // State
+            systemStatus,
+            speedAll,
+            axes,
+            commandText,
+            writeStatus,
+            fileInput,
+            selectedFile,
+            fileName,
+            uploadStatus,
+            statusIndicatorStyle,
 
-      // Check status on page load
-      fetch("/status")
-        .then((response) => response.json())
-        .then((data) => {
-          updateSystemStatus(data.status);
-        })
-        .catch((error) => {
-          console.error("Error fetching status:", error);
-        });
+            // Methods
+            updateAllSpeeds,
+            setSpeed,
+            setAllSpeeds,
+            sendCommand,
+            triggerFileInput,
+            handleFileChange,
+            uploadFile,
+            saveCommands,
+            getCommands,
+          };
+        },
+      }).mount("#app");
     </script>
   </body>
 </html>

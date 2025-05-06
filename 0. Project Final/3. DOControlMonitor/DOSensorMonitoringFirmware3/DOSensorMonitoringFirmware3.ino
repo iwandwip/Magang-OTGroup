@@ -104,6 +104,8 @@ void setup() {
   pid.setConstants(readHoldingRegister[PARAM_KP_PID_REGISTER], readHoldingRegister[PARAM_KI_PID_REGISTER], readHoldingRegister[PARAM_KD_PID_REGISTER], readHoldingRegister[PARAM_SP_PID_REGISTER]);
   pid.setOutputRange(0, 50);
   pid.reset();
+
+  calibrationDO();
 }
 
 void loop() {

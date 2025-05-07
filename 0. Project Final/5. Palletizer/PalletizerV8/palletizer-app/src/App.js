@@ -27,12 +27,12 @@ function App() {
     const newMode = !darkMode;
     setDarkMode(newMode);
     localStorage.setItem('theme', newMode ? 'dark' : 'light');
-    document.body.setAttribute('data-theme', newMode ? 'dark' : 'light');
+    document.body.setAttribute('data-bs-theme', newMode ? 'dark' : 'light');
   };
 
   // Set initial theme on mount
   useEffect(() => {
-    document.body.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+    document.body.setAttribute('data-bs-theme', darkMode ? 'dark' : 'light');
   }, [darkMode]);
 
   // Connect to server events on component mount
@@ -184,7 +184,7 @@ function App() {
   const uploadFile = () => {
     if (!selectedFile) {
       setUploadStatus({
-        type: 'error',
+        type: 'danger',
         message: 'Please select a file',
       });
       return;
@@ -213,7 +213,7 @@ function App() {
       .catch(error => {
         console.error('Error:', error);
         setUploadStatus({
-          type: 'error',
+          type: 'danger',
           message: `Error uploading file: ${error}`,
         });
       });
@@ -223,7 +223,7 @@ function App() {
   const saveCommands = () => {
     if (!commandText.trim()) {
       setWriteStatus({
-        type: 'error',
+        type: 'danger',
         message: 'Please enter commands',
       });
       return;
@@ -252,7 +252,7 @@ function App() {
       .catch(error => {
         console.error('Error:', error);
         setWriteStatus({
-          type: 'error',
+          type: 'danger',
           message: `Error saving commands: ${error}`,
         });
       });
@@ -282,7 +282,7 @@ function App() {
       .catch(error => {
         console.error('Error:', error);
         setWriteStatus({
-          type: 'error',
+          type: 'danger',
           message: `Error loading commands: ${error}`,
         });
       });
@@ -293,204 +293,257 @@ function App() {
     window.location.href = '/download_commands';
   };
 
-  // Get status class
-  const getStatusClass = () => {
+  // Get status badge class
+  const getStatusBadgeClass = () => {
     switch (systemStatus) {
-      case 'RUNNING': return 'status-running';
-      case 'PAUSED': return 'status-paused';
-      case 'IDLE': case 'STOPPING': return 'status-idle';
-      default: return '';
+      case 'RUNNING': return 'bg-success';
+      case 'PAUSED': return 'bg-warning';
+      case 'IDLE': case 'STOPPING': return 'bg-danger';
+      default: return 'bg-secondary';
     }
   };
 
   return (
-    <div className="app-container">
+    <div className="container py-4">
       {/* Header */}
-      <header className="header">
-        <div className="header-left">
-          <span className="robot-icon">🤖</span>
-          <h1>ESP32 Palletizer Control</h1>
+      <header className="d-flex justify-content-between align-items-center mb-4 p-3 bg-primary text-white rounded shadow-sm">
+        <div className="d-flex align-items-center">
+          <span className="fs-3 me-2">🤖</span>
+          <h1 className="h4 mb-0">ESP32 Palletizer Control</h1>
         </div>
-        <div className="header-right">
-          <div className="theme-toggle">
+        <div className="d-flex align-items-center">
+          <div className="form-check form-switch me-3">
             <input 
+              className="form-check-input" 
               type="checkbox" 
-              id="theme-switch" 
-              className="theme-switch-input" 
+              id="darkModeSwitch" 
               checked={darkMode}
               onChange={toggleDarkMode}
             />
-            <label htmlFor="theme-switch" className="theme-switch-label">
-              <span>🌞</span>
-              <span>🌙</span>
-              <div className="ball"></div>
+            <label className="form-check-label" htmlFor="darkModeSwitch">
+              {darkMode ? '🌙' : '☀️'}
             </label>
           </div>
-          <div className="status-display">
-            <span>Status:</span>
-            <span className={`status-badge ${getStatusClass()}`}>{systemStatus}</span>
+          <div className="d-flex align-items-center px-3 py-1 bg-white bg-opacity-25 rounded-pill">
+            <span className="me-2 text-white">Status:</span>
+            <span className={`badge ${getStatusBadgeClass()} rounded-pill`}>
+              {systemStatus}
+            </span>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="main-content">
+      <main>
         {/* Control Panel */}
-        <section className="panel">
-          <div className="panel-header">
-            <span className="panel-icon">🎮</span>
-            <h2>Control Panel</h2>
+        <div className="card mb-4 shadow-sm">
+          <div className="card-header d-flex align-items-center">
+            <span className="me-2 fs-5">🎮</span>
+            <h2 className="h5 mb-0">Control Panel</h2>
           </div>
           
-          <div className="control-buttons">
-            <button className="btn play" onClick={() => sendCommand('PLAY')}>
-              <span className="btn-icon">▶</span> PLAY
-            </button>
-            <button className="btn pause" onClick={() => sendCommand('PAUSE')}>
-              <span className="btn-icon">⏸</span> PAUSE
-            </button>
-            <button className="btn stop" onClick={() => sendCommand('STOP')}>
-              <span className="btn-icon">⏹</span> STOP
-            </button>
-            <button className="btn idle" onClick={() => sendCommand('IDLE')}>
-              <span className="btn-icon">⚪</span> IDLE
-            </button>
-            <button className="btn zero" onClick={() => sendCommand('ZERO')}>
-              <span className="btn-icon">⌂</span> ZERO
-            </button>
-          </div>
-
-          <div className="speed-controls">
-            <div className="speed-control">
-              <div className="speed-label">All Axes Speed</div>
-              <div className="speed-input-group">
-                <input 
-                  type="range" 
-                  min="10" 
-                  max="1000" 
-                  value={speedAll} 
-                  onChange={updateAllSpeedsSlider} 
-                  className="slider"
-                />
-                <input 
-                  type="number" 
-                  value={speedAll} 
-                  onChange={updateAllSpeedsInput} 
-                  min="10" 
-                  max="1000" 
-                  className="speed-input"
-                />
-                <button className="btn set-btn" onClick={setAllSpeeds}>
-                  <span className="check-icon">✓</span> Set All
+          <div className="card-body">
+            <div className="row mb-4 g-2">
+              <div className="col-6 col-md">
+                <button 
+                  className="btn btn-success w-100 d-flex align-items-center justify-content-center" 
+                  onClick={() => sendCommand('PLAY')}
+                >
+                  <span className="me-1">▶</span> PLAY
+                </button>
+              </div>
+              <div className="col-6 col-md">
+                <button 
+                  className="btn btn-warning w-100 d-flex align-items-center justify-content-center" 
+                  onClick={() => sendCommand('PAUSE')}
+                >
+                  <span className="me-1">⏸</span> PAUSE
+                </button>
+              </div>
+              <div className="col-6 col-md">
+                <button 
+                  className="btn btn-danger w-100 d-flex align-items-center justify-content-center" 
+                  onClick={() => sendCommand('STOP')}
+                >
+                  <span className="me-1">⏹</span> STOP
+                </button>
+              </div>
+              <div className="col-6 col-md">
+                <button 
+                  className="btn btn-info w-100 text-white d-flex align-items-center justify-content-center" 
+                  onClick={() => sendCommand('IDLE')}
+                >
+                  <span className="me-1">⚪</span> IDLE
+                </button>
+              </div>
+              <div className="col-12 col-md">
+                <button 
+                  className="btn btn-purple w-100 text-white d-flex align-items-center justify-content-center" 
+                  onClick={() => sendCommand('ZERO')}
+                >
+                  <span className="me-1">⌂</span> ZERO
                 </button>
               </div>
             </div>
 
-            {axes.map(axis => (
-              <div className="speed-control" key={axis.id}>
-                <div className="speed-label">{axis.name} Axis</div>
-                <div className="speed-input-group">
-                  <input 
-                    type="range" 
-                    min="10" 
-                    max="1000" 
-                    value={axis.speed} 
-                    onChange={(e) => updateAxisSpeedSlider(axis.id, e)} 
-                    className="slider"
-                  />
-                  <input 
-                    type="number" 
-                    value={axis.speed} 
-                    onChange={(e) => updateAxisSpeedInput(axis.id, e)} 
-                    min="10" 
-                    max="1000" 
-                    className="speed-input"
-                  />
-                  <button 
-                    className="btn set-btn" 
-                    onClick={() => setSpeed(axis.id)}
-                  >
-                    <span className="check-icon">✓</span> Set
-                  </button>
+            <div className="speed-controls">
+              <div className="mb-3">
+                <label className="form-label text-muted small">All Axes Speed</label>
+                <div className="row g-2 align-items-center">
+                  <div className="col">
+                    <input 
+                      type="range" 
+                      className="form-range" 
+                      min="10" 
+                      max="1000" 
+                      value={speedAll} 
+                      onChange={updateAllSpeedsSlider}
+                    />
+                  </div>
+                  <div className="col-auto">
+                    <input 
+                      type="number" 
+                      className="form-control form-control-sm" 
+                      style={{width: "80px"}}
+                      value={speedAll} 
+                      onChange={updateAllSpeedsInput} 
+                      min="10" 
+                      max="1000" 
+                    />
+                  </div>
+                  <div className="col-auto">
+                    <button 
+                      className="btn btn-primary btn-sm" 
+                      onClick={setAllSpeeds}
+                    >
+                      <span className="me-1">✓</span> Set All
+                    </button>
+                  </div>
                 </div>
               </div>
-            ))}
+
+              {axes.map(axis => (
+                <div className="mb-3" key={axis.id}>
+                  <label className="form-label text-muted small">{axis.name} Axis</label>
+                  <div className="row g-2 align-items-center">
+                    <div className="col">
+                      <input 
+                        type="range" 
+                        className="form-range" 
+                        min="10" 
+                        max="1000" 
+                        value={axis.speed} 
+                        onChange={(e) => updateAxisSpeedSlider(axis.id, e)}
+                      />
+                    </div>
+                    <div className="col-auto">
+                      <input 
+                        type="number" 
+                        className="form-control form-control-sm" 
+                        style={{width: "80px"}}
+                        value={axis.speed} 
+                        onChange={(e) => updateAxisSpeedInput(axis.id, e)} 
+                        min="10" 
+                        max="1000" 
+                      />
+                    </div>
+                    <div className="col-auto">
+                      <button 
+                        className="btn btn-outline-primary btn-sm" 
+                        onClick={() => setSpeed(axis.id)}
+                      >
+                        <span className="me-1">✓</span> Set
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-        </section>
+        </div>
 
         {/* Upload Command File */}
-        <section className="panel">
-          <div className="panel-header">
-            <span className="panel-icon">📤</span>
-            <h2>Upload Command File</h2>
+        <div className="card mb-4 shadow-sm">
+          <div className="card-header d-flex align-items-center">
+            <span className="me-2 fs-5">📤</span>
+            <h2 className="h5 mb-0">Upload Command File</h2>
           </div>
           
-          <div className="upload-area" onClick={triggerFileInput}>
-            <input
-              type="file"
-              ref={fileInputRef}
-              accept=".txt"
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-            />
-            <div className="upload-icon">📁</div>
-            <p className="upload-text">Click to select a command file</p>
-            <p className="file-status">
-              {fileName ? `Selected: ${fileName}` : 'No file selected'}
-            </p>
-          </div>
-
-          <button
-            className="btn upload-btn"
-            disabled={!selectedFile}
-            onClick={uploadFile}
-          >
-            <span className="btn-icon">📤</span> Upload
-          </button>
-
-          {uploadStatus && (
-            <div className={`status-message ${uploadStatus.type}`}>
-              {uploadStatus.message}
+          <div className="card-body">
+            <div 
+              className="p-4 mb-3 border border-2 border-dashed rounded text-center cursor-pointer upload-area"
+              onClick={triggerFileInput}
+            >
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".txt"
+                onChange={handleFileChange}
+                style={{ display: 'none' }}
+                className="form-control"
+              />
+              <div className="fs-1 mb-2 text-primary">📁</div>
+              <p className="mb-1 fw-medium">Click to select a command file</p>
+              <p className="small text-muted">
+                {fileName ? `Selected: ${fileName}` : 'No file selected'}
+              </p>
             </div>
-          )}
-        </section>
+
+            <button
+              className="btn btn-primary"
+              disabled={!selectedFile}
+              onClick={uploadFile}
+            >
+              <span className="me-1">📤</span> Upload
+            </button>
+
+            {uploadStatus && (
+              <div className={`alert alert-${uploadStatus.type} mt-3`} role="alert">
+                {uploadStatus.message}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Write Commands */}
-        <section className="panel">
-          <div className="panel-header">
-            <span className="panel-icon">📝</span>
-            <h2>Write Commands</h2>
+        <div className="card mb-4 shadow-sm">
+          <div className="card-header d-flex align-items-center">
+            <span className="me-2 fs-5">📝</span>
+            <h2 className="h5 mb-0">Write Commands</h2>
           </div>
           
-          <textarea
-            value={commandText}
-            onChange={(e) => setCommandText(e.target.value)}
-            placeholder={`Enter commands here, one per line...
+          <div className="card-body">
+            <textarea
+              className="form-control mb-3 font-monospace"
+              style={{height: "200px"}}
+              value={commandText}
+              onChange={(e) => setCommandText(e.target.value)}
+              placeholder={`Enter commands here, one per line...
 Example:
 X(1,10,100),Y(1,10,100),Z(1,10,100) NEXT
 X(2,20,200),Y(2,20,200),Z(2,20,200) NEXT
 X(3,30,300),Y(3,30,300),Z(3,30,300)`}
-            className="command-textarea"
-          ></textarea>
+            ></textarea>
 
-          <div className="command-buttons">
-            <button className="btn save-btn" onClick={saveCommands}>
-              <span className="btn-icon">💾</span> Save & Load Commands
-            </button>
-            <button className="btn load-btn" onClick={getCommands}>
-              <span className="btn-icon">📥</span> Load Current Commands
-            </button>
-            <button className="btn download-btn" onClick={downloadCommands}>
-              <span className="btn-icon">📥</span> Download Commands
-            </button>
-          </div>
-
-          {writeStatus && (
-            <div className={`status-message ${writeStatus.type}`}>
-              {writeStatus.message}
+            <div className="d-flex flex-wrap gap-2">
+              <button className="btn btn-primary" onClick={saveCommands}>
+                <span className="me-1">💾</span> Save & Load Commands
+              </button>
+              <button className="btn btn-outline-primary" onClick={getCommands}>
+                <span className="me-1">📥</span> Load Current Commands
+              </button>
+              <a className="btn btn-outline-primary" href="/download_commands">
+                <span className="me-1">📥</span> Download Commands
+              </a>
             </div>
-          )}
-        </section>
+
+            {writeStatus && (
+              <div className={`alert alert-${writeStatus.type} mt-3`} role="alert">
+                {writeStatus.message}
+              </div>
+            )}
+          </div>
+        </div>
       </main>
     </div>
   );

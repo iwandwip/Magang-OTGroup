@@ -44,5 +44,9 @@ module.exports = {
     hints: false,
     maxEntrypointSize: 5120000,
     maxAssetSize: 5120000
+  },
+  // Externalize Bootstrap to reduce bundle size
+  externals: {
+    bootstrap: 'bootstrap'
   }
 };

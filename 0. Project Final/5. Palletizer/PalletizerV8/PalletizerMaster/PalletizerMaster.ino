@@ -9,7 +9,7 @@
 #define TX_PIN 17
 #define INDICATOR_PIN 26
 
-#define WIFI_MODE PalletizerServer::MODE_AP
+#define WIFI_MODE PalletizerServer::MODE_STA
 #define WIFI_SSID "ESP32-Palletizer"
 #define WIFI_PASSWORD ""
 

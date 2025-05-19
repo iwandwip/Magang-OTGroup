@@ -266,6 +266,53 @@ void PalletizerServer::setupCaptivePortal() {
   });
 }
 
+void PalletizerServer::loadSavedCommands() {
+  if (!LittleFS.exists("/queue.txt")) {
+    Serial.println("No saved commands found");
+    return;
+  }
+
+  File file = LittleFS.open("/queue.txt", "r");
+  if (!file) {
+    Serial.println("Failed to open queue.txt");
+    return;
+  }
+
+  Serial.println("Loading saved commands from queue.txt");
+
+  String commands = "";
+  while (file.available()) {
+    String line = file.readStringUntil('\n');
+    line.trim();
+    if (line.length() > 0) {
+      commands += line + "\n";
+    }
+  }
+  file.close();
+
+  if (commands.length() > 0) {
+    palletizerMaster->processCommand("IDLE");
+
+    int startPos = 0;
+    int endPos;
+
+    while ((endPos = commands.indexOf('\n', startPos)) != -1) {
+      String command = commands.substring(startPos, endPos);
+      command.trim();
+      if (command.length() > 0) {
+        palletizerMaster->processCommand(command);
+        Serial.println("Loaded command: " + command);
+      }
+      startPos = endPos + 1;
+    }
+
+    palletizerMaster->processCommand("END_QUEUE");
+    Serial.println("All saved commands loaded successfully");
+  } else {
+    Serial.println("No valid commands found in queue.txt");
+  }
+}
+
 void PalletizerServer::handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
   static String tempBuffer = "";
 

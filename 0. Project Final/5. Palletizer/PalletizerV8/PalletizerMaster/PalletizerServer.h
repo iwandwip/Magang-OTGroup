@@ -6,6 +6,8 @@
 #include "AsyncTCP.h"
 #include "ESPAsyncWebServer.h"
 #include "LittleFS.h"
+#include "ESPmDNS.h"
+#include "DNSServer.h"
 
 class PalletizerServer {
 public:
@@ -14,7 +16,7 @@ public:
     MODE_STA
   };
 
-  PalletizerServer(PalletizerMaster* master, WiFiMode mode = MODE_AP, const char* ssid = "ESP32_Palletizer_AP", const char* password = "palletizer123");
+  PalletizerServer(PalletizerMaster* master, WiFiMode mode = MODE_AP, const char* ssid = "PalletizerAP", const char* password = "");
   void begin();
   void update();
 
@@ -22,12 +24,15 @@ private:
   PalletizerMaster* palletizerMaster;
   AsyncWebServer server;
   AsyncEventSource events;
+  DNSServer dnsServer;
+  bool dnsRunning;
 
   WiFiMode wifiMode;
   const char* ssid;
   const char* password;
 
   void setupRoutes();
+  void setupCaptivePortal();
   void handleUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final);
   void handleCommand(AsyncWebServerRequest* request);
   void handleWriteCommand(AsyncWebServerRequest* request);

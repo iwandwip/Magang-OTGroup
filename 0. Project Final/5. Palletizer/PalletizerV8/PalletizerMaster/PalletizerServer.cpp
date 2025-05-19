@@ -1,15 +1,29 @@
 #include "PalletizerServer.h"
 
 PalletizerServer::PalletizerServer(PalletizerMaster *master, WiFiMode mode, const char *ap_ssid, const char *ap_password)
-  : palletizerMaster(master), server(80), events("/events"), wifiMode(mode), ssid(ap_ssid), password(ap_password) {
+  : palletizerMaster(master), server(80), events("/events"), wifiMode(mode), ssid(ap_ssid), password(ap_password), dnsRunning(false) {
 }
 
 void PalletizerServer::begin() {
   if (wifiMode == MODE_AP) {
+    IPAddress apIP(192, 168, 4, 1);
+    IPAddress netMsk(255, 255, 255, 0);
+    WiFi.softAPConfig(apIP, apIP, netMsk);
     WiFi.softAP(ssid, password);
     IPAddress IP = WiFi.softAPIP();
     Serial.print("AP Mode - IP address: ");
     Serial.println(IP);
+
+    if (MDNS.begin("palletizer")) {
+      Serial.println("mDNS responder started. Access at: http://palletizer.local");
+      MDNS.addService("http", "tcp", 80);
+    } else {
+      Serial.println("Error setting up mDNS responder!");
+    }
+
+    dnsServer.start(53, "*", apIP);
+    dnsRunning = true;
+    Serial.println("DNS Server started");
   } else {
     WiFi.begin(ssid, password);
     int attempts = 0;
@@ -24,23 +38,54 @@ void PalletizerServer::begin() {
       Serial.println();
       Serial.print("STA Mode - Connected to WiFi. IP address: ");
       Serial.println(WiFi.localIP());
+
+      if (MDNS.begin("palletizer")) {
+        Serial.println("mDNS responder started. Access at: http://palletizer.local");
+        MDNS.addService("http", "tcp", 80);
+      } else {
+        Serial.println("Error setting up mDNS responder!");
+      }
     } else {
       Serial.println();
       Serial.println("Failed to connect to WiFi. Falling back to AP mode.");
       WiFi.disconnect();
+
+      IPAddress apIP(192, 168, 4, 1);
+      IPAddress netMsk(255, 255, 255, 0);
+      WiFi.softAPConfig(apIP, apIP, netMsk);
       WiFi.softAP("ESP32_Palletizer_Fallback", "palletizer123");
       IPAddress IP = WiFi.softAPIP();
       Serial.print("Fallback AP Mode - IP address: ");
       Serial.println(IP);
+
+      if (MDNS.begin("palletizer")) {
+        Serial.println("mDNS responder started. Access at: http://palletizer.local");
+        MDNS.addService("http", "tcp", 80);
+      } else {
+        Serial.println("Error setting up mDNS responder!");
+      }
+
+      dnsServer.start(53, "*", apIP);
+      dnsRunning = true;
+      Serial.println("DNS Server started");
     }
   }
 
   setupRoutes();
+  setupCaptivePortal();
   server.begin();
   Serial.println("HTTP server started");
 }
 
 void PalletizerServer::update() {
+  if (dnsRunning) {
+    dnsServer.processNextRequest();
+  }
+
+  // #if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 2)
+  //   MDNS.update();
+  // #endif
+
   if (wifiMode == MODE_STA && WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi connection lost. Reconnecting...");
     WiFi.begin(ssid, password);
@@ -152,7 +197,33 @@ void PalletizerServer::setupRoutes() {
   });
 
   server.onNotFound([](AsyncWebServerRequest *request) {
-    request->send(404, "text/plain", "Not found");
+    request->redirect("/");
+  });
+}
+
+void PalletizerServer::setupCaptivePortal() {
+  server.on("/generate_204", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->redirect("/");
+  });
+
+  server.on("/fwlink", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->redirect("/");
+  });
+
+  server.on("/connecttest.txt", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->redirect("/");
+  });
+
+  server.on("/hotspot-detect.html", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->redirect("/");
+  });
+
+  server.on("/redirect", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->redirect("/");
+  });
+
+  server.on("/success.txt", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(200, "text/plain", "success");
   });
 }
 

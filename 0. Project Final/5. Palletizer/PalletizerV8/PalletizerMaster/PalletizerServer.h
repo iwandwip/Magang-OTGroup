@@ -33,6 +33,7 @@ private:
 
   void setupRoutes();
   void setupCaptivePortal();
+  void loadSavedCommands();
   void handleUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final);
   void handleCommand(AsyncWebServerRequest* request);
   void handleWriteCommand(AsyncWebServerRequest* request);

@@ -77,6 +77,8 @@ void PalletizerServer::begin() {
   setupCaptivePortal();
   server.begin();
   Serial.println("HTTP server started");
+
+  loadSavedCommands();
 }
 
 void PalletizerServer::update() {

@@ -32,7 +32,15 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: 'public/index.html',
       filename: 'index.html',
-      inject: 'body'
+      inject: 'body',
+      minify: {
+        collapseWhitespace: true,
+        removeComments: true,
+        removeRedundantAttributes: true,
+        removeScriptTypeAttributes: true,
+        removeStyleLinkTypeAttributes: true,
+        useShortDoctype: true
+      }
     }),
     new HTMLInlineScriptPlugin(),
     new HTMLInlineCSSWebpackPlugin()
@@ -44,9 +52,5 @@ module.exports = {
     hints: false,
     maxEntrypointSize: 5120000,
     maxAssetSize: 5120000
-  },
-  // Externalize Bootstrap to reduce bundle size
-  externals: {
-    bootstrap: 'bootstrap'
   }
 };

@@ -9,13 +9,13 @@
 #define TX_PIN 17
 #define INDICATOR_PIN 26
 
-#define WIFI_MODE PalletizerServer::MODE_STA
-#define WIFI_SSID "silenceAndSleep"
-#define WIFI_PASSWORD "11111111"
+// #define WIFI_MODE PalletizerServer::MODE_STA
+// #define WIFI_SSID "silenceAndSleep"
+// #define WIFI_PASSWORD "11111111"
 
-// #define WIFI_MODE PalletizerServer::MODE_AP
-// #define WIFI_SSID "Palletizer"
-// #define WIFI_PASSWORD ""
+#define WIFI_MODE PalletizerServer::MODE_AP
+#define WIFI_SSID "Palletizer"
+#define WIFI_PASSWORD ""
 
 PalletizerMaster master(RX_PIN, TX_PIN, INDICATOR_PIN);
 PalletizerServer server(&master, WIFI_MODE, WIFI_SSID, WIFI_PASSWORD);

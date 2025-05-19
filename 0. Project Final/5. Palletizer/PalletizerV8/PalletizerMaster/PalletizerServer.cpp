@@ -21,6 +21,7 @@ void PalletizerServer::begin() {
       Serial.println("Error setting up mDNS responder!");
     }
 
+    dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
     dnsServer.start(53, "*", apIP);
     dnsRunning = true;
     Serial.println("DNS Server started");
@@ -65,6 +66,7 @@ void PalletizerServer::begin() {
         Serial.println("Error setting up mDNS responder!");
       }
 
+      dnsServer.setErrorReplyCode(DNSReplyCode::NoError);
       dnsServer.start(53, "*", apIP);
       dnsRunning = true;
       Serial.println("DNS Server started");
@@ -81,10 +83,6 @@ void PalletizerServer::update() {
   if (dnsRunning) {
     dnsServer.processNextRequest();
   }
-
-  // #if defined(ESP_ARDUINO_VERSION_MAJOR) && (ESP_ARDUINO_VERSION_MAJOR >= 2)
-  //   MDNS.update();
-  // #endif
 
   if (wifiMode == MODE_STA && WiFi.status() != WL_CONNECTED) {
     Serial.println("WiFi connection lost. Reconnecting...");
@@ -195,35 +193,74 @@ void PalletizerServer::setupRoutes() {
     info += "}";
     request->send(200, "application/json", info);
   });
-
-  server.onNotFound([](AsyncWebServerRequest *request) {
-    request->redirect("/");
-  });
 }
 
 void PalletizerServer::setupCaptivePortal() {
-  server.on("/generate_204", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->redirect("/");
+  server.on("/generate_204", HTTP_ANY, [](AsyncWebServerRequest *request) {
+    Serial.println("Captive portal: generate_204");
+    request->redirect("http://palletizer.local/");
   });
 
-  server.on("/fwlink", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->redirect("/");
+  server.on("/gen_204", HTTP_ANY, [](AsyncWebServerRequest *request) {
+    Serial.println("Captive portal: gen_204");
+    request->redirect("http://palletizer.local/");
   });
 
-  server.on("/connecttest.txt", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->redirect("/");
+  server.on("/mobile/status.php", HTTP_ANY, [](AsyncWebServerRequest *request) {
+    Serial.println("Captive portal: status.php");
+    request->redirect("http://palletizer.local/");
   });
 
-  server.on("/hotspot-detect.html", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->redirect("/");
+  server.on("/fwlink", HTTP_ANY, [](AsyncWebServerRequest *request) {
+    Serial.println("Captive portal: fwlink");
+    request->redirect("http://palletizer.local/");
   });
 
-  server.on("/redirect", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->redirect("/");
+  server.on("/connecttest.txt", HTTP_ANY, [](AsyncWebServerRequest *request) {
+    Serial.println("Captive portal: connecttest.txt");
+    request->send(200, "text/plain", "Microsoft NCSI");
   });
 
-  server.on("/success.txt", HTTP_GET, [](AsyncWebServerRequest *request) {
-    request->send(200, "text/plain", "success");
+  server.on("/redirect", HTTP_ANY, [](AsyncWebServerRequest *request) {
+    Serial.println("Captive portal: redirect");
+    request->redirect("http://palletizer.local/");
+  });
+
+  server.on("/hotspot-detect.html", HTTP_ANY, [](AsyncWebServerRequest *request) {
+    Serial.println("Captive portal: hotspot-detect.html");
+    request->send(200, "text/html", "<!DOCTYPE html><html><head><title>Success</title></head><body>Success</body></html>");
+  });
+
+  server.on("/library/test/success.html", HTTP_ANY, [](AsyncWebServerRequest *request) {
+    Serial.println("Captive portal: library/test/success.html");
+    request->send(200, "text/html", "<!DOCTYPE html><html><head><title>Success</title></head><body>Success</body></html>");
+  });
+
+  server.on("/success.txt", HTTP_ANY, [](AsyncWebServerRequest *request) {
+    Serial.println("Captive portal: success.txt");
+    request->send(200, "text/plain", "success\n");
+  });
+
+  server.on("/ncsi.txt", HTTP_ANY, [](AsyncWebServerRequest *request) {
+    Serial.println("Captive portal: ncsi.txt");
+    request->send(200, "text/plain", "Microsoft NCSI");
+  });
+
+  server.onNotFound([](AsyncWebServerRequest *request) {
+    Serial.print("Captive portal - Unknown: ");
+    Serial.print(request->host());
+    Serial.print(" ");
+    Serial.println(request->url());
+
+    if (request->method() == HTTP_OPTIONS) {
+      request->send(200);
+    } else {
+      if (request->host() != "palletizer.local" && request->host() != "192.168.4.1") {
+        request->redirect("http://palletizer.local/");
+      } else {
+        request->send(LittleFS, "/index.html", "text/html");
+      }
+    }
   });
 }
 

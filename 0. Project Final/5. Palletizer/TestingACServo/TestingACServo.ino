@@ -123,12 +123,21 @@ void moveToPosition(int position) {
   delay(50);
 
   Serial.println(F("Mengirim trigger..."));
-  for (int i = 0; i < 4; i++) {
-    digitalWrite(CTRG_PIN, HIGH);
-    delay(TRIGGER_PULSE);
-    digitalWrite(CTRG_PIN, LOW);
-    delay(TRIGGER_PULSE / 2);
-  }
+
+  // for (int i = 0; i < 4; i++) {
+  //   digitalWrite(CTRG_PIN, HIGH);
+  //   delay(TRIGGER_PULSE);
+  //   digitalWrite(CTRG_PIN, LOW);
+  //   delay(TRIGGER_PULSE / 2);
+  // }
+
+  // digitalWrite(CTRG_PIN, HIGH);
+  // delay(3000);
+  // digitalWrite(CTRG_PIN, LOW);
+
+  digitalWrite(CTRG_PIN, HIGH);
+  delay(150);
+  digitalWrite(CTRG_PIN, LOW);
 
   Serial.println(F("Motor bergerak..."));
 

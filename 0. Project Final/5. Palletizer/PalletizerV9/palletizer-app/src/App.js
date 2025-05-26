@@ -518,11 +518,33 @@ function App() {
               style={{height: "200px"}}
               value={commandText}
               onChange={(e) => setCommandText(e.target.value)}
-              placeholder={`Enter commands here, one per line...
-Example:
+              placeholder={`Enter commands here... Both legacy and new script formats supported!
+
+📖 LEGACY FORMAT:
 X(1,10,100),Y(1,10,100),Z(1,10,100) NEXT
 X(2,20,200),Y(2,20,200),Z(2,20,200) NEXT
-X(3,30,300),Y(3,30,300),Z(3,30,300)`}
+SET(1) NEXT WAIT NEXT SET(0)
+
+🚀 NEW SCRIPT FORMAT:
+FUNC(PICK_SEQUENCE) {
+  X(100,d1000,200);
+  Y(50,d500,100);
+  Z(10,d1000,50);
+}
+
+FUNC(SYNC_WITH_ARM2) {
+  SET(1);
+  WAIT;
+  SET(0);
+}
+
+CALL(PICK_SEQUENCE);
+CALL(SYNC_WITH_ARM2);
+
+🔧 MIXED FORMAT (both work together):
+ZERO NEXT SPEED;500 NEXT
+CALL(PICK_SEQUENCE);
+SET(1) NEXT WAIT NEXT SET(0)`}
             ></textarea>
 
             <div className="d-flex flex-wrap gap-2">

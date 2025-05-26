@@ -1,0 +1,137 @@
+/* Bootstrap Color Override and Custom Colors */
+:root {
+  --bs-primary: #2196f3;
+  --bs-success: #4caf50;
+  --bs-warning: #ff9800;
+  --bs-danger: #f44336;
+  --bs-info: #00bcd4;
+  --bs-purple: #9c27b0;
+  --bs-primary-rgb: 33, 150, 243;
+  --bs-success-rgb: 76, 175, 80;
+  --bs-warning-rgb: 255, 152, 0;
+  --bs-danger-rgb: 244, 67, 54;
+  --bs-info-rgb: 0, 188, 212;
+  --bs-purple-rgb: 156, 39, 176;
+}
+
+/* Custom Button Color */
+.btn-purple {
+  background-color: var(--bs-purple);
+  border-color: var(--bs-purple);
+}
+
+.btn-purple:hover {
+  background-color: #7b1fa2;
+  border-color: #7b1fa2;
+}
+
+/* Cursor pointer utility */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* Upload Area Animation */
+.upload-area {
+  transition: all 0.2s ease;
+}
+
+.upload-area:hover {
+  border-color: var(--bs-primary) !important;
+  background-color: rgba(33, 150, 243, 0.05);
+}
+
+/* Custom Slider Styles - improve the Bootstrap range inputs */
+.form-range::-webkit-slider-thumb {
+  background: var(--bs-primary);
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
+}
+
+.form-range::-moz-range-thumb {
+  background: var(--bs-primary);
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.2);
+}
+
+/* Dark Mode Enhancements */
+[data-bs-theme="dark"] .card {
+  background-color: #2d2d2d;
+  border-color: #3d3d3d;
+}
+
+[data-bs-theme="dark"] .card-header {
+  background-color: #222;
+  border-color: #3d3d3d;
+}
+
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-select {
+  background-color: #333;
+  border-color: #444;
+  color: #e0e0e0;
+}
+
+[data-bs-theme="dark"] .form-control:focus,
+[data-bs-theme="dark"] .form-select:focus {
+  border-color: var(--bs-primary);
+  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
+}
+
+[data-bs-theme="dark"] .upload-area:hover {
+  background-color: rgba(33, 150, 243, 0.15);
+}
+
+/* Button animation effects */
+.btn {
+  transition: all 0.2s ease;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+/* Mobile Enhancements */
+@media (max-width: 576px) {
+  .card-header {
+    padding: 0.75rem;
+  }
+  
+  .card-body {
+    padding: 1rem;
+  }
+  
+  .btn {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .form-control, .btn {
+    font-size: 0.9rem;
+  }
+  
+  .container {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+}
+
+/* Landscape mode for mobile devices */
+@media (max-height: 500px) and (orientation: landscape) {
+  .container {
+    max-width: 100%;
+  }
+  
+  .card {
+    margin-bottom: 0.5rem;
+  }
+  
+  .card-body {
+    padding: 0.75rem;
+  }
+}

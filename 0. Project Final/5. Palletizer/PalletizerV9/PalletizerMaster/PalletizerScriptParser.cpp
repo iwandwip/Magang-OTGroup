@@ -40,7 +40,8 @@ void PalletizerScriptParser::parseScript(const String& script) {
         tokenizeStatements(scriptPart, statements, statementCount);
 
         for (int i = 0; i < statementCount; i++) {
-          if (statements[i].trim().length() > 0) {
+          statements[i].trim();
+          if (statements[i].length() > 0) {
             executeStatement(statements[i]);
           }
         }
@@ -75,7 +76,8 @@ bool PalletizerScriptParser::callFunction(const String& funcName) {
       tokenizeStatements(userFunctions[i].body, statements, statementCount);
 
       for (int j = 0; j < statementCount; j++) {
-        if (statements[j].trim().length() > 0) {
+        statements[j].trim();
+        if (statements[j].length() > 0) {
           executeStatement(statements[j]);
         }
       }
@@ -149,7 +151,8 @@ void PalletizerScriptParser::tokenizeStatements(const String& input, String* sta
     char c = input.charAt(i);
 
     if (c == ';') {
-      if (current.trim().length() > 0) {
+      current.trim();
+      if (current.length() > 0) {
         statements[count] = current;
         count++;
       }
@@ -159,7 +162,8 @@ void PalletizerScriptParser::tokenizeStatements(const String& input, String* sta
     }
   }
 
-  if (current.trim().length() > 0 && count < 50) {
+  current.trim();
+  if (current.length() > 0 && count < 50) {
     statements[count] = current;
     count++;
   }

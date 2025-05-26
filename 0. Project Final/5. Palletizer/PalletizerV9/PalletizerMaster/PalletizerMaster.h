@@ -24,6 +24,7 @@
 #include "Kinematrix.h"
 #include "FS.h"
 #include "LittleFS.h"
+#include "PalletizerScriptParser.h"
 
 class PalletizerMaster {
 public:
@@ -95,6 +96,8 @@ private:
   unsigned long waitStartTime;
   const unsigned long maxWaitTime = 30000;
 
+  PalletizerScriptParser scriptParser;
+
   void checkSlaveData();
   void onCommandReceived(const String& data);
   void onSlaveData(const String& data);
@@ -105,6 +108,7 @@ private:
   void processSyncCommand(const String& command);
   void processSetCommand(const String& data);
   void processWaitCommand();
+  void processScriptCommand(const String& script);
   void sendCommandToAllSlaves(Command cmd);
   void parseCoordinateData(const String& data);
   bool checkAllSlavesCompleted();

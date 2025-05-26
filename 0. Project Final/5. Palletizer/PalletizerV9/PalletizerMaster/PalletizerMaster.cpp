@@ -5,7 +5,7 @@ PalletizerMaster* PalletizerMaster::instance = nullptr;
 PalletizerMaster::PalletizerMaster(int rxPin, int txPin, int indicatorPin)
   : rxPin(rxPin), txPin(txPin), rxIndicatorLed(2), indicatorPin(indicatorPin),
     syncSetPin(SYNC_SET_PIN), syncWaitPin(SYNC_WAIT_PIN), waitingForSync(false), waitStartTime(0),
-    ledIndicator{
+    scriptParser(this), ledIndicator{
       DigitalOut(27, true),
       DigitalOut(14, true),
       DigitalOut(13, true),
@@ -130,6 +130,11 @@ void PalletizerMaster::onCommandReceived(const String& data) {
   String upperData = data;
   upperData.trim();
   upperData.toUpperCase();
+
+  if (data.indexOf(';') != -1 || data.indexOf('{') != -1 || data.indexOf("FUNC(") != -1 || data.indexOf("CALL(") != -1) {
+    processScriptCommand(data);
+    return;
+  }
 
   if (upperData.startsWith("SET(") || upperData == "WAIT") {
     processSyncCommand(upperData);
@@ -354,6 +359,11 @@ void PalletizerMaster::processWaitCommand() {
   }
 }
 
+void PalletizerMaster::processScriptCommand(const String& script) {
+  DEBUG_PRINTLN("MASTER: Processing script command");
+  scriptParser.parseScript(script);
+}
+
 void PalletizerMaster::sendCommandToAllSlaves(Command cmd) {
   const char* slaveIds[] = { "x", "y", "z", "t", "g" };
   for (int i = 0; i < 5; i++) {
@@ -455,7 +465,9 @@ void PalletizerMaster::processNextCommand() {
   upperData.trim();
   upperData.toUpperCase();
 
-  if (upperData == "ZERO") {
+  if (command.indexOf(';') != -1 || command.indexOf('{') != -1 || command.indexOf("FUNC(") != -1 || command.indexOf("CALL(") != -1) {
+    processScriptCommand(command);
+  } else if (upperData == "ZERO") {
     processStandardCommand(upperData);
   } else if (upperData.startsWith("SPEED;")) {
     processSpeedCommand(command);

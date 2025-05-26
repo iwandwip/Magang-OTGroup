@@ -9,8 +9,6 @@
 #define RX_PIN 16
 #define TX_PIN 17
 #define INDICATOR_PIN 26
-#define SYNC_SET_PIN 25
-#define SYNC_WAIT_PIN 27
 
 #define WIFI_MODE PalletizerServer::MODE_AP
 #define WIFI_SSID "PalletizerAP"

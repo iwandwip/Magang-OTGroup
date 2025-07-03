@@ -34,6 +34,7 @@ void PalletizerMaster::begin() {
   } else {
     DEBUG_PRINTLN("MASTER: File system initialized");
     clearQueue();
+    loadTimeoutConfig();
   }
 
   systemState = STATE_IDLE;
@@ -43,14 +44,27 @@ void PalletizerMaster::begin() {
 }
 
 void PalletizerMaster::update() {
+  safeYield();
   checkSlaveData();
 
-  if (waitingForSync && checkSyncTimeout()) {
-    DEBUG_PRINTLN("MASTER: WAIT command timeout!");
-    waitingForSync = false;
+  if (waitingForSync) {
+    if (digitalRead(syncWaitPin) == HIGH) {
+      DEBUG_PRINTLN("MASTER: WAIT completed - sync signal received");
+      waitingForSync = false;
+      updateTimeoutStats(true);
+
+      if (!isQueueEmpty() && systemState == STATE_RUNNING) {
+        processNextCommand();
+      }
+    } else if (checkSyncTimeout()) {
+      handleWaitTimeout();
+    }
+
+    safeYield();
+    return;
   }
 
-  if (!requestNextCommand && !isQueueFull() && !waitingForSync) {
+  if (!requestNextCommand && !isQueueFull() && !waitingForSync && !scriptProcessing) {
     requestCommand();
   }
 
@@ -70,6 +84,7 @@ void PalletizerMaster::update() {
           setSystemState(STATE_IDLE);
         }
       }
+      safeYield();
     }
   }
 
@@ -80,6 +95,8 @@ void PalletizerMaster::update() {
   for (int i = 0; i < MAX_LED_INDICATOR_SIZE; i++) {
     ledIndicator[i].update();
   }
+
+  safeYield();
 }
 
 void PalletizerMaster::sendToSlave(const String& data) {
@@ -98,6 +115,143 @@ void PalletizerMaster::processCommand(const String& data) {
 
 PalletizerMaster::SystemState PalletizerMaster::getSystemState() {
   return systemState;
+}
+
+void PalletizerMaster::setTimeoutConfig(const TimeoutConfig& config) {
+  timeoutConfig = config;
+  if (config.saveToFile) {
+    saveTimeoutConfig();
+  }
+  DEBUG_PRINTLN("MASTER: Timeout config updated - timeout:" + String(config.maxWaitTime) + "ms strategy:" + String(config.strategy));
+}
+
+PalletizerMaster::TimeoutConfig PalletizerMaster::getTimeoutConfig() {
+  return timeoutConfig;
+}
+
+void PalletizerMaster::setWaitTimeout(unsigned long timeoutMs) {
+  timeoutConfig.maxWaitTime = timeoutMs;
+  if (timeoutConfig.saveToFile) {
+    saveTimeoutConfig();
+  }
+  DEBUG_PRINTLN("MASTER: Wait timeout set to " + String(timeoutMs) + "ms");
+}
+
+void PalletizerMaster::setTimeoutStrategy(WaitTimeoutStrategy strategy) {
+  timeoutConfig.strategy = strategy;
+  if (timeoutConfig.saveToFile) {
+    saveTimeoutConfig();
+  }
+  DEBUG_PRINTLN("MASTER: Timeout strategy set to " + String(strategy));
+}
+
+void PalletizerMaster::setMaxTimeoutWarning(int maxWarning) {
+  timeoutConfig.maxTimeoutWarning = maxWarning;
+  if (timeoutConfig.saveToFile) {
+    saveTimeoutConfig();
+  }
+  DEBUG_PRINTLN("MASTER: Max timeout warning set to " + String(maxWarning));
+}
+
+PalletizerMaster::TimeoutStats PalletizerMaster::getTimeoutStats() {
+  return timeoutStats;
+}
+
+void PalletizerMaster::clearTimeoutStats() {
+  timeoutStats.totalTimeouts = 0;
+  timeoutStats.successfulWaits = 0;
+  timeoutStats.lastTimeoutTime = 0;
+  timeoutStats.totalWaitTime = 0;
+  timeoutStats.currentRetryCount = 0;
+  DEBUG_PRINTLN("MASTER: Timeout statistics cleared");
+}
+
+float PalletizerMaster::getTimeoutSuccessRate() {
+  int totalAttempts = timeoutStats.totalTimeouts + timeoutStats.successfulWaits;
+  if (totalAttempts == 0) return 100.0;
+  return (float(timeoutStats.successfulWaits) / float(totalAttempts)) * 100.0;
+}
+
+bool PalletizerMaster::saveTimeoutConfig() {
+  File configFile = LittleFS.open(timeoutConfigPath, "w");
+  if (!configFile) {
+    DEBUG_PRINTLN("MASTER: Failed to save timeout config");
+    return false;
+  }
+
+  String jsonConfig = "{";
+  jsonConfig += "\"maxWaitTime\":" + String(timeoutConfig.maxWaitTime) + ",";
+  jsonConfig += "\"strategy\":" + String(timeoutConfig.strategy) + ",";
+  jsonConfig += "\"maxTimeoutWarning\":" + String(timeoutConfig.maxTimeoutWarning) + ",";
+  jsonConfig += "\"autoRetryCount\":" + String(timeoutConfig.autoRetryCount) + ",";
+  jsonConfig += "\"saveToFile\":" + String(timeoutConfig.saveToFile ? "true" : "false");
+  jsonConfig += "}";
+
+  configFile.print(jsonConfig);
+  ensureFileIsClosed(configFile);
+  DEBUG_PRINTLN("MASTER: Timeout config saved");
+  return true;
+}
+
+bool PalletizerMaster::loadTimeoutConfig() {
+  if (!LittleFS.exists(timeoutConfigPath)) {
+    DEBUG_PRINTLN("MASTER: No timeout config file found, using defaults");
+    return false;
+  }
+
+  File configFile = LittleFS.open(timeoutConfigPath, "r");
+  if (!configFile) {
+    DEBUG_PRINTLN("MASTER: Failed to load timeout config");
+    return false;
+  }
+
+  String jsonConfig = configFile.readString();
+  ensureFileIsClosed(configFile);
+
+  int maxWaitTimePos = jsonConfig.indexOf("\"maxWaitTime\":");
+  int strategyPos = jsonConfig.indexOf("\"strategy\":");
+  int maxTimeoutWarningPos = jsonConfig.indexOf("\"maxTimeoutWarning\":");
+  int autoRetryCountPos = jsonConfig.indexOf("\"autoRetryCount\":");
+  int saveToFilePos = jsonConfig.indexOf("\"saveToFile\":");
+
+  if (maxWaitTimePos != -1) {
+    int valueStart = jsonConfig.indexOf(":", maxWaitTimePos) + 1;
+    int valueEnd = jsonConfig.indexOf(",", valueStart);
+    if (valueEnd == -1) valueEnd = jsonConfig.indexOf("}", valueStart);
+    timeoutConfig.maxWaitTime = jsonConfig.substring(valueStart, valueEnd).toInt();
+  }
+
+  if (strategyPos != -1) {
+    int valueStart = jsonConfig.indexOf(":", strategyPos) + 1;
+    int valueEnd = jsonConfig.indexOf(",", valueStart);
+    if (valueEnd == -1) valueEnd = jsonConfig.indexOf("}", valueStart);
+    timeoutConfig.strategy = (WaitTimeoutStrategy)jsonConfig.substring(valueStart, valueEnd).toInt();
+  }
+
+  if (maxTimeoutWarningPos != -1) {
+    int valueStart = jsonConfig.indexOf(":", maxTimeoutWarningPos) + 1;
+    int valueEnd = jsonConfig.indexOf(",", valueStart);
+    if (valueEnd == -1) valueEnd = jsonConfig.indexOf("}", valueStart);
+    timeoutConfig.maxTimeoutWarning = jsonConfig.substring(valueStart, valueEnd).toInt();
+  }
+
+  if (autoRetryCountPos != -1) {
+    int valueStart = jsonConfig.indexOf(":", autoRetryCountPos) + 1;
+    int valueEnd = jsonConfig.indexOf(",", valueStart);
+    if (valueEnd == -1) valueEnd = jsonConfig.indexOf("}", valueStart);
+    timeoutConfig.autoRetryCount = jsonConfig.substring(valueStart, valueEnd).toInt();
+  }
+
+  if (saveToFilePos != -1) {
+    int valueStart = jsonConfig.indexOf(":", saveToFilePos) + 1;
+    int valueEnd = jsonConfig.indexOf("}", valueStart);
+    String value = jsonConfig.substring(valueStart, valueEnd);
+    value.trim();
+    timeoutConfig.saveToFile = (value == "true");
+  }
+
+  DEBUG_PRINTLN("MASTER: Timeout config loaded - timeout:" + String(timeoutConfig.maxWaitTime) + "ms");
+  return true;
 }
 
 void PalletizerMaster::checkSlaveData() {
@@ -119,6 +273,7 @@ void PalletizerMaster::checkSlaveData() {
         slavePartialBuffer += c;
       }
       rxIndicatorLed.off();
+      safeYield();
     }
   }
 }
@@ -146,72 +301,33 @@ void PalletizerMaster::onCommandReceived(const String& data) {
     return;
   }
 
-  if (!sequenceRunning && !waitingForCompletion) {
+  if (!sequenceRunning && !waitingForCompletion && !scriptProcessing) {
     if (upperData == "ZERO") {
       processStandardCommand(upperData);
     } else if (upperData.startsWith("SPEED;")) {
       processSpeedCommand(data);
     } else if (upperData == "END_QUEUE") {
       DEBUG_PRINTLN("MASTER: Queue loading completed");
+      scriptProcessing = false;
     } else {
-      bool isCoordinateCommand = upperData.indexOf('(') != -1;
-
-      if (isCoordinateCommand) {
-#if QUEUE_OPERATION_MODE == QUEUE_MODE_OVERWRITE
-        clearQueue();
-#endif
-      }
-
-      int startPos = 0;
-      int nextPos = data.indexOf("NEXT", startPos);
-
-      while (startPos < data.length()) {
-        if (nextPos == -1) {
-          String command = data.substring(startPos);
-          command.trim();
-          if (command.length() > 0) {
-            addToQueue(command);
-          }
-          break;
-        } else {
-          String command = data.substring(startPos, nextPos);
-          command.trim();
-          if (command.length() > 0) {
-            addToQueue(command);
-          }
-          startPos = nextPos + 4;
-          nextPos = data.indexOf("NEXT", startPos);
+      if (shouldClearQueue(data)) {
+        if (!queueClearRequested) {
+          clearQueue();
+          queueClearRequested = true;
         }
       }
+
+      processCommandsBatch(data);
     }
   } else if (data != "END_QUEUE") {
-#if QUEUE_OPERATION_MODE == QUEUE_MODE_OVERWRITE
-    if (data.indexOf('(') != -1) {
-      clearQueue();
-    }
-#endif
-
-    int startPos = 0;
-    int nextPos = data.indexOf("NEXT", startPos);
-
-    while (startPos < data.length()) {
-      if (nextPos == -1) {
-        String command = data.substring(startPos);
-        command.trim();
-        if (command.length() > 0) {
-          addToQueue(command);
-        }
-        break;
-      } else {
-        String command = data.substring(startPos, nextPos);
-        command.trim();
-        if (command.length() > 0) {
-          addToQueue(command);
-        }
-        startPos = nextPos + 4;
-        nextPos = data.indexOf("NEXT", startPos);
+    if (shouldClearQueue(data)) {
+      if (!queueClearRequested) {
+        clearQueue();
+        queueClearRequested = true;
       }
     }
+
+    processCommandsBatch(data);
   }
 }
 
@@ -267,6 +383,7 @@ void PalletizerMaster::processSpeedCommand(const String& data) {
       String command = String(slaveIds[i]) + ";" + String(CMD_SETSPEED) + ";" + params;
       sendToSlave(command);
       DEBUG_PRINTLN("MASTER→SLAVE: " + command);
+      safeYield();
     }
   }
 }
@@ -295,6 +412,10 @@ void PalletizerMaster::processSystemStateCommand(const String& command) {
       setSystemState(STATE_IDLE);
     }
   } else if (command == "PLAY") {
+    if (isQueueEmpty()) {
+      loadCommandsFromFile();
+    }
+
     setSystemState(STATE_RUNNING);
     if (!sequenceRunning && !waitingForCompletion && !isQueueEmpty()) {
       processNextCommand();
@@ -340,28 +461,18 @@ void PalletizerMaster::processSetCommand(const String& data) {
 }
 
 void PalletizerMaster::processWaitCommand() {
-  DEBUG_PRINTLN("MASTER: WAIT command - blocking until sync signal HIGH");
+  DEBUG_PRINTLN("MASTER: WAIT command - waiting for sync signal HIGH");
   waitingForSync = true;
   waitStartTime = millis();
-
-  while (waitingForSync && !checkSyncTimeout()) {
-    if (digitalRead(syncWaitPin) == HIGH) {
-      DEBUG_PRINTLN("MASTER: WAIT completed - sync signal received");
-      waitingForSync = false;
-      return;
-    }
-    delay(10);
-
-    checkSlaveData();
-    for (int i = 0; i < MAX_LED_INDICATOR_SIZE; i++) {
-      ledIndicator[i].update();
-    }
-  }
+  waitStartTimeForStats = millis();
 }
 
 void PalletizerMaster::processScriptCommand(const String& script) {
   DEBUG_PRINTLN("MASTER: Processing script command");
+  scriptProcessing = true;
+  queueClearRequested = false;
   scriptParser.parseScript(script);
+  scriptProcessing = false;
 }
 
 void PalletizerMaster::sendCommandToAllSlaves(Command cmd) {
@@ -370,6 +481,7 @@ void PalletizerMaster::sendCommandToAllSlaves(Command cmd) {
     String command = String(slaveIds[i]) + ";" + String(cmd);
     sendToSlave(command);
     DEBUG_PRINTLN("MASTER→SLAVE: " + command);
+    safeYield();
   }
 }
 
@@ -398,6 +510,7 @@ void PalletizerMaster::parseCoordinateData(const String& data) {
 
     pos = data.indexOf(',', closePos);
     pos = (pos == -1) ? data.length() : pos + 1;
+    safeYield();
   }
 }
 
@@ -409,10 +522,7 @@ bool PalletizerMaster::checkAllSlavesCompleted() {
 }
 
 bool PalletizerMaster::checkSyncTimeout() {
-  if (waitingForSync && (millis() - waitStartTime) > maxWaitTime) {
-    return true;
-  }
-  return false;
+  return waitingForSync && (millis() - waitStartTime) > timeoutConfig.maxWaitTime;
 }
 
 void PalletizerMaster::addToQueue(const String& command) {
@@ -486,31 +596,24 @@ void PalletizerMaster::requestCommand() {
 }
 
 void PalletizerMaster::clearQueue() {
-  bool isRemoved = false;
-  int retryCount = 0;
-  const int maxRetry = 3;
+  queueClearRequested = false;
 
-  while (!isRemoved && retryCount < maxRetry) {
-    if (LittleFS.exists(queueFilePath)) {
-      isRemoved = LittleFS.remove(queueFilePath);
-      if (!isRemoved) {
-        DEBUG_PRINTLN("MASTER: Failed to remove queue file, retrying...");
-        delay(100);
-        retryCount++;
-      }
-    } else {
-      isRemoved = true;
-      break;
+  if (LittleFS.exists(queueFilePath)) {
+    File testFile = LittleFS.open(queueFilePath, "r");
+    if (testFile) {
+      ensureFileIsClosed(testFile);
+      delay(10);
     }
-  }
 
-  if (!isRemoved && retryCount >= maxRetry) {
-    DEBUG_PRINTLN("MASTER: Failed to remove queue file after multiple attempts");
+    bool removed = LittleFS.remove(queueFilePath);
+    if (!removed) {
+      DEBUG_PRINTLN("MASTER: Warning - could not remove queue file");
+    }
   }
 
   File queueFile = LittleFS.open(queueFilePath, "w");
   if (queueFile) {
-    queueFile.close();
+    ensureFileIsClosed(queueFile);
   } else {
     DEBUG_PRINTLN("MASTER: Failed to create new queue file");
   }
@@ -534,7 +637,7 @@ bool PalletizerMaster::initFileSystem() {
     }
     indexFile.println("0");
     indexFile.println("0");
-    indexFile.close();
+    ensureFileIsClosed(indexFile);
   }
 
   readQueueIndex();
@@ -548,7 +651,7 @@ bool PalletizerMaster::writeQueueIndex() {
   }
   indexFile.println(String(queueHead));
   indexFile.println(String(queueSize));
-  indexFile.close();
+  ensureFileIsClosed(indexFile);
   return true;
 }
 
@@ -560,7 +663,7 @@ bool PalletizerMaster::readQueueIndex() {
 
   String headStr = indexFile.readStringUntil('\n');
   String sizeStr = indexFile.readStringUntil('\n');
-  indexFile.close();
+  ensureFileIsClosed(indexFile);
 
   queueHead = headStr.toInt();
   queueSize = sizeStr.toInt();
@@ -573,7 +676,7 @@ bool PalletizerMaster::appendToQueueFile(const String& command) {
     return false;
   }
   queueFile.println(command);
-  queueFile.close();
+  ensureFileIsClosed(queueFile);
   return true;
 }
 
@@ -593,9 +696,10 @@ String PalletizerMaster::readQueueCommandAt(int index) {
       break;
     }
     currentLine++;
+    safeYield();
   }
 
-  queueFile.close();
+  ensureFileIsClosed(queueFile);
   return command;
 }
 
@@ -609,9 +713,10 @@ int PalletizerMaster::getQueueCount() {
   while (queueFile.available()) {
     queueFile.readStringUntil('\n');
     count++;
+    safeYield();
   }
 
-  queueFile.close();
+  ensureFileIsClosed(queueFile);
   return count;
 }
 
@@ -662,4 +767,146 @@ void PalletizerMaster::setOnLedIndicator(LedIndicator index) {
     return;
   }
   ledIndicator[index].on();
+}
+
+void PalletizerMaster::loadCommandsFromFile() {
+  if (!LittleFS.exists(queueFilePath)) {
+    DEBUG_PRINTLN("MASTER: No saved commands found");
+    return;
+  }
+
+  File file = LittleFS.open(queueFilePath, "r");
+  if (!file) {
+    DEBUG_PRINTLN("MASTER: Failed to open queue file");
+    return;
+  }
+
+  DEBUG_PRINTLN("MASTER: Loading commands from file...");
+
+  String allCommands = file.readString();
+  ensureFileIsClosed(file);
+
+  clearQueue();
+
+  if (allCommands.length() > 0) {
+    processCommandsBatch(allCommands);
+    processCommand("END_QUEUE");
+    DEBUG_PRINTLN("MASTER: Commands loaded from file successfully");
+  } else {
+    DEBUG_PRINTLN("MASTER: No valid commands found in file");
+  }
+}
+
+void PalletizerMaster::handleWaitTimeout() {
+  updateTimeoutStats(false);
+
+  switch (timeoutConfig.strategy) {
+    case TIMEOUT_SKIP_CONTINUE:
+      DEBUG_PRINTLN("MASTER: WAIT timeout #" + String(timeoutStats.totalTimeouts) + " - skipping and continuing");
+      waitingForSync = false;
+
+      if (timeoutStats.totalTimeouts >= timeoutConfig.maxTimeoutWarning) {
+        DEBUG_PRINTLN("MASTER: WARNING - Frequent WAIT timeouts detected!");
+
+        if (timeoutStats.totalTimeouts >= timeoutConfig.maxTimeoutWarning * 2) {
+          DEBUG_PRINTLN("MASTER: Too many timeouts - auto pausing");
+          setSystemState(STATE_PAUSED);
+          return;
+        }
+      }
+
+      if (!isQueueEmpty() && systemState == STATE_RUNNING) {
+        processNextCommand();
+      }
+      break;
+
+    case TIMEOUT_PAUSE_SYSTEM:
+      DEBUG_PRINTLN("MASTER: WAIT timeout - pausing system for user intervention");
+      waitingForSync = false;
+      setSystemState(STATE_PAUSED);
+      break;
+
+    case TIMEOUT_ABORT_RESET:
+      DEBUG_PRINTLN("MASTER: WAIT timeout - aborting sequence and resetting");
+      waitingForSync = false;
+      clearQueue();
+      setSystemState(STATE_IDLE);
+      break;
+
+    case TIMEOUT_RETRY_BACKOFF:
+      if (timeoutStats.currentRetryCount < timeoutConfig.autoRetryCount) {
+        timeoutStats.currentRetryCount++;
+        DEBUG_PRINTLN("MASTER: WAIT timeout - retry " + String(timeoutStats.currentRetryCount) + "/" + String(timeoutConfig.autoRetryCount));
+        waitStartTime = millis();
+      } else {
+        DEBUG_PRINTLN("MASTER: WAIT timeout - max retries reached, pausing");
+        timeoutStats.currentRetryCount = 0;
+        waitingForSync = false;
+        setSystemState(STATE_PAUSED);
+      }
+      break;
+  }
+}
+
+void PalletizerMaster::resetTimeoutCounter() {
+  if (timeoutStats.totalTimeouts > 0) {
+    DEBUG_PRINTLN("MASTER: WAIT successful - resetting timeout counter");
+    timeoutStats.currentRetryCount = 0;
+  }
+}
+
+void PalletizerMaster::updateTimeoutStats(bool success) {
+  if (success) {
+    timeoutStats.successfulWaits++;
+    timeoutStats.totalWaitTime += millis() - waitStartTimeForStats;
+    resetTimeoutCounter();
+  } else {
+    timeoutStats.totalTimeouts++;
+    timeoutStats.lastTimeoutTime = millis();
+  }
+}
+
+void PalletizerMaster::processCommandsBatch(const String& commands) {
+  int startPos = 0;
+  int nextPos = commands.indexOf("NEXT", startPos);
+
+  while (startPos < commands.length()) {
+    safeYield();
+
+    if (nextPos == -1) {
+      String command = commands.substring(startPos);
+      command.trim();
+      if (command.length() > 0) {
+        addToQueue(command);
+      }
+      break;
+    } else {
+      String command = commands.substring(startPos, nextPos);
+      command.trim();
+      if (command.length() > 0) {
+        addToQueue(command);
+      }
+      startPos = nextPos + 4;
+      nextPos = commands.indexOf("NEXT", startPos);
+    }
+  }
+}
+
+void PalletizerMaster::safeYield() {
+  unsigned long currentTime = millis();
+  if (currentTime - lastYieldTime >= 5) {
+    yield();
+    lastYieldTime = currentTime;
+  }
+}
+
+bool PalletizerMaster::shouldClearQueue(const String& data) {
+  bool isCoordinateCommand = data.indexOf('(') != -1;
+  return isCoordinateCommand && QUEUE_OPERATION_MODE == QUEUE_MODE_OVERWRITE;
+}
+
+void PalletizerMaster::ensureFileIsClosed(File& file) {
+  if (file) {
+    file.close();
+  }
 }

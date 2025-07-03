@@ -77,8 +77,6 @@ void PalletizerServer::begin() {
   setupCaptivePortal();
   server.begin();
   Serial.println("HTTP server started");
-
-  loadSavedCommands();
 }
 
 void PalletizerServer::update() {
@@ -142,10 +140,26 @@ void PalletizerServer::setupRoutes() {
     this->handleDownloadCommands(request);
   });
 
+  server.on("/timeout_config", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    this->handleGetTimeoutConfig(request);
+  });
+
+  server.on("/timeout_config", HTTP_POST, [this](AsyncWebServerRequest *request) {
+    this->handleSetTimeoutConfig(request);
+  });
+
+  server.on("/timeout_stats", HTTP_GET, [this](AsyncWebServerRequest *request) {
+    this->handleGetTimeoutStats(request);
+  });
+
+  server.on("/clear_timeout_stats", HTTP_POST, [this](AsyncWebServerRequest *request) {
+    this->handleClearTimeoutStats(request);
+  });
+
   server.on(
     "/upload", HTTP_POST,
     [](AsyncWebServerRequest *request) {
-      request->send(200, "text/plain", "File uploaded");
+      request->send(200, "text/plain", "File uploaded successfully. Click PLAY to execute.");
     },
     [this](AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
       this->handleUpload(request, filename, index, data, len, final);
@@ -266,73 +280,20 @@ void PalletizerServer::setupCaptivePortal() {
   });
 }
 
-void PalletizerServer::loadSavedCommands() {
-  if (!LittleFS.exists("/queue.txt")) {
-    Serial.println("No saved commands found");
-    return;
-  }
-
-  File file = LittleFS.open("/queue.txt", "r");
-  if (!file) {
-    Serial.println("Failed to open queue.txt");
-    return;
-  }
-
-  Serial.println("Loading saved commands from queue.txt");
-
-  String commands = "";
-  while (file.available()) {
-    String line = file.readStringUntil('\n');
-    line.trim();
-    if (line.length() > 0) {
-      commands += line + "\n";
-    }
-  }
-  file.close();
-
-  if (commands.length() > 0) {
-    palletizerMaster->processCommand("IDLE");
-    palletizerMaster->processCommand(commands);
-    palletizerMaster->processCommand("END_QUEUE");
-    Serial.println("All saved commands loaded successfully");
-  } else {
-    Serial.println("No valid commands found in queue.txt");
-  }
-}
-
 void PalletizerServer::handleUpload(AsyncWebServerRequest *request, String filename, size_t index, uint8_t *data, size_t len, bool final) {
   static String tempBuffer = "";
 
   if (!index) {
     tempBuffer = "";
-    if (LittleFS.exists("/queue.txt")) {
-      LittleFS.remove("/queue.txt");
-    }
-    File file = LittleFS.open("/queue.txt", "w");
-    if (!file) {
-      Serial.println("Failed to open file for writing");
-      return;
-    }
-    file.close();
+    ensureFileExists("/queue.txt");
   }
 
   String dataStr = String((char *)data, len);
   tempBuffer += dataStr;
 
   if (final) {
-    File file = LittleFS.open("/queue.txt", "w");
-    if (!file) {
-      Serial.println("Failed to open file for writing");
-      return;
-    }
-
-    file.print(tempBuffer);
-    file.close();
-
-    palletizerMaster->processCommand("IDLE");
-    palletizerMaster->processCommand(tempBuffer);
-    palletizerMaster->processCommand("END_QUEUE");
-
+    safeFileWrite("/queue.txt", tempBuffer);
+    Serial.println("File uploaded and saved. Use PLAY to execute.");
     tempBuffer = "";
   }
 }
@@ -360,23 +321,8 @@ void PalletizerServer::handleWriteCommand(AsyncWebServerRequest *request) {
   }
 
   if (commands.length() > 0) {
-    if (LittleFS.exists("/queue.txt")) {
-      LittleFS.remove("/queue.txt");
-    }
-
-    File file = LittleFS.open("/queue.txt", "w");
-    if (!file) {
-      request->send(500, "text/plain", "Failed to open file for writing");
-      return;
-    }
-
-    file.print(commands);
-    file.close();
-
-    palletizerMaster->processCommand("IDLE");
-    palletizerMaster->processCommand(commands);
-    palletizerMaster->processCommand("END_QUEUE");
-    request->send(200, "text/plain", "Commands saved and loaded");
+    safeFileWrite("/queue.txt", commands);
+    request->send(200, "text/plain", "Commands saved successfully. Click PLAY to execute.");
   } else {
     request->send(400, "text/plain", "No commands provided");
   }
@@ -408,38 +354,36 @@ void PalletizerServer::handleGetStatus(AsyncWebServerRequest *request) {
 }
 
 void PalletizerServer::handleGetCommands(AsyncWebServerRequest *request) {
-  File file = LittleFS.open("/queue.txt", "r");
-  if (!file) {
+  if (!LittleFS.exists("/queue.txt")) {
     request->send(404, "text/plain", "File not found");
     return;
   }
 
-  String content = "";
-  while (file.available()) {
-    content += file.readStringUntil('\n');
-    if (file.available()) {
-      content += "\n";
-    }
+  File file = LittleFS.open("/queue.txt", "r");
+  if (!file) {
+    request->send(404, "text/plain", "Failed to open file");
+    return;
   }
+
+  String content = file.readString();
   file.close();
 
   request->send(200, "text/plain", content);
 }
 
 void PalletizerServer::handleDownloadCommands(AsyncWebServerRequest *request) {
-  File file = LittleFS.open("/queue.txt", "r");
-  if (!file) {
+  if (!LittleFS.exists("/queue.txt")) {
     request->send(404, "text/plain", "File not found");
     return;
   }
 
-  String content = "";
-  while (file.available()) {
-    content += file.readStringUntil('\n');
-    if (file.available()) {
-      content += "\n";
-    }
+  File file = LittleFS.open("/queue.txt", "r");
+  if (!file) {
+    request->send(404, "text/plain", "Failed to open file");
+    return;
   }
+
+  String content = file.readString();
   file.close();
 
   AsyncWebServerResponse *response = request->beginResponse(200, "text/plain", content);
@@ -447,7 +391,122 @@ void PalletizerServer::handleDownloadCommands(AsyncWebServerRequest *request) {
   request->send(response);
 }
 
+void PalletizerServer::handleGetTimeoutConfig(AsyncWebServerRequest *request) {
+  PalletizerMaster::TimeoutConfig config = palletizerMaster->getTimeoutConfig();
+
+  String response = "{";
+  response += "\"maxWaitTime\":" + String(config.maxWaitTime) + ",";
+  response += "\"strategy\":" + String(config.strategy) + ",";
+  response += "\"maxTimeoutWarning\":" + String(config.maxTimeoutWarning) + ",";
+  response += "\"autoRetryCount\":" + String(config.autoRetryCount) + ",";
+  response += "\"saveToFile\":" + String(config.saveToFile ? "true" : "false");
+  response += "}";
+
+  request->send(200, "application/json", response);
+}
+
+void PalletizerServer::handleSetTimeoutConfig(AsyncWebServerRequest *request) {
+  PalletizerMaster::TimeoutConfig config = palletizerMaster->getTimeoutConfig();
+  bool configChanged = false;
+
+  if (request->hasParam("maxWaitTime", true)) {
+    unsigned long newTimeout = request->getParam("maxWaitTime", true)->value().toInt();
+    if (newTimeout >= 5000 && newTimeout <= 300000) {
+      config.maxWaitTime = newTimeout;
+      configChanged = true;
+    }
+  }
+
+  if (request->hasParam("strategy", true)) {
+    int newStrategy = request->getParam("strategy", true)->value().toInt();
+    if (newStrategy >= 0 && newStrategy <= 3) {
+      config.strategy = (PalletizerMaster::WaitTimeoutStrategy)newStrategy;
+      configChanged = true;
+    }
+  }
+
+  if (request->hasParam("maxTimeoutWarning", true)) {
+    int newWarning = request->getParam("maxTimeoutWarning", true)->value().toInt();
+    if (newWarning >= 1 && newWarning <= 20) {
+      config.maxTimeoutWarning = newWarning;
+      configChanged = true;
+    }
+  }
+
+  if (request->hasParam("autoRetryCount", true)) {
+    int newRetry = request->getParam("autoRetryCount", true)->value().toInt();
+    if (newRetry >= 0 && newRetry <= 5) {
+      config.autoRetryCount = newRetry;
+      configChanged = true;
+    }
+  }
+
+  if (request->hasParam("saveToFile", true)) {
+    String saveValue = request->getParam("saveToFile", true)->value();
+    config.saveToFile = (saveValue == "true" || saveValue == "1");
+    configChanged = true;
+  }
+
+  if (configChanged) {
+    palletizerMaster->setTimeoutConfig(config);
+    request->send(200, "text/plain", "Timeout configuration updated successfully");
+  } else {
+    request->send(400, "text/plain", "No valid parameters provided");
+  }
+}
+
+void PalletizerServer::handleGetTimeoutStats(AsyncWebServerRequest *request) {
+  PalletizerMaster::TimeoutStats stats = palletizerMaster->getTimeoutStats();
+  float successRate = palletizerMaster->getTimeoutSuccessRate();
+
+  String response = "{";
+  response += "\"totalTimeouts\":" + String(stats.totalTimeouts) + ",";
+  response += "\"successfulWaits\":" + String(stats.successfulWaits) + ",";
+  response += "\"lastTimeoutTime\":" + String(stats.lastTimeoutTime) + ",";
+  response += "\"totalWaitTime\":" + String(stats.totalWaitTime) + ",";
+  response += "\"currentRetryCount\":" + String(stats.currentRetryCount) + ",";
+  response += "\"successRate\":" + String(successRate, 2);
+  response += "}";
+
+  request->send(200, "application/json", response);
+}
+
+void PalletizerServer::handleClearTimeoutStats(AsyncWebServerRequest *request) {
+  palletizerMaster->clearTimeoutStats();
+  request->send(200, "text/plain", "Timeout statistics cleared successfully");
+}
+
 void PalletizerServer::sendStatusEvent(const String &status) {
   String eventData = "{\"type\":\"status\",\"value\":\"" + status + "\"}";
   events.send(eventData.c_str(), "message", millis());
+}
+
+void PalletizerServer::sendTimeoutEvent(int count, const String &type) {
+  String eventData = "{\"type\":\"timeout\",\"count\":" + String(count) + ",\"eventType\":\"" + type + "\",\"time\":" + String(millis()) + "}";
+  events.send(eventData.c_str(), "timeout", millis());
+}
+
+void PalletizerServer::safeFileWrite(const String &path, const String &content) {
+  if (LittleFS.exists(path)) {
+    LittleFS.remove(path);
+    delay(10);
+  }
+
+  File file = LittleFS.open(path, "w");
+  if (file) {
+    file.print(content);
+    file.close();
+  }
+}
+
+bool PalletizerServer::ensureFileExists(const String &path) {
+  if (!LittleFS.exists(path)) {
+    File file = LittleFS.open(path, "w");
+    if (file) {
+      file.close();
+      return true;
+    }
+    return false;
+  }
+  return true;
 }

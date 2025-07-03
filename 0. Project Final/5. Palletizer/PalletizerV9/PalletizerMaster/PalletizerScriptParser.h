@@ -19,12 +19,22 @@ public:
   void clearFunctions();
   int getFunctionCount();
   String getFunctionName(int index);
+  void setYieldInterval(int interval);
+  int getYieldInterval();
+  void resetCommandCounter();
+  int getCommandCounter();
 
 private:
   static const int MAX_FUNCTIONS = 20;
+  static const int DEFAULT_YIELD_INTERVAL = 5;
+  static const int DEFAULT_YIELD_DELAY = 1;
+
   PalletizerMaster* palletizerMaster;
   Function userFunctions[MAX_FUNCTIONS];
   int functionCount;
+  int yieldInterval;
+  int commandCounter;
+  unsigned long lastYieldTime;
 
   void parseFunction(const String& script, int startPos);
   String extractFunctionBody(const String& script, int startPos);
@@ -35,6 +45,8 @@ private:
   void trimWhitespace(String& str);
   bool isValidFunctionName(const String& name);
   bool functionExists(const String& name);
+  void checkYield();
+  void forceYield();
 };
 
 #endif

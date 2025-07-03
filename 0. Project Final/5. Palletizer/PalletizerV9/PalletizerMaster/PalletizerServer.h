@@ -33,14 +33,20 @@ private:
 
   void setupRoutes();
   void setupCaptivePortal();
-  void loadSavedCommands();
   void handleUpload(AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final);
   void handleCommand(AsyncWebServerRequest* request);
   void handleWriteCommand(AsyncWebServerRequest* request);
   void handleGetStatus(AsyncWebServerRequest* request);
   void handleGetCommands(AsyncWebServerRequest* request);
   void handleDownloadCommands(AsyncWebServerRequest* request);
+  void handleGetTimeoutConfig(AsyncWebServerRequest* request);
+  void handleSetTimeoutConfig(AsyncWebServerRequest* request);
+  void handleGetTimeoutStats(AsyncWebServerRequest* request);
+  void handleClearTimeoutStats(AsyncWebServerRequest* request);
   void sendStatusEvent(const String& status);
+  void sendTimeoutEvent(int count, const String& type);
+  void safeFileWrite(const String& path, const String& content);
+  bool ensureFileExists(const String& path);
 };
 
 #endif

@@ -2,7 +2,8 @@
 #include "PalletizerMaster.h"
 
 PalletizerScriptParser::PalletizerScriptParser(PalletizerMaster* master)
-  : palletizerMaster(master), functionCount(0) {
+  : palletizerMaster(master), functionCount(0), yieldInterval(DEFAULT_YIELD_INTERVAL),
+    commandCounter(0), lastYieldTime(0) {
 }
 
 void PalletizerScriptParser::parseScript(const String& script) {
@@ -11,8 +12,13 @@ void PalletizerScriptParser::parseScript(const String& script) {
 
   if (cleanScript.length() == 0) return;
 
+  resetCommandCounter();
+  forceYield();
+
   int pos = 0;
   while (pos < cleanScript.length()) {
+    checkYield();
+
     int funcPos = cleanScript.indexOf("FUNC(", pos);
 
     if (funcPos != -1 && (funcPos == 0 || cleanScript.charAt(funcPos - 1) == ' ' || cleanScript.charAt(funcPos - 1) == '\n' || cleanScript.charAt(funcPos - 1) == '\r')) {
@@ -21,6 +27,8 @@ void PalletizerScriptParser::parseScript(const String& script) {
       int openBrace = cleanScript.indexOf('{', funcPos);
       int closeBrace = findMatchingBrace(cleanScript, openBrace);
       pos = closeBrace + 1;
+
+      checkYield();
     } else {
       int nextFunc = cleanScript.indexOf("FUNC(", pos);
       String scriptPart;
@@ -43,6 +51,7 @@ void PalletizerScriptParser::parseScript(const String& script) {
           statements[i].trim();
           if (statements[i].length() > 0) {
             executeStatement(statements[i]);
+            checkYield();
           }
         }
       }
@@ -56,6 +65,8 @@ void PalletizerScriptParser::executeStatement(const String& statement) {
 
   if (cleanStatement.length() == 0) return;
 
+  commandCounter++;
+
   if (cleanStatement.startsWith("CALL(") && cleanStatement.endsWith(")")) {
     String funcName = cleanStatement.substring(5, cleanStatement.length() - 1);
     trimWhitespace(funcName);
@@ -63,6 +74,8 @@ void PalletizerScriptParser::executeStatement(const String& statement) {
   } else {
     processSingleStatement(cleanStatement);
   }
+
+  checkYield();
 }
 
 bool PalletizerScriptParser::callFunction(const String& funcName) {
@@ -104,6 +117,24 @@ String PalletizerScriptParser::getFunctionName(int index) {
     return userFunctions[index].name;
   }
   return "";
+}
+
+void PalletizerScriptParser::setYieldInterval(int interval) {
+  if (interval > 0 && interval <= 100) {
+    yieldInterval = interval;
+  }
+}
+
+int PalletizerScriptParser::getYieldInterval() {
+  return yieldInterval;
+}
+
+void PalletizerScriptParser::resetCommandCounter() {
+  commandCounter = 0;
+}
+
+int PalletizerScriptParser::getCommandCounter() {
+  return commandCounter;
 }
 
 void PalletizerScriptParser::parseFunction(const String& script, int startPos) {
@@ -157,6 +188,10 @@ void PalletizerScriptParser::tokenizeStatements(const String& input, String* sta
         count++;
       }
       current = "";
+
+      if (count % yieldInterval == 0) {
+        checkYield();
+      }
     } else {
       current += c;
     }
@@ -203,6 +238,10 @@ int PalletizerScriptParser::findMatchingBrace(const String& script, int openPos)
         return i;
       }
     }
+
+    if (i % 100 == 0) {
+      checkYield();
+    }
   }
   return -1;
 }
@@ -238,4 +277,19 @@ bool PalletizerScriptParser::functionExists(const String& name) {
     }
   }
   return false;
+}
+
+void PalletizerScriptParser::checkYield() {
+  if (commandCounter > 0 && commandCounter % yieldInterval == 0) {
+    forceYield();
+  }
+}
+
+void PalletizerScriptParser::forceYield() {
+  unsigned long currentTime = millis();
+  if (currentTime - lastYieldTime >= DEFAULT_YIELD_DELAY) {
+    yield();
+    delay(DEFAULT_YIELD_DELAY);
+    lastYieldTime = currentTime;
+  }
 }

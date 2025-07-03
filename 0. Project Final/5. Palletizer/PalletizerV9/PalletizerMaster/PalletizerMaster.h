@@ -16,7 +16,7 @@
 
 #define QUEUE_MODE_APPEND 0
 #define QUEUE_MODE_OVERWRITE 1
-#define QUEUE_OPERATION_MODE QUEUE_MODE_OVERWRITE
+#define QUEUE_OPERATION_MODE QUEUE_MODE_APPEND
 
 #define SYNC_SET_PIN 25
 #define SYNC_WAIT_PIN 27
@@ -51,6 +51,29 @@ public:
     LED_OFF = 3,
   };
 
+  enum WaitTimeoutStrategy {
+    TIMEOUT_SKIP_CONTINUE = 0,
+    TIMEOUT_PAUSE_SYSTEM = 1,
+    TIMEOUT_ABORT_RESET = 2,
+    TIMEOUT_RETRY_BACKOFF = 3
+  };
+
+  struct TimeoutConfig {
+    unsigned long maxWaitTime = 30000;
+    WaitTimeoutStrategy strategy = TIMEOUT_SKIP_CONTINUE;
+    int maxTimeoutWarning = 5;
+    int autoRetryCount = 0;
+    bool saveToFile = true;
+  };
+
+  struct TimeoutStats {
+    int totalTimeouts = 0;
+    int successfulWaits = 0;
+    unsigned long lastTimeoutTime = 0;
+    unsigned long totalWaitTime = 0;
+    int currentRetryCount = 0;
+  };
+
   typedef void (*DataCallback)(const String& data);
 
   PalletizerMaster(int rxPin, int txPin, int indicatorPin = -1);
@@ -60,6 +83,16 @@ public:
   void setSlaveDataCallback(DataCallback callback);
   static void processCommand(const String& data);
   SystemState getSystemState();
+  void setTimeoutConfig(const TimeoutConfig& config);
+  TimeoutConfig getTimeoutConfig();
+  void setWaitTimeout(unsigned long timeoutMs);
+  void setTimeoutStrategy(WaitTimeoutStrategy strategy);
+  void setMaxTimeoutWarning(int maxWarning);
+  TimeoutStats getTimeoutStats();
+  void clearTimeoutStats();
+  float getTimeoutSuccessRate();
+  bool saveTimeoutConfig();
+  bool loadTimeoutConfig();
 
 private:
   static PalletizerMaster* instance;
@@ -82,11 +115,15 @@ private:
   int indicatorPin;
   bool indicatorEnabled;
   unsigned long lastCheckTime = 0;
+  unsigned long lastYieldTime = 0;
 
   bool requestNextCommand = false;
+  bool scriptProcessing = false;
+  bool queueClearRequested = false;
 
   const String queueFilePath = "/queue.txt";
   const String queueIndexPath = "/queue_index.txt";
+  const String timeoutConfigPath = "/timeout_config.json";
   int queueSize = 0;
   int queueHead = 0;
 
@@ -94,7 +131,10 @@ private:
   int syncWaitPin;
   bool waitingForSync;
   unsigned long waitStartTime;
-  const unsigned long maxWaitTime = 30000;
+
+  TimeoutConfig timeoutConfig;
+  TimeoutStats timeoutStats;
+  unsigned long waitStartTimeForStats;
 
   PalletizerScriptParser scriptParser;
 
@@ -129,6 +169,14 @@ private:
   void setSystemState(SystemState newState);
   void sendStateUpdate();
   void setOnLedIndicator(LedIndicator index);
+  void loadCommandsFromFile();
+  void handleWaitTimeout();
+  void resetTimeoutCounter();
+  void updateTimeoutStats(bool success);
+  void processCommandsBatch(const String& commands);
+  void safeYield();
+  bool shouldClearQueue(const String& data);
+  void ensureFileIsClosed(File& file);
 };
 
 #endif

@@ -1,5 +1,8 @@
 # OT Pack V2 Project Documentation
 
+/mnt/d/User/source/caktin_ws/Magang-OTGroup/Project Final/6. OT Pack/OT_PackV2
+/mnt/d/User/source/caktin_ws/KinematrixLibraries/Libraries/AccelStepper
+
 ## Project Overview
 OT_PackV2 is a stepper motor control system for packaging automation. The system controls a single stepper motor with acceleration/deceleration profiles using the AccelStepper library. The latest version features a clean OOP design with the OTPack class, providing simple yet powerful functionality while maintaining ease of use.
 

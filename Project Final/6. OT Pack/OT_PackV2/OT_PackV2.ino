@@ -11,19 +11,19 @@ OTPack otpack(SENSOR_INPUT_PIN, STEPPER_STEP_PIN, STEPPER_DIRECTION_PIN, STEPPER
 
 void setup() {
   Serial.begin(9600);
-  
+
   // Initialize OTPack with default settings
   otpack.begin();
-  
+
   // Optional: Customize settings
-  otpack.setMotorConfig(58, 4);  // 58 steps/rev, 4x microstepping
-  otpack.setForwardProfile(1200.0, 600.0, 150);  // speed, accel, debounce
+  otpack.setMotorConfig(58, 4);                        // 58 steps/rev, 4x microstepping
+  otpack.setForwardProfile(1200.0, 600.0, 150);        // speed, accel, debounce
   otpack.setReverseProfile(3000.0, 1900.0, 250, 100);  // speed, accel, debounce, settle
   otpack.setPositionOffset(2);
-  
+
   // Choose motion mode
   otpack.setMotionMode(OTPack::NON_BLOCKING);  // or OTPack::BLOCKING
-  
+
   Serial.print("OT Pack V2 - Ready | Mode: ");
   Serial.println(otpack.getMotionMode() == OTPack::BLOCKING ? "BLOCKING" : "NON_BLOCKING");
 }
@@ -31,14 +31,14 @@ void setup() {
 void loop() {
   // Update OTPack - handles all sensor reading and motion control
   otpack.update();
-  
+
   // Optional: Print status periodically
   static unsigned long lastPrint = 0;
   if (millis() - lastPrint > 1000) {  // Print every 1 second
     printStatus();
     lastPrint = millis();
   }
-  
+
   delay(10);  // Small delay for stability
 }
 

@@ -38,8 +38,7 @@ void gradualDisableMotor() {
 
 // Function to check and adjust speed to avoid resonance
 float avoidResonance(float requestedSpeed) {
-  if (requestedSpeed >= RESONANCE_AVOID_MIN_SPEED && 
-      requestedSpeed <= RESONANCE_AVOID_MAX_SPEED) {
+  if (requestedSpeed >= RESONANCE_AVOID_MIN_SPEED && requestedSpeed <= RESONANCE_AVOID_MAX_SPEED) {
     // Speed is in resonance zone, adjust to safe speed
     if (requestedSpeed < (RESONANCE_AVOID_MIN_SPEED + RESONANCE_AVOID_MAX_SPEED) / 2) {
       return RESONANCE_AVOID_MIN_SPEED - 50.0;  // Go below resonance
@@ -54,29 +53,29 @@ float avoidResonance(float requestedSpeed) {
 void performSmoothMotion(long steps, float maxSpeed, float acceleration, bool isExtend) {
   // Apply resonance avoidance
   float safeSpeed = avoidResonance(maxSpeed);
-  
+
   // Calculate S-curve parameters
   float jerkSteps = min(jerkReductionSteps, abs(steps) / 4);
   float rampSpeed = safeSpeed * speedRampFactor;
-  
+
   // Phase 1: Jerk-limited acceleration start
   stepper.setMaxSpeed(rampSpeed * MICROSTEPPING_RESOLUTION);
   stepper.setAcceleration(acceleration * 0.3 * MICROSTEPPING_RESOLUTION);
   stepper.move(jerkSteps * (steps > 0 ? 1 : -1));
   stepper.runToPosition();
-  
+
   // Phase 2: Normal acceleration to max speed
   stepper.setMaxSpeed(safeSpeed * MICROSTEPPING_RESOLUTION);
   stepper.setAcceleration(acceleration * MICROSTEPPING_RESOLUTION);
   stepper.move((abs(steps) - 2 * jerkSteps) * (steps > 0 ? 1 : -1));
   stepper.runToPosition();
-  
+
   // Phase 3: Jerk-limited deceleration end
   stepper.setMaxSpeed(rampSpeed * MICROSTEPPING_RESOLUTION);
   stepper.setAcceleration(acceleration * 0.3 * MICROSTEPPING_RESOLUTION);
   stepper.move(jerkSteps * (steps > 0 ? 1 : -1));
   stepper.runToPosition();
-  
+
   // Settling delay for mechanical stability
   delay(motionSettleDelay);
 }
@@ -84,51 +83,51 @@ void performSmoothMotion(long steps, float maxSpeed, float acceleration, bool is
 // Enhanced extend motion with smoothness
 void performSmoothExtendMotion() {
   Serial.println(F("Starting smooth extend motion..."));
-  
+
   // Set LED to extend mode (fast blink)
   setLedState(LED_EXTEND);
-  
+
   // Gradual motor enable
   gradualEnableMotor();
-  
+
   // Pre-motion delay
   delay(extendDelayBefore);
-  
+
   // Smooth S-curve motion
   performSmoothMotion(stepsPerRevolution, extendMaxSpeed, extendAcceleration, true);
-  
+
   isExtended = true;
-  
+
   // Return to idle LED state
   setLedState(LED_IDLE);
-  
+
   Serial.println(F("Smooth extend motion completed."));
 }
 
 // Enhanced retract motion with smoothness
 void performSmoothRetractMotion() {
   Serial.println(F("Starting smooth retract motion..."));
-  
+
   // Set LED to retract mode (medium blink)
   setLedState(LED_RETRACT);
-  
+
   // Pre-motion delay
   delay(retractDelayBefore);
-  
+
   // Smooth S-curve motion (with step adjustment)
   long retractSteps = -stepsPerRevolution + retractStepAdjustment;
   performSmoothMotion(retractSteps, retractMaxSpeed, retractAcceleration, false);
-  
+
   // Post-motion delay
   delay(retractDelayAfter);
-  
+
   // Gradual motor disable
   gradualDisableMotor();
-  
+
   isExtended = false;
-  
+
   // Return to idle LED state
   setLedState(LED_IDLE);
-  
+
   Serial.println(F("Smooth retract motion completed."));
 }

@@ -24,11 +24,11 @@ void ledTimerISR() {
     digitalWrite(LED_BUILTIN, LOW);
     return;
   }
-  
+
   // Toggle LED state
   ledToggleState = !ledToggleState;
   digitalWrite(LED_BUILTIN, ledToggleState);
-  
+
   // Increment blink counter (for monitoring)
   if (ledToggleState) {
     ledBlinkCount++;
@@ -39,14 +39,14 @@ void ledTimerISR() {
 void initializeLED() {
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
-  
+
   // Initialize TimerOne with idle period
   Timer1.initialize(ledIdlePeriod);
   Timer1.attachInterrupt(ledTimerISR);
-  
+
   currentLedState = LED_IDLE;
   ledEnabled = true;
-  
+
   Serial.println(F("LED Indicator system initialized"));
 }
 
@@ -56,43 +56,43 @@ void setLedState(LedState newState) {
   noInterrupts();
   currentLedState = newState;
   interrupts();
-  
+
   unsigned long newPeriod;
-  
-  switch(newState) {
+
+  switch (newState) {
     case LED_OFF:
       Timer1.detachInterrupt();
       digitalWrite(LED_BUILTIN, LOW);
       return;
-      
+
     case LED_IDLE:
       newPeriod = ledIdlePeriod;
       break;
-      
+
     case LED_EXTEND:
       newPeriod = ledExtendPeriod;
       break;
-      
+
     case LED_RETRACT:
       newPeriod = ledRetractPeriod;
       break;
-      
+
     case LED_ERROR:
       newPeriod = ledErrorPeriod;
       break;
-      
+
     case LED_DEBUG:
       newPeriod = ledDebugPeriod;
       break;
-      
+
     default:
       newPeriod = ledIdlePeriod;
       break;
   }
-  
+
   // Update timer period
   Timer1.setPeriod(newPeriod);
-  
+
   // Always ensure interrupt is attached after period change
   Timer1.attachInterrupt(ledTimerISR);
 }
@@ -102,7 +102,7 @@ void setLedEnabled(bool enabled) {
   noInterrupts();
   ledEnabled = enabled;
   interrupts();
-  
+
   if (!enabled) {
     digitalWrite(LED_BUILTIN, LOW);
   }
@@ -110,28 +110,28 @@ void setLedEnabled(bool enabled) {
 
 // Get current LED state as string
 const char* getLedStateString() {
-  switch(currentLedState) {
-    case LED_OFF:     return "OFF";
-    case LED_IDLE:    return "IDLE";
-    case LED_EXTEND:  return "EXTEND";
+  switch (currentLedState) {
+    case LED_OFF: return "OFF";
+    case LED_IDLE: return "IDLE";
+    case LED_EXTEND: return "EXTEND";
     case LED_RETRACT: return "RETRACT";
-    case LED_ERROR:   return "ERROR";
-    case LED_DEBUG:   return "DEBUG";
-    default:          return "UNKNOWN";
+    case LED_ERROR: return "ERROR";
+    case LED_DEBUG: return "DEBUG";
+    default: return "UNKNOWN";
   }
 }
 
 // Update LED periods (for runtime configuration)
 void updateLedPeriod(LedState state, unsigned long newPeriod) {
-  switch(state) {
-    case LED_IDLE:    ledIdlePeriod = newPeriod; break;
-    case LED_EXTEND:  ledExtendPeriod = newPeriod; break;
+  switch (state) {
+    case LED_IDLE: ledIdlePeriod = newPeriod; break;
+    case LED_EXTEND: ledExtendPeriod = newPeriod; break;
     case LED_RETRACT: ledRetractPeriod = newPeriod; break;
-    case LED_ERROR:   ledErrorPeriod = newPeriod; break;
-    case LED_DEBUG:   ledDebugPeriod = newPeriod; break;
+    case LED_ERROR: ledErrorPeriod = newPeriod; break;
+    case LED_DEBUG: ledDebugPeriod = newPeriod; break;
     default: break;
   }
-  
+
   // Update current period if it's the active state
   if (currentLedState == state) {
     Timer1.setPeriod(newPeriod);
@@ -164,22 +164,22 @@ void showLedInfo() {
 // Test all LED states sequentially
 void testLedStates() {
   Serial.println(F("Testing LED states..."));
-  
-  const LedState testStates[] = {LED_IDLE, LED_EXTEND, LED_RETRACT, LED_ERROR, LED_DEBUG};
-  const char* stateNames[] = {"IDLE", "EXTEND", "RETRACT", "ERROR", "DEBUG"};
+
+  const LedState testStates[] = { LED_IDLE, LED_EXTEND, LED_RETRACT, LED_ERROR, LED_DEBUG };
+  const char* stateNames[] = { "IDLE", "EXTEND", "RETRACT", "ERROR", "DEBUG" };
   const int numStates = 5;
-  
+
   LedState originalState = currentLedState;
-  
+
   for (int i = 0; i < numStates; i++) {
     Serial.print(F("Testing "));
     Serial.print(stateNames[i]);
     Serial.println(F(" state..."));
-    
+
     setLedState(testStates[i]);
-    delay(2000); // Show each state for 2 seconds
+    delay(2000);  // Show each state for 2 seconds
   }
-  
+
   // Return to original state
   setLedState(originalState);
   Serial.println(F("LED test completed"));

@@ -14,7 +14,7 @@ int stepsPerRevolution = BASE_STEPS_PER_REV * MICROSTEPPING_RESOLUTION;
 bool isExtended = false;
 
 // Debug Mode
-bool debugMode = false;  // Debug mode toggle for status output
+bool debugMode = false;           // Debug mode toggle for status output
 static bool debugLedSet = false;  // Track debug LED state
 static bool idleLedSet = false;   // Track idle LED state
 
@@ -46,10 +46,10 @@ void setup() {
   Serial.println(F(" - Serial Commander Ready"));
   Serial.println(F("Loading configuration from EEPROM..."));
   loadFromEEPROM();
-  
+
   // Initialize LED indicator system
   initializeLED();
-  
+
   Serial.println(F("Type HELP for available commands"));
 }
 
@@ -65,7 +65,7 @@ void loop() {
       debugLedSet = true;
       idleLedSet = false;  // Reset idle flag
     }
-    
+
     static unsigned long lastStatusTime = 0;
     if (millis() - lastStatusTime > STATUS_UPDATE_INTERVAL) {
       int currentSensor = getSensorReading();
@@ -88,8 +88,8 @@ void loop() {
   // Main motion control logic with interrupt protection
   noInterrupts();  // Disable interrupts during critical sensor reading
   int currentSensorReading = getSensorReading();
-  interrupts();    // Re-enable interrupts
-  
+  interrupts();  // Re-enable interrupts
+
   if (currentSensorReading == HIGH && !isExtended) {
     performSmoothExtendMotion();
   }

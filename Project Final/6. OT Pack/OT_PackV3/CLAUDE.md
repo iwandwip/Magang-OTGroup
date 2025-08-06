@@ -77,7 +77,7 @@ The system operates in two main states based on sensor input:
 ## Key Features
 1. **State-based Control**: Tracks extend/retract states via `isExtended` to prevent unwanted movement
 2. **Smooth Motion**: Uses acceleration/deceleration for smooth operation
-3. **Sensor Integration**: Digital input `SENSOR_PIN` triggers motion sequences
+3. **Sensor Integration**: Digital input `SENSOR_PIN` triggers motion sequences with advanced debouncing
 4. **Power Management**: `ENABLE_PIN` control for motor power saving
 5. **Precise Positioning**: `MICROSTEPPING_RESOLUTION` for improved accuracy
 6. **Runtime Configuration**: SerialCommander for real-time parameter adjustment
@@ -86,6 +86,7 @@ The system operates in two main states based on sensor input:
 9. **Configuration Management**: SAVE, LOAD, and RESET commands for parameter management
 10. **Debug Mode Control**: Toggle-able debug output for cleaner serial interface when not debugging
 11. **Testing Mode**: Sensor simulation mode for testing without hardware
+12. **Advanced Debouncing**: Multi-sample averaging with configurable parameters to eliminate sensor noise
 
 ## Code Structure
 - **Main sketch**: `OT_PackV3.ino` - Core application logic
@@ -134,6 +135,7 @@ Retract motion completed.
 
 **Mode Commands:**
 - `MODE` - Toggle between NORMAL and TESTING mode
+- `DEBOUNCE_INFO` - Show debounce settings and current sensor readings
 - `SENSOR_HIGH` - Set simulated sensor to HIGH (testing mode only)
 - `SENSOR_LOW` - Set simulated sensor to LOW (testing mode only)
 
@@ -357,6 +359,54 @@ Debug mode ENABLED
 // Disable debug output  
 DEBUG
 Debug mode DISABLED
+```
+
+## Sensor Debouncing Feature
+
+### Advanced Multi-Sample Debouncing
+The system implements sophisticated sensor debouncing to eliminate false triggers caused by electrical noise, mechanical vibration, or contact bouncing:
+
+### Debouncing Algorithm:
+1. **Sample Buffering**: Takes multiple readings at regular intervals (2ms apart)
+2. **Consistency Check**: Requires all samples in buffer to be identical
+3. **Time Delay**: Waits for specified delay (50ms) after state change detection
+4. **State Validation**: Only accepts new state after both consistency and time requirements
+
+### Configurable Parameters:
+```cpp
+const unsigned long DEBOUNCE_DELAY = 50;       // 50ms delay after state change
+const int DEBOUNCE_SAMPLES = 5;                // 5 consistent readings required  
+const unsigned long DEBOUNCE_SAMPLE_INTERVAL = 2; // 2ms between samples
+```
+
+### Debouncing Process:
+1. **Initialization**: Sample buffer filled with current sensor reading on first run
+2. **Continuous Sampling**: New sample taken every 2ms in circular buffer
+3. **Change Detection**: All 5 samples must be identical and different from last state
+4. **Validation**: 50ms timer started when change detected
+5. **State Update**: New state accepted only after timer completion
+
+### Benefits:
+- **Eliminates Flickering**: Prevents rapid state changes from noise
+- **Reliable Operation**: Ensures stable sensor readings under all conditions  
+- **Configurable**: Easy to adjust sensitivity and response time
+- **Non-blocking**: Debouncing runs in background without blocking main loop
+- **Testing Integration**: Works seamlessly with normal and testing modes
+
+### Debug Command:
+- `DEBOUNCE_INFO` - Shows raw vs debounced sensor readings and current settings
+
+### Usage Examples:
+```
+// Check debounce status
+DEBOUNCE_INFO
+=== Debounce Information ===
+Raw sensor reading: 0
+Debounced reading: 1
+Debounce delay: 50ms
+Sample count: 5
+Sample interval: 2ms
+===========================
 ```
 
 ## Testing Mode Feature

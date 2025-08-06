@@ -54,4 +54,9 @@ const unsigned long STATUS_UPDATE_INTERVAL = 500;  // Status update interval in 
 const int MODE_NORMAL = 0;   // Normal operation mode
 const int MODE_TESTING = 1;  // Testing/simulation mode
 
+// Sensor Debouncing Configuration
+const unsigned long DEBOUNCE_DELAY = 50;  // Debounce delay in milliseconds
+const int DEBOUNCE_SAMPLES = 5;            // Number of consistent readings required
+const unsigned long DEBOUNCE_SAMPLE_INTERVAL = 2;  // Interval between samples in milliseconds
+
 #endif  // CONSTANTS_H

@@ -12,10 +12,10 @@ OT_PackV3 is an Arduino-based stepper motor control system designed for packagin
 
 ### Pin Assignments
 ```cpp
-const byte sensorPin = 3;      // Sensor input (pullup enabled)
-const byte stepPin = 10;       // Step pin to motor driver
-const byte enablePin = 9;      // Motor enable pin
-const byte directionPin = 8;   // Direction pin to motor driver
+const byte SENSOR_PIN = 3;      // Sensor input (pullup enabled)
+const byte STEP_PIN = 10;       // Step pin to motor driver
+const byte ENABLE_PIN = 9;      // Motor enable pin
+const byte DIRECTION_PIN = 8;   // Direction pin to motor driver
 ```
 
 ## Motor Configuration
@@ -23,28 +23,33 @@ const byte directionPin = 8;   // Direction pin to motor driver
 - **Microstepping**: 4x resolution = 232 total steps per revolution
 - **Interface**: AccelStepper::DRIVER (step/direction interface)
 
-### Variable Names
-- `microsteppingResolution`: Microstepping multiplier (4x)
-- `stepsPerRevolution`: Total steps including microstepping
+### Constants and Variables
+**Constants (UPPER_CASE):**
+- `MICROSTEPPING_RESOLUTION`: Microstepping multiplier (4x)
+- `BASE_STEPS_PER_REV`: Base motor steps per revolution (58)
+- `SENSOR_PIN`, `STEP_PIN`, `ENABLE_PIN`, `DIRECTION_PIN`: Hardware pin assignments
+
+**Variables (camelCase):**
+- `stepsPerRevolution`: Total steps including microstepping (calculated)
 - `isExtended`: State tracking for extend/retract position
 
 ## Operation Logic
 The system operates in two main states based on sensor input:
 
-### Extend Motion (Sensor HIGH, not extended)
-- **Speed**: 1200 steps/sec × 4 = 4800 steps/sec
-- **Acceleration**: 600 steps/sec² × 4 = 2400 steps/sec²
+### Extend Motion (SENSOR_PIN HIGH, not extended)
+- **Speed**: 1200 × `MICROSTEPPING_RESOLUTION` = 4800 steps/sec
+- **Acceleration**: 600 × `MICROSTEPPING_RESOLUTION` = 2400 steps/sec²
 - **Movement**: Full `stepsPerRevolution` forward
 - **Delay**: 150ms before movement starts
-- **Enable**: Motor enabled during operation
+- **Enable**: `ENABLE_PIN` set HIGH during operation
 - **State**: Sets `isExtended = true`
 
-### Retract Motion (Sensor LOW, extended)
-- **Speed**: 3000 steps/sec × 4 = 12000 steps/sec
-- **Acceleration**: 1900 steps/sec² × 4 = 7600 steps/sec²
+### Retract Motion (SENSOR_PIN LOW, extended)
+- **Speed**: 3000 × `MICROSTEPPING_RESOLUTION` = 12000 steps/sec
+- **Acceleration**: 1900 × `MICROSTEPPING_RESOLUTION` = 7600 steps/sec²
 - **Movement**: `stepsPerRevolution - 2` reverse (with 2-step adjustment)
 - **Delay**: 250ms before movement, 100ms after completion
-- **Enable**: Motor disabled after completion
+- **Enable**: `ENABLE_PIN` set LOW after completion
 - **State**: Sets `isExtended = false`
 
 ## Dependencies
@@ -58,9 +63,9 @@ The system operates in two main states based on sensor input:
 ## Key Features
 1. **State-based Control**: Tracks extend/retract states via `isExtended` to prevent unwanted movement
 2. **Smooth Motion**: Uses acceleration/deceleration for smooth operation
-3. **Sensor Integration**: Digital input `sensorPin` triggers motion sequences
-4. **Power Management**: `enablePin` control for motor power saving
-5. **Precise Positioning**: Microstepping for improved accuracy
+3. **Sensor Integration**: Digital input `SENSOR_PIN` triggers motion sequences
+4. **Power Management**: `ENABLE_PIN` control for motor power saving
+5. **Precise Positioning**: `MICROSTEPPING_RESOLUTION` for improved accuracy
 
 ## Code Structure
 - Single-file Arduino sketch (`OT_PackV3.ino`)
@@ -71,11 +76,17 @@ The system operates in two main states based on sensor input:
 ## Serial Monitoring
 The system outputs sensor state via Serial for debugging:
 ```
-| sensorPin: [0|1]
+| SENSOR_PIN: [0|1]
 ```
 
 ## Safety Considerations
-- Motor enable pin prevents accidental movement when disabled
-- Pull-up resistor on input prevents floating states
-- State tracking prevents rapid toggling
+- `ENABLE_PIN` prevents accidental movement when disabled
+- Pull-up resistor on `SENSOR_PIN` prevents floating states
+- `isExtended` state tracking prevents rapid toggling
 - Blocking motion calls ensure completion before state changes
+
+## Coding Standards Applied
+- **Constants**: UPPER_CASE with underscores (e.g., `SENSOR_PIN`, `MICROSTEPPING_RESOLUTION`)
+- **Variables**: camelCase (e.g., `isExtended`, `stepsPerRevolution`)
+- **Functions**: camelCase (Arduino standard)
+- **Clear naming**: Descriptive names that explain purpose

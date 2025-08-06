@@ -1,47 +1,133 @@
 #include <AccelStepper.h>
 
-// Pin Definitions
-const byte P1_Input = 3;
-const byte P2_Output = 10;
-const byte Enable = 9;
-const byte Clockwise = 8;
+// Hardware Pin Assignments
+const byte SENSOR_INPUT_PIN = 3;
+const byte STEPPER_STEP_PIN = 10;
+const byte STEPPER_ENABLE_PIN = 9;
+const byte STEPPER_DIRECTION_PIN = 8;
 
-// Motor Configuration
-const int MicrosteppingResolution = 4;
-AccelStepper stepper(AccelStepper::DRIVER, P2_Output, Clockwise);
-int Steps = 58 * MicrosteppingResolution;
-bool state = false;
+// Motor Configuration Constants
+const int MICROSTEPPING_RESOLUTION = 4;
+const int STEPS_PER_REVOLUTION = 58;
+const int TOTAL_STEPS = STEPS_PER_REVOLUTION * MICROSTEPPING_RESOLUTION;
+
+// Motion Profile Constants
+const float FORWARD_MAX_SPEED = 1200.0;
+const float FORWARD_ACCELERATION = 600.0;
+const float REVERSE_MAX_SPEED = 3000.0;
+const float REVERSE_ACCELERATION = 1900.0;
+
+// Timing Constants
+const int FORWARD_DEBOUNCE_DELAY = 150;
+const int REVERSE_DEBOUNCE_DELAY = 250;
+const int REVERSE_SETTLE_DELAY = 100;
+const int POSITION_OFFSET = 2;
+
+// System States
+enum PackingState {
+  WAITING_FOR_FORWARD,
+  WAITING_FOR_REVERSE
+};
+
+// Global Variables
+AccelStepper stepper(AccelStepper::DRIVER, STEPPER_STEP_PIN, STEPPER_DIRECTION_PIN);
+PackingState currentState = WAITING_FOR_FORWARD;
 
 void setup() {
   Serial.begin(9600);
-  pinMode(P1_Input, INPUT_PULLUP);
-  pinMode(P2_Output, OUTPUT);
-  pinMode(Enable, OUTPUT);
-  pinMode(Clockwise, OUTPUT);
+  
+  initializePins();
+  initializeMotor();
+  
+  Serial.println("OT Pack V2 - Initialized");
+  Serial.println("Waiting for sensor trigger...");
+}
+
+void initializePins() {
+  pinMode(SENSOR_INPUT_PIN, INPUT_PULLUP);
+  pinMode(STEPPER_STEP_PIN, OUTPUT);
+  pinMode(STEPPER_ENABLE_PIN, OUTPUT);
+  pinMode(STEPPER_DIRECTION_PIN, OUTPUT);
+  
+  digitalWrite(STEPPER_ENABLE_PIN, LOW);
+}
+
+void initializeMotor() {
+  stepper.setMaxSpeed(FORWARD_MAX_SPEED * MICROSTEPPING_RESOLUTION);
+  stepper.setAcceleration(FORWARD_ACCELERATION * MICROSTEPPING_RESOLUTION);
 }
 
 void loop() {
-  Serial.print("| digitalRead(3): ");
-  Serial.print(digitalRead(3));
-  Serial.println();
+  bool sensorTriggered = digitalRead(SENSOR_INPUT_PIN) == HIGH;
+  
+  printSensorStatus(sensorTriggered);
+  
+  switch (currentState) {
+    case WAITING_FOR_FORWARD:
+      if (sensorTriggered) {
+        executeForwardMotion();
+        currentState = WAITING_FOR_REVERSE;
+      }
+      break;
+      
+    case WAITING_FOR_REVERSE:
+      if (!sensorTriggered) {
+        executeReverseMotion();
+        currentState = WAITING_FOR_FORWARD;
+      }
+      break;
+  }
+}
 
-  if (digitalRead(P1_Input) == HIGH && !state) {
-    stepper.setMaxSpeed(1200.0 * MicrosteppingResolution);
-    stepper.setAcceleration(600.0 * MicrosteppingResolution);
-    delay(150);
-    stepper.move(Steps);
-    digitalWrite(Enable, HIGH);
-    stepper.runToPosition();
-    state = true;
-  }
-  if (digitalRead(P1_Input) == LOW && state) {
-    stepper.setMaxSpeed(3000.0 * MicrosteppingResolution);
-    stepper.setAcceleration(1900.0 * MicrosteppingResolution);
-    delay(250);
-    stepper.move(-Steps + 2);
-    stepper.runToPosition();
-    delay(100);
-    digitalWrite(Enable, LOW);
-    state = false;
-  }
+void printSensorStatus(bool triggered) {
+  Serial.print("Sensor Status: ");
+  Serial.print(triggered ? "TRIGGERED" : "CLEAR");
+  Serial.print(" | State: ");
+  Serial.println(currentState == WAITING_FOR_FORWARD ? "WAITING_FORWARD" : "WAITING_REVERSE");
+}
+
+void executeForwardMotion() {
+  Serial.println("Executing Forward Motion...");
+  
+  configureMotorForForward();
+  delay(FORWARD_DEBOUNCE_DELAY);
+  
+  enableMotor();
+  stepper.move(TOTAL_STEPS);
+  stepper.runToPosition();
+  
+  Serial.println("Forward Motion Complete");
+}
+
+void executeReverseMotion() {
+  Serial.println("Executing Reverse Motion...");
+  
+  configureMotorForReverse();
+  delay(REVERSE_DEBOUNCE_DELAY);
+  
+  stepper.move(-(TOTAL_STEPS - POSITION_OFFSET));
+  stepper.runToPosition();
+  
+  delay(REVERSE_SETTLE_DELAY);
+  disableMotor();
+  
+  Serial.println("Reverse Motion Complete");
+}
+
+void configureMotorForForward() {
+  stepper.setMaxSpeed(FORWARD_MAX_SPEED * MICROSTEPPING_RESOLUTION);
+  stepper.setAcceleration(FORWARD_ACCELERATION * MICROSTEPPING_RESOLUTION);
+}
+
+void configureMotorForReverse() {
+  stepper.setMaxSpeed(REVERSE_MAX_SPEED * MICROSTEPPING_RESOLUTION);
+  stepper.setAcceleration(REVERSE_ACCELERATION * MICROSTEPPING_RESOLUTION);
+}
+
+void enableMotor() {
+  digitalWrite(STEPPER_ENABLE_PIN, HIGH);
+}
+
+void disableMotor() {
+  digitalWrite(STEPPER_ENABLE_PIN, LOW);
 }

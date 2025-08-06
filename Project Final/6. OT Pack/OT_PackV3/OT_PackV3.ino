@@ -7,6 +7,9 @@ AccelStepper stepper(AccelStepper::DRIVER, STEP_PIN, DIRECTION_PIN);
 int stepsPerRevolution = BASE_STEPS_PER_REV * MICROSTEPPING_RESOLUTION;
 bool isExtended = false;
 
+// Debug Mode
+bool debugMode = false;  // Debug mode toggle for status output
+
 // Configurable Motion Parameters (Initialized with defaults from Constants.h)
 float extendMaxSpeed = DEFAULT_EXTEND_MAX_SPEED;
 float extendAcceleration = DEFAULT_EXTEND_ACCELERATION;
@@ -168,6 +171,10 @@ void serialCommander() {
       loadFromEEPROM();
     } else if (command == "RESET") {
       resetEEPROM();
+    } else if (command == "DEBUG") {
+      debugMode = !debugMode;  // Toggle debug mode
+      Serial.print(F("Debug mode "));
+      Serial.println(debugMode ? F("ENABLED") : F("DISABLED"));
     } else if (command == "HELP") {
       Serial.println(F("=== SerialCommander Help ==="));
       Serial.println(F("SET EXTEND_SPEED=value        - Set extend motion speed"));
@@ -182,6 +189,7 @@ void serialCommander() {
       Serial.println(F("SAVE                          - Save current config to EEPROM"));
       Serial.println(F("LOAD                          - Load config from EEPROM"));
       Serial.println(F("RESET                         - Reset config to defaults"));
+      Serial.println(F("DEBUG                         - Toggle debug status output"));
       Serial.println(F("HELP                          - Show this help"));
       Serial.println(F("============================"));
     } else {
@@ -210,14 +218,16 @@ void loop() {
   // Check for serial commands
   serialCommander();
 
-  // Display sensor status (reduced frequency for readability)
-  static unsigned long lastStatusTime = 0;
-  if (millis() - lastStatusTime > STATUS_UPDATE_INTERVAL) {
-    Serial.print(F("| SENSOR_PIN: "));
-    Serial.print(digitalRead(SENSOR_PIN));
-    Serial.print(F(" | State: "));
-    Serial.println(isExtended ? F("Extended") : F("Retracted"));
-    lastStatusTime = millis();
+  // Display sensor status (only when debug mode is enabled)
+  if (debugMode) {
+    static unsigned long lastStatusTime = 0;
+    if (millis() - lastStatusTime > STATUS_UPDATE_INTERVAL) {
+      Serial.print(F("| SENSOR_PIN: "));
+      Serial.print(digitalRead(SENSOR_PIN));
+      Serial.print(F(" | State: "));
+      Serial.println(isExtended ? F("Extended") : F("Retracted"));
+      lastStatusTime = millis();
+    }
   }
 
   // Main motion control logic

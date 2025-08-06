@@ -84,6 +84,7 @@ The system operates in two main states based on sensor input:
 7. **Enhanced Debugging**: Improved serial output with motion status and state information
 8. **Persistent Storage**: EEPROM-based configuration storage with automatic save/load
 9. **Configuration Management**: SAVE, LOAD, and RESET commands for parameter management
+10. **Debug Mode Control**: Toggle-able debug output for cleaner serial interface when not debugging
 
 ## Code Structure
 - **Main sketch**: `OT_PackV3.ino` - Core application logic
@@ -127,6 +128,9 @@ Retract motion completed.
 - `LOAD` - Load configuration from EEPROM
 - `RESET` - Reset configuration to factory defaults
 
+**Debug Commands:**
+- `DEBUG` - Toggle debug status output ON/OFF
+
 ### Command Examples:
 ```
 // Set parameters (automatically saved to EEPROM)
@@ -140,6 +144,9 @@ SHOW
 SAVE    // Manual save (usually not needed)
 LOAD    // Reload from EEPROM
 RESET   // Reset to factory defaults
+
+// Debug mode control
+DEBUG   // Toggle debug output ON/OFF
 
 HELP    // Show all commands
 ```
@@ -307,3 +314,36 @@ OT Pack V3 v3.0 - Serial Commander Ready
 ```
 
 All system constants are centralized for easy updates and maintenance.
+
+## Debug Mode Feature
+
+### Debug Status Output Control
+The system includes a toggle-able debug mode that controls the continuous status output:
+
+**Default State**: Debug mode is OFF (quiet operation)
+**Toggle Command**: `DEBUG` - switches between ON/OFF
+
+### Debug Mode Behavior:
+- **Debug OFF**: Only shows motion events and command responses
+- **Debug ON**: Shows continuous sensor status every 500ms:
+  ```
+  | SENSOR_PIN: 1 | State: Extended
+  | SENSOR_PIN: 0 | State: Retracted
+  ```
+
+### Benefits:
+- **Clean Interface**: Reduces serial output noise when not debugging
+- **Easy Troubleshooting**: Quick enable/disable for diagnostics
+- **Persistent Setting**: Debug state maintained during runtime (not saved to EEPROM)
+- **Performance**: No impact on main operation when disabled
+
+### Usage Examples:
+```
+// Enable debug output
+DEBUG
+Debug mode ENABLED
+
+// Disable debug output  
+DEBUG
+Debug mode DISABLED
+```

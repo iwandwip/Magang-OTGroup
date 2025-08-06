@@ -71,4 +71,11 @@ const float RESONANCE_AVOID_MIN_SPEED = 100.0;     // Minimum speed to avoid res
 const float RESONANCE_AVOID_MAX_SPEED = 350.0;     // Maximum speed to avoid resonance
 const float RESONANCE_SAFE_SPEED = 500.0;          // Safe speed above resonance zone
 
+// LED Indicator Configuration (TimerOne periods in microseconds)
+const unsigned long LED_IDLE_PERIOD = 1000000;     // 1000ms - System idle/ready
+const unsigned long LED_EXTEND_PERIOD = 100000;    // 100ms - Extending motion
+const unsigned long LED_RETRACT_PERIOD = 500000;   // 500ms - Retracting motion
+const unsigned long LED_ERROR_PERIOD = 50000;      // 50ms - Error condition
+const unsigned long LED_DEBUG_PERIOD = 200000;     // 200ms - Debug mode active
+
 #endif  // CONSTANTS_H

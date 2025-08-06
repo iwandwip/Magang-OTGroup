@@ -85,6 +85,9 @@ void performSmoothMotion(long steps, float maxSpeed, float acceleration, bool is
 void performSmoothExtendMotion() {
   Serial.println(F("Starting smooth extend motion..."));
   
+  // Set LED to extend mode (fast blink)
+  setLedState(LED_EXTEND);
+  
   // Gradual motor enable
   gradualEnableMotor();
   
@@ -95,12 +98,19 @@ void performSmoothExtendMotion() {
   performSmoothMotion(stepsPerRevolution, extendMaxSpeed, extendAcceleration, true);
   
   isExtended = true;
+  
+  // Return to idle LED state
+  setLedState(LED_IDLE);
+  
   Serial.println(F("Smooth extend motion completed."));
 }
 
 // Enhanced retract motion with smoothness
 void performSmoothRetractMotion() {
   Serial.println(F("Starting smooth retract motion..."));
+  
+  // Set LED to retract mode (medium blink)
+  setLedState(LED_RETRACT);
   
   // Pre-motion delay
   delay(retractDelayBefore);
@@ -116,5 +126,9 @@ void performSmoothRetractMotion() {
   gradualDisableMotor();
   
   isExtended = false;
+  
+  // Return to idle LED state
+  setLedState(LED_IDLE);
+  
   Serial.println(F("Smooth retract motion completed."));
 }

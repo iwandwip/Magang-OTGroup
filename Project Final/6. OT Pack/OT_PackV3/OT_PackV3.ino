@@ -5,6 +5,7 @@
 
 #include <AccelStepper.h>
 #include <EEPROM.h>
+#include <TimerOne.h>
 #include "Constants.h"
 
 // Motor Configuration
@@ -43,6 +44,10 @@ void setup() {
   Serial.println(F(" - Serial Commander Ready"));
   Serial.println(F("Loading configuration from EEPROM..."));
   loadFromEEPROM();
+  
+  // Initialize LED indicator system
+  initializeLED();
+  
   Serial.println(F("Type HELP for available commands"));
 }
 
@@ -52,6 +57,13 @@ void loop() {
 
   // Display sensor status (only when debug mode is enabled)
   if (debugMode) {
+    // Set LED to debug mode
+    static bool debugLedSet = false;
+    if (!debugLedSet) {
+      setLedState(LED_DEBUG);
+      debugLedSet = true;
+    }
+    
     static unsigned long lastStatusTime = 0;
     if (millis() - lastStatusTime > STATUS_UPDATE_INTERVAL) {
       int currentSensor = getSensorReading();
@@ -61,6 +73,13 @@ void loop() {
       Serial.print(F(" | State: "));
       Serial.println(isExtended ? F("Extended") : F("Retracted"));
       lastStatusTime = millis();
+    }
+  } else {
+    // Return to idle mode when debug is off
+    static bool idleLedSet = false;
+    if (!idleLedSet && currentLedState == LED_DEBUG) {
+      setLedState(LED_IDLE);
+      idleLedSet = true;
     }
   }
 

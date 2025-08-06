@@ -37,6 +37,16 @@ void serialCommander() {
       Serial.println(F("Simulated sensor set to LOW"));
     } else if (command == "DEBOUNCE_INFO") {
       showDebounceInfo();
+    } else if (command == "LED_INFO") {
+      showLedInfo();
+    } else if (command == "LED_ON") {
+      setLedEnabled(true);
+      Serial.println(F("LED indicator enabled"));
+    } else if (command == "LED_OFF") {
+      setLedEnabled(false);
+      Serial.println(F("LED indicator disabled"));
+    } else if (command == "LED_TEST") {
+      testLedStates();
     } else if (command == "HELP") {
       showHelp();
     } else {
@@ -127,6 +137,33 @@ void processSetCommand(String command) {
       Serial.print(F("Motion settle delay set to: "));
       Serial.print(motionSettleDelay);
       Serial.println(F("ms"));
+    }
+    // LED Configuration Parameters
+    else if (paramName == "LED_IDLE") {
+      updateLedPeriod(LED_IDLE, (unsigned long)(value * 1000));
+      Serial.print(F("LED idle period set to: "));
+      Serial.print(value);
+      Serial.println(F("ms"));
+    } else if (paramName == "LED_EXTEND") {
+      updateLedPeriod(LED_EXTEND, (unsigned long)(value * 1000));
+      Serial.print(F("LED extend period set to: "));
+      Serial.print(value);
+      Serial.println(F("ms"));
+    } else if (paramName == "LED_RETRACT") {
+      updateLedPeriod(LED_RETRACT, (unsigned long)(value * 1000));
+      Serial.print(F("LED retract period set to: "));
+      Serial.print(value);
+      Serial.println(F("ms"));
+    } else if (paramName == "LED_ERROR") {
+      updateLedPeriod(LED_ERROR, (unsigned long)(value * 1000));
+      Serial.print(F("LED error period set to: "));
+      Serial.print(value);
+      Serial.println(F("ms"));
+    } else if (paramName == "LED_DEBUG") {
+      updateLedPeriod(LED_DEBUG, (unsigned long)(value * 1000));
+      Serial.print(F("LED debug period set to: "));
+      Serial.print(value);
+      Serial.println(F("ms"));
     } else {
       Serial.print(F("Unknown parameter: "));
       Serial.println(paramName);
@@ -179,6 +216,11 @@ void showConfiguration() {
   Serial.println(F("% used)"));
   Serial.print(F("Steps per Rev: "));
   Serial.println(stepsPerRevolution);
+  Serial.println(F("--- LED Indicator Status ---"));
+  Serial.print(F("LED State: "));
+  Serial.println(getLedStateString());
+  Serial.print(F("LED Enabled: "));
+  Serial.println(ledEnabled ? F("YES") : F("NO"));
   Serial.println(F("============================="));
 }
 
@@ -215,6 +257,16 @@ void showHelp() {
   Serial.println(F("SET DISABLE_RAMP=val          - Set disable ramp delay (ms)"));
   Serial.println(F("SET SPEED_RAMP=val            - Set speed ramp factor (0.1-1.0)"));
   Serial.println(F("SET SETTLE_DELAY=val          - Set motion settle delay (ms)"));
+  Serial.println(F("--- LED Control Commands ---"));
+  Serial.println(F("SET LED_IDLE=val              - Set idle LED period (ms)"));
+  Serial.println(F("SET LED_EXTEND=val            - Set extend LED period (ms)"));
+  Serial.println(F("SET LED_RETRACT=val           - Set retract LED period (ms)"));
+  Serial.println(F("SET LED_ERROR=val             - Set error LED period (ms)"));
+  Serial.println(F("SET LED_DEBUG=val             - Set debug LED period (ms)"));
+  Serial.println(F("LED_INFO                      - Show LED system information"));
+  Serial.println(F("LED_ON                        - Enable LED indicator"));
+  Serial.println(F("LED_OFF                       - Disable LED indicator"));
+  Serial.println(F("LED_TEST                      - Test all LED states"));
   Serial.println(F("--- General Commands ---"));
   Serial.println(F("SHOW                          - Show current configuration"));
   Serial.println(F("SAVE                          - Save current config to EEPROM"));

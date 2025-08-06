@@ -1,47 +1,47 @@
 #include <AccelStepper.h>
 
 // Pin Definitions
-const byte P1_Input = 3;
-const byte P2_Output = 10;
-const byte Enable = 9;
-const byte Clockwise = 8;
+const byte sensorPin = 3;
+const byte stepPin = 10;
+const byte enablePin = 9;
+const byte directionPin = 8;
 
 // Motor Configuration
-const int MicrosteppingResolution = 4;
-AccelStepper stepper(AccelStepper::DRIVER, P2_Output, Clockwise);
-int Steps = 58 * MicrosteppingResolution;
-bool state = false;
+const int microsteppingResolution = 4;
+AccelStepper stepper(AccelStepper::DRIVER, stepPin, directionPin);
+int stepsPerRevolution = 58 * microsteppingResolution;
+bool isExtended = false;
 
 void setup() {
   Serial.begin(9600);
-  pinMode(P1_Input, INPUT_PULLUP);
-  pinMode(P2_Output, OUTPUT);
-  pinMode(Enable, OUTPUT);
-  pinMode(Clockwise, OUTPUT);
+  pinMode(sensorPin, INPUT_PULLUP);
+  pinMode(stepPin, OUTPUT);
+  pinMode(enablePin, OUTPUT);
+  pinMode(directionPin, OUTPUT);
 }
 
 void loop() {
-  Serial.print("| digitalRead(3): ");
+  Serial.print("| sensorPin: ");
   Serial.print(digitalRead(3));
   Serial.println();
 
-  if (digitalRead(P1_Input) == HIGH && !state) {
-    stepper.setMaxSpeed(1200.0 * MicrosteppingResolution);
-    stepper.setAcceleration(600.0 * MicrosteppingResolution);
+  if (digitalRead(sensorPin) == HIGH && !isExtended) {
+    stepper.setMaxSpeed(1200.0 * microsteppingResolution);
+    stepper.setAcceleration(600.0 * microsteppingResolution);
     delay(150);
-    stepper.move(Steps);
-    digitalWrite(Enable, HIGH);
+    stepper.move(stepsPerRevolution);
+    digitalWrite(enablePin, HIGH);
     stepper.runToPosition();
-    state = true;
+    isExtended = true;
   }
-  if (digitalRead(P1_Input) == LOW && state) {
-    stepper.setMaxSpeed(3000.0 * MicrosteppingResolution);
-    stepper.setAcceleration(1900.0 * MicrosteppingResolution);
+  if (digitalRead(sensorPin) == LOW && isExtended) {
+    stepper.setMaxSpeed(3000.0 * microsteppingResolution);
+    stepper.setAcceleration(1900.0 * microsteppingResolution);
     delay(250);
-    stepper.move(-Steps + 2);
+    stepper.move(-stepsPerRevolution + 2);
     stepper.runToPosition();
     delay(100);
-    digitalWrite(Enable, LOW);
-    state = false;
+    digitalWrite(enablePin, LOW);
+    isExtended = false;
   }
 }

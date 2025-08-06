@@ -69,6 +69,10 @@ The system operates in two main states based on sensor input:
   - Provides smooth acceleration/deceleration control
   - Non-blocking stepper motor control
   - Supports multiple motor interface types
+- **EEPROM Library** (Arduino built-in)
+  - Used for persistent parameter storage
+  - Automatic parameter save/load functionality
+  - 36 bytes of EEPROM usage for configuration storage
 
 ## Key Features
 1. **State-based Control**: Tracks extend/retract states via `isExtended` to prevent unwanted movement
@@ -78,6 +82,8 @@ The system operates in two main states based on sensor input:
 5. **Precise Positioning**: `MICROSTEPPING_RESOLUTION` for improved accuracy
 6. **Runtime Configuration**: SerialCommander for real-time parameter adjustment
 7. **Enhanced Debugging**: Improved serial output with motion status and state information
+8. **Persistent Storage**: EEPROM-based configuration storage with automatic save/load
+9. **Configuration Management**: SAVE, LOAD, and RESET commands for parameter management
 
 ## Code Structure
 - Single-file Arduino sketch (`OT_PackV3.ino`)
@@ -103,6 +109,7 @@ Retract motion completed.
 ```
 
 ### Available Commands:
+**Configuration Commands:**
 - `HELP` - Show all available commands
 - `SHOW` - Display current configuration
 - `SET EXTEND_SPEED=value` - Set extend motion speed
@@ -114,12 +121,26 @@ Retract motion completed.
 - `SET RETRACT_DELAY_AFTER=value` - Set retract delay after (ms)
 - `SET RETRACT_ADJUSTMENT=value` - Set retract step adjustment
 
+**EEPROM Management Commands:**
+- `SAVE` - Manually save current configuration to EEPROM
+- `LOAD` - Load configuration from EEPROM
+- `RESET` - Reset configuration to factory defaults
+
 ### Command Examples:
 ```
+// Set parameters (automatically saved to EEPROM)
 SET EXTEND_SPEED=1500
 SET RETRACT_ACCEL=2500
+
+// View current configuration
 SHOW
-HELP
+
+// EEPROM management
+SAVE    // Manual save (usually not needed)
+LOAD    // Reload from EEPROM
+RESET   // Reset to factory defaults
+
+HELP    // Show all commands
 ```
 
 ## Safety Considerations
@@ -135,6 +156,7 @@ HELP
 - **Clear naming**: Descriptive names that explain purpose
 - **Configurable parameters**: Clear naming with motion type prefix (extend/retract)
 - **Memory Optimization**: F() macro used for all string literals to store in flash memory instead of RAM
+- **Persistent Storage**: EEPROM integration for configuration persistence across power cycles
 
 ## Usage Examples
 
@@ -191,3 +213,32 @@ Serial.println(F("Starting extend motion..."));
 - **Before optimization**: ~400-500 bytes RAM used for strings
 - **After optimization**: <50 bytes RAM used for strings
 - **Flash memory**: Minimal impact (strings moved from RAM to flash)
+- **EEPROM usage**: 36 bytes for configuration storage
+
+## EEPROM Configuration Storage
+
+### Memory Mapping:
+```cpp
+// EEPROM Address Layout (36 bytes total)
+EEPROM_SIGNATURE_ADDR = 0     // 4 bytes - "OTP3" signature
+EXTEND_SPEED_ADDR = 4         // 4 bytes - float extendMaxSpeed
+EXTEND_ACCEL_ADDR = 8         // 4 bytes - float extendAcceleration
+EXTEND_DELAY_ADDR = 12        // 4 bytes - int extendDelayBefore
+RETRACT_SPEED_ADDR = 16       // 4 bytes - float retractMaxSpeed
+RETRACT_ACCEL_ADDR = 20       // 4 bytes - float retractAcceleration
+RETRACT_DELAY_BEFORE_ADDR = 24 // 4 bytes - int retractDelayBefore
+RETRACT_DELAY_AFTER_ADDR = 28  // 4 bytes - int retractDelayAfter
+RETRACT_ADJUSTMENT_ADDR = 32   // 4 bytes - int retractStepAdjustment
+```
+
+### Automatic Behavior:
+1. **First Boot**: EEPROM signature check fails, defaults saved automatically
+2. **Parameter Changes**: Every SET command automatically saves to EEPROM
+3. **Boot Process**: Configuration loaded from EEPROM during setup()
+4. **Factory Reset**: RESET command restores defaults and saves to EEPROM
+
+### Benefits:
+- **Power-Safe**: Configuration survives power cycles and resets
+- **Zero Setup**: No manual save required - automatic on every change
+- **Reliable**: Signature validation ensures data integrity
+- **User-Friendly**: Simple SAVE/LOAD/RESET commands for advanced users

@@ -25,7 +25,14 @@ const int RETRACT_ACCEL_ADDR = 20;         // 4 bytes - float retractAcceleratio
 const int RETRACT_DELAY_BEFORE_ADDR = 24;  // 4 bytes - int retractDelayBefore
 const int RETRACT_DELAY_AFTER_ADDR = 28;   // 4 bytes - int retractDelayAfter
 const int RETRACT_ADJUSTMENT_ADDR = 32;    // 4 bytes - int retractStepAdjustment
-// Total EEPROM usage: 36 bytes
+
+// LED Timing Parameters EEPROM Addresses
+const int LED_IDLE_PERIOD_ADDR = 36;       // 4 bytes - unsigned long ledIdlePeriod
+const int LED_EXTEND_PERIOD_ADDR = 40;     // 4 bytes - unsigned long ledExtendPeriod
+const int LED_RETRACT_PERIOD_ADDR = 44;    // 4 bytes - unsigned long ledRetractPeriod
+const int LED_ERROR_PERIOD_ADDR = 48;      // 4 bytes - unsigned long ledErrorPeriod
+const int LED_DEBUG_PERIOD_ADDR = 52;      // 4 bytes - unsigned long ledDebugPeriod
+// Total EEPROM usage: 56 bytes
 
 const uint32_t EEPROM_SIGNATURE = 0x4F545033;  // "OTP3" in hex
 
@@ -77,5 +84,27 @@ const unsigned long LED_EXTEND_PERIOD = 100000;    // 100ms - Extending motion
 const unsigned long LED_RETRACT_PERIOD = 500000;   // 500ms - Retracting motion
 const unsigned long LED_ERROR_PERIOD = 50000;      // 50ms - Error condition
 const unsigned long LED_DEBUG_PERIOD = 200000;     // 200ms - Debug mode active
+
+// LED State Enumeration (Global scope for Arduino IDE)
+typedef enum {
+  LED_OFF,        // LED disabled
+  LED_IDLE,       // 1000ms - System idle/ready
+  LED_EXTEND,     // 100ms - Extending motion  
+  LED_RETRACT,    // 500ms - Retracting motion
+  LED_ERROR,      // 50ms - Error condition
+  LED_DEBUG       // 200ms - Debug mode active
+} LedState;
+
+// External variable declarations for cross-file access
+extern volatile LedState currentLedState;
+extern volatile bool ledEnabled;
+extern volatile unsigned long ledBlinkCount;
+
+// External LED configuration variables
+extern unsigned long ledIdlePeriod;
+extern unsigned long ledExtendPeriod;
+extern unsigned long ledRetractPeriod;
+extern unsigned long ledErrorPeriod;
+extern unsigned long ledDebugPeriod;
 
 #endif  // CONSTANTS_H

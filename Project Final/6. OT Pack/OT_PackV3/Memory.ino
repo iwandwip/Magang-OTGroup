@@ -23,7 +23,7 @@ void saveToEEPROM() {
   // Save signature first
   EEPROM.put(EEPROM_SIGNATURE_ADDR, EEPROM_SIGNATURE);
 
-  // Save all parameters
+  // Save motion parameters
   EEPROM.put(EXTEND_SPEED_ADDR, extendMaxSpeed);
   EEPROM.put(EXTEND_ACCEL_ADDR, extendAcceleration);
   EEPROM.put(EXTEND_DELAY_ADDR, extendDelayBefore);
@@ -33,6 +33,13 @@ void saveToEEPROM() {
   EEPROM.put(RETRACT_DELAY_AFTER_ADDR, retractDelayAfter);
   EEPROM.put(RETRACT_ADJUSTMENT_ADDR, retractStepAdjustment);
 
+  // Save LED timing parameters
+  EEPROM.put(LED_IDLE_PERIOD_ADDR, ledIdlePeriod);
+  EEPROM.put(LED_EXTEND_PERIOD_ADDR, ledExtendPeriod);
+  EEPROM.put(LED_RETRACT_PERIOD_ADDR, ledRetractPeriod);
+  EEPROM.put(LED_ERROR_PERIOD_ADDR, ledErrorPeriod);
+  EEPROM.put(LED_DEBUG_PERIOD_ADDR, ledDebugPeriod);
+
   Serial.println(F("Configuration saved to EEPROM"));
 }
 
@@ -41,7 +48,7 @@ void loadFromEEPROM() {
   EEPROM.get(EEPROM_SIGNATURE_ADDR, signature);
 
   if (signature == EEPROM_SIGNATURE) {
-    // Load all parameters
+    // Load motion parameters
     EEPROM.get(EXTEND_SPEED_ADDR, extendMaxSpeed);
     EEPROM.get(EXTEND_ACCEL_ADDR, extendAcceleration);
     EEPROM.get(EXTEND_DELAY_ADDR, extendDelayBefore);
@@ -51,6 +58,13 @@ void loadFromEEPROM() {
     EEPROM.get(RETRACT_DELAY_AFTER_ADDR, retractDelayAfter);
     EEPROM.get(RETRACT_ADJUSTMENT_ADDR, retractStepAdjustment);
 
+    // Load LED timing parameters
+    EEPROM.get(LED_IDLE_PERIOD_ADDR, ledIdlePeriod);
+    EEPROM.get(LED_EXTEND_PERIOD_ADDR, ledExtendPeriod);
+    EEPROM.get(LED_RETRACT_PERIOD_ADDR, ledRetractPeriod);
+    EEPROM.get(LED_ERROR_PERIOD_ADDR, ledErrorPeriod);
+    EEPROM.get(LED_DEBUG_PERIOD_ADDR, ledDebugPeriod);
+
     Serial.println(F("Configuration loaded from EEPROM"));
   } else {
     Serial.println(F("EEPROM not initialized, using default values"));
@@ -59,7 +73,7 @@ void loadFromEEPROM() {
 }
 
 void resetEEPROM() {
-  // Reset to default values from Constants.h
+  // Reset motion parameters to default values from Constants.h
   extendMaxSpeed = DEFAULT_EXTEND_MAX_SPEED;
   extendAcceleration = DEFAULT_EXTEND_ACCELERATION;
   extendDelayBefore = DEFAULT_EXTEND_DELAY_BEFORE;
@@ -68,6 +82,13 @@ void resetEEPROM() {
   retractDelayBefore = DEFAULT_RETRACT_DELAY_BEFORE;
   retractDelayAfter = DEFAULT_RETRACT_DELAY_AFTER;
   retractStepAdjustment = DEFAULT_RETRACT_STEP_ADJUSTMENT;
+
+  // Reset LED timing parameters to defaults
+  ledIdlePeriod = LED_IDLE_PERIOD;
+  ledExtendPeriod = LED_EXTEND_PERIOD;
+  ledRetractPeriod = LED_RETRACT_PERIOD;
+  ledErrorPeriod = LED_ERROR_PERIOD;
+  ledDebugPeriod = LED_DEBUG_PERIOD;
 
   // Save defaults to EEPROM
   saveToEEPROM();

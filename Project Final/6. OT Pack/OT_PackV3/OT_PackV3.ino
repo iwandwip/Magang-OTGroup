@@ -15,6 +15,8 @@ bool isExtended = false;
 
 // Debug Mode
 bool debugMode = false;  // Debug mode toggle for status output
+static bool debugLedSet = false;  // Track debug LED state
+static bool idleLedSet = false;   // Track idle LED state
 
 // Operation Mode and Sensor Simulation
 int operationMode = MODE_NORMAL;  // Current operation mode (normal/testing)
@@ -58,10 +60,10 @@ void loop() {
   // Display sensor status (only when debug mode is enabled)
   if (debugMode) {
     // Set LED to debug mode
-    static bool debugLedSet = false;
     if (!debugLedSet) {
       setLedState(LED_DEBUG);
       debugLedSet = true;
+      idleLedSet = false;  // Reset idle flag
     }
     
     static unsigned long lastStatusTime = 0;
@@ -76,10 +78,10 @@ void loop() {
     }
   } else {
     // Return to idle mode when debug is off
-    static bool idleLedSet = false;
     if (!idleLedSet && currentLedState == LED_DEBUG) {
       setLedState(LED_IDLE);
       idleLedSet = true;
+      debugLedSet = false;  // Reset debug flag
     }
   }
 

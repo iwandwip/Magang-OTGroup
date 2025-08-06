@@ -89,6 +89,7 @@ The system operates in two main states based on sensor input:
 12. **Advanced Debouncing**: Multi-sample averaging with configurable parameters to eliminate sensor noise
 13. **Motion Smoothness Control**: Configurable jerk reduction, speed ramping, and settle delays
 14. **Resonance Avoidance**: Automatic speed adjustment to avoid mechanical resonance zones
+15. **LED Status Indicator**: TimerOne-based LED blinking with different rates for system status visualization
 
 ## Code Structure
 The project uses a modular architecture with multiple `.ino` files for better organization:
@@ -99,6 +100,7 @@ The project uses a modular architecture with multiple `.ino` files for better or
 - **`Memory.ino`** - EEPROM storage and SRAM memory monitoring functions
 - **`Sensor.ino`** - Advanced sensor debouncing and reading functions
 - **`MotionControl.ino`** - Advanced smooth motion control with S-curve profiles
+- **`LEDIndicator.ino`** - TimerOne-based LED status indicator system
 - **`Constants.h`** - Centralized configuration and constant definitions
 
 ### **Main Functions:**
@@ -157,6 +159,17 @@ Retract motion completed.
 - `SET DISABLE_RAMP=value` - Set disable ramp delay in ms (10-50)  
 - `SET SPEED_RAMP=value` - Set speed ramp factor (0.05-0.5)
 - `SET SETTLE_DELAY=value` - Set motion settle delay in ms (10-100)
+
+**LED Control Commands:**
+- `SET LED_IDLE=value` - Set idle LED blink period in ms (default: 1000)
+- `SET LED_EXTEND=value` - Set extend LED blink period in ms (default: 100)
+- `SET LED_RETRACT=value` - Set retract LED blink period in ms (default: 500)
+- `SET LED_ERROR=value` - Set error LED blink period in ms (default: 50)
+- `SET LED_DEBUG=value` - Set debug LED blink period in ms (default: 200)
+- `LED_INFO` - Show LED system information and current status
+- `LED_ON` - Enable LED indicator system
+- `LED_OFF` - Disable LED indicator system
+- `LED_TEST` - Test all LED states sequentially (2 seconds each)
 
 **Mode Commands:**
 - `MODE` - Toggle between NORMAL and TESTING mode

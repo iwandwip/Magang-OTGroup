@@ -138,32 +138,37 @@ void processSetCommand(String command) {
       Serial.print(motionSettleDelay);
       Serial.println(F("ms"));
     }
-    // LED Configuration Parameters
+    // LED Configuration Parameters (with EEPROM save)
     else if (paramName == "LED_IDLE") {
       updateLedPeriod(LED_IDLE, (unsigned long)(value * 1000));
       Serial.print(F("LED idle period set to: "));
       Serial.print(value);
       Serial.println(F("ms"));
+      saveToEEPROM();
     } else if (paramName == "LED_EXTEND") {
       updateLedPeriod(LED_EXTEND, (unsigned long)(value * 1000));
       Serial.print(F("LED extend period set to: "));
       Serial.print(value);
       Serial.println(F("ms"));
+      saveToEEPROM();
     } else if (paramName == "LED_RETRACT") {
       updateLedPeriod(LED_RETRACT, (unsigned long)(value * 1000));
       Serial.print(F("LED retract period set to: "));
       Serial.print(value);
       Serial.println(F("ms"));
+      saveToEEPROM();
     } else if (paramName == "LED_ERROR") {
       updateLedPeriod(LED_ERROR, (unsigned long)(value * 1000));
       Serial.print(F("LED error period set to: "));
       Serial.print(value);
       Serial.println(F("ms"));
+      saveToEEPROM();
     } else if (paramName == "LED_DEBUG") {
       updateLedPeriod(LED_DEBUG, (unsigned long)(value * 1000));
       Serial.print(F("LED debug period set to: "));
       Serial.print(value);
       Serial.println(F("ms"));
+      saveToEEPROM();
     } else {
       Serial.print(F("Unknown parameter: "));
       Serial.println(paramName);
@@ -221,6 +226,17 @@ void showConfiguration() {
   Serial.println(getLedStateString());
   Serial.print(F("LED Enabled: "));
   Serial.println(ledEnabled ? F("YES") : F("NO"));
+  Serial.println(F("--- LED Timing Parameters ---"));
+  Serial.print(F("LED_IDLE="));
+  Serial.println(ledIdlePeriod / 1000);
+  Serial.print(F("LED_EXTEND="));
+  Serial.println(ledExtendPeriod / 1000);
+  Serial.print(F("LED_RETRACT="));
+  Serial.println(ledRetractPeriod / 1000);
+  Serial.print(F("LED_ERROR="));
+  Serial.println(ledErrorPeriod / 1000);
+  Serial.print(F("LED_DEBUG="));
+  Serial.println(ledDebugPeriod / 1000);
   Serial.println(F("============================="));
 }
 

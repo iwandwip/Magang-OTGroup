@@ -5,17 +5,7 @@
 
 #include <TimerOne.h>
 
-// LED State Enumeration
-typedef enum {
-  LED_OFF,        // LED disabled
-  LED_IDLE,       // 1000ms - System idle/ready
-  LED_EXTEND,     // 100ms - Extending motion  
-  LED_RETRACT,    // 500ms - Retracting motion
-  LED_ERROR,      // 50ms - Error condition
-  LED_DEBUG       // 200ms - Debug mode active
-} LedState;
-
-// LED System Variables
+// LED System Variables (extern declarations will be in Constants.h)
 volatile LedState currentLedState = LED_IDLE;
 volatile bool ledToggleState = false;
 volatile bool ledEnabled = true;
@@ -103,10 +93,8 @@ void setLedState(LedState newState) {
   // Update timer period
   Timer1.setPeriod(newPeriod);
   
-  // Ensure interrupt is attached
-  if (!Timer1.isRunning) {
-    Timer1.attachInterrupt(ledTimerISR);
-  }
+  // Always ensure interrupt is attached after period change
+  Timer1.attachInterrupt(ledTimerISR);
 }
 
 // Enable/disable LED system

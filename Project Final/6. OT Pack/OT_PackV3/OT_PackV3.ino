@@ -96,6 +96,21 @@ int getSensorReading() {
   }
 }
 
+// Function to get free SRAM (for memory monitoring)
+int getFreeSRAM() {
+  extern int __heap_start, *__brkval;
+  int v;
+  return (int) &v - (__brkval == 0 ? (int) &__heap_start : (int) __brkval);
+}
+
+// Function to calculate used SRAM percentage
+float getSRAMUsage() {
+  const int TOTAL_SRAM = 2048;  // Arduino Uno has 2KB SRAM
+  int freeSRAM = getFreeSRAM();
+  int usedSRAM = TOTAL_SRAM - freeSRAM;
+  return ((float)usedSRAM / TOTAL_SRAM) * 100.0;
+}
+
 // EEPROM Functions
 void saveToEEPROM() {
   // Save signature first
@@ -239,6 +254,20 @@ void serialCommander() {
       Serial.println(retractDelayAfter);
       Serial.print(F("RETRACT_ADJUSTMENT="));
       Serial.println(retractStepAdjustment);
+      Serial.println(F("--- System Information ---"));
+      Serial.print(F("Operation Mode: "));
+      Serial.println(operationMode == MODE_NORMAL ? F("NORMAL") : F("TESTING"));
+      Serial.print(F("Debug Mode: "));
+      Serial.println(debugMode ? F("ENABLED") : F("DISABLED"));
+      Serial.print(F("Motor State: "));
+      Serial.println(isExtended ? F("Extended") : F("Retracted"));
+      Serial.print(F("Free SRAM: "));
+      Serial.print(getFreeSRAM());
+      Serial.print(F(" / 2048 bytes ("));
+      Serial.print(getSRAMUsage(), 1);
+      Serial.println(F("% used)"));
+      Serial.print(F("Steps per Rev: "));
+      Serial.println(stepsPerRevolution);
       Serial.println(F("============================="));
     } else if (command == "SAVE") {
       saveToEEPROM();

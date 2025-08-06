@@ -115,7 +115,7 @@ Retract motion completed.
 ### Available Commands:
 **Configuration Commands:**
 - `HELP` - Show all available commands
-- `SHOW` - Display current configuration
+- `SHOW` - Display current configuration and system status
 - `SET EXTEND_SPEED=value` - Set extend motion speed
 - `SET EXTEND_ACCEL=value` - Set extend acceleration
 - `SET EXTEND_DELAY=value` - Set extend delay (ms)
@@ -145,8 +145,24 @@ Retract motion completed.
 SET EXTEND_SPEED=1500
 SET RETRACT_ACCEL=2500
 
-// View current configuration
+// View current configuration and system status
 SHOW
+=== Current Configuration ===
+EXTEND_SPEED=1200.00
+EXTEND_ACCEL=600.00
+EXTEND_DELAY=150
+RETRACT_SPEED=3000.00
+RETRACT_ACCEL=1900.00
+RETRACT_DELAY_BEFORE=250
+RETRACT_DELAY_AFTER=100
+RETRACT_ADJUSTMENT=2
+--- System Information ---
+Operation Mode: NORMAL
+Debug Mode: DISABLED
+Motor State: Retracted
+Free SRAM: 1456 / 2048 bytes (28.9% used)
+Steps per Rev: 232
+=============================
 
 // EEPROM management
 SAVE    // Manual save (usually not needed)

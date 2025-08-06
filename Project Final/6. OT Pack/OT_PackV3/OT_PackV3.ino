@@ -43,72 +43,84 @@ void serialCommander() {
         // Extend Motion Parameters
         if (paramName == "EXTEND_SPEED") {
           extendMaxSpeed = value;
-          Serial.println("Extend speed set to: " + String(extendMaxSpeed));
+          Serial.print(F("Extend speed set to: "));
+          Serial.println(extendMaxSpeed);
         }
         else if (paramName == "EXTEND_ACCEL") {
           extendAcceleration = value;
-          Serial.println("Extend acceleration set to: " + String(extendAcceleration));
+          Serial.print(F("Extend acceleration set to: "));
+          Serial.println(extendAcceleration);
         }
         else if (paramName == "EXTEND_DELAY") {
           extendDelayBefore = (int)value;
-          Serial.println("Extend delay set to: " + String(extendDelayBefore) + "ms");
+          Serial.print(F("Extend delay set to: "));
+          Serial.print(extendDelayBefore);
+          Serial.println(F("ms"));
         }
         // Retract Motion Parameters
         else if (paramName == "RETRACT_SPEED") {
           retractMaxSpeed = value;
-          Serial.println("Retract speed set to: " + String(retractMaxSpeed));
+          Serial.print(F("Retract speed set to: "));
+          Serial.println(retractMaxSpeed);
         }
         else if (paramName == "RETRACT_ACCEL") {
           retractAcceleration = value;
-          Serial.println("Retract acceleration set to: " + String(retractAcceleration));
+          Serial.print(F("Retract acceleration set to: "));
+          Serial.println(retractAcceleration);
         }
         else if (paramName == "RETRACT_DELAY_BEFORE") {
           retractDelayBefore = (int)value;
-          Serial.println("Retract delay before set to: " + String(retractDelayBefore) + "ms");
+          Serial.print(F("Retract delay before set to: "));
+          Serial.print(retractDelayBefore);
+          Serial.println(F("ms"));
         }
         else if (paramName == "RETRACT_DELAY_AFTER") {
           retractDelayAfter = (int)value;
-          Serial.println("Retract delay after set to: " + String(retractDelayAfter) + "ms");
+          Serial.print(F("Retract delay after set to: "));
+          Serial.print(retractDelayAfter);
+          Serial.println(F("ms"));
         }
         else if (paramName == "RETRACT_ADJUSTMENT") {
           retractStepAdjustment = (int)value;
-          Serial.println("Retract step adjustment set to: " + String(retractStepAdjustment));
+          Serial.print(F("Retract step adjustment set to: "));
+          Serial.println(retractStepAdjustment);
         }
         else {
-          Serial.println("Unknown parameter: " + paramName);
+          Serial.print(F("Unknown parameter: "));
+          Serial.println(paramName);
         }
       } else {
-        Serial.println("Invalid format. Use: SET PARAMETER=VALUE");
+        Serial.println(F("Invalid format. Use: SET PARAMETER=VALUE"));
       }
     }
     else if (command == "SHOW") {
-      Serial.println("=== Current Configuration ===");
-      Serial.println("EXTEND_SPEED=" + String(extendMaxSpeed));
-      Serial.println("EXTEND_ACCEL=" + String(extendAcceleration));
-      Serial.println("EXTEND_DELAY=" + String(extendDelayBefore));
-      Serial.println("RETRACT_SPEED=" + String(retractMaxSpeed));
-      Serial.println("RETRACT_ACCEL=" + String(retractAcceleration));
-      Serial.println("RETRACT_DELAY_BEFORE=" + String(retractDelayBefore));
-      Serial.println("RETRACT_DELAY_AFTER=" + String(retractDelayAfter));
-      Serial.println("RETRACT_ADJUSTMENT=" + String(retractStepAdjustment));
-      Serial.println("=============================");
+      Serial.println(F("=== Current Configuration ==="));
+      Serial.print(F("EXTEND_SPEED=")); Serial.println(extendMaxSpeed);
+      Serial.print(F("EXTEND_ACCEL=")); Serial.println(extendAcceleration);
+      Serial.print(F("EXTEND_DELAY=")); Serial.println(extendDelayBefore);
+      Serial.print(F("RETRACT_SPEED=")); Serial.println(retractMaxSpeed);
+      Serial.print(F("RETRACT_ACCEL=")); Serial.println(retractAcceleration);
+      Serial.print(F("RETRACT_DELAY_BEFORE=")); Serial.println(retractDelayBefore);
+      Serial.print(F("RETRACT_DELAY_AFTER=")); Serial.println(retractDelayAfter);
+      Serial.print(F("RETRACT_ADJUSTMENT=")); Serial.println(retractStepAdjustment);
+      Serial.println(F("============================="));
     }
     else if (command == "HELP") {
-      Serial.println("=== SerialCommander Help ===");
-      Serial.println("SET EXTEND_SPEED=value        - Set extend motion speed");
-      Serial.println("SET EXTEND_ACCEL=value        - Set extend acceleration");
-      Serial.println("SET EXTEND_DELAY=value        - Set extend delay (ms)");
-      Serial.println("SET RETRACT_SPEED=value       - Set retract motion speed");
-      Serial.println("SET RETRACT_ACCEL=value       - Set retract acceleration");
-      Serial.println("SET RETRACT_DELAY_BEFORE=val  - Set retract delay before (ms)");
-      Serial.println("SET RETRACT_DELAY_AFTER=val   - Set retract delay after (ms)");
-      Serial.println("SET RETRACT_ADJUSTMENT=val    - Set retract step adjustment");
-      Serial.println("SHOW                          - Show current configuration");
-      Serial.println("HELP                          - Show this help");
-      Serial.println("============================");
+      Serial.println(F("=== SerialCommander Help ==="));
+      Serial.println(F("SET EXTEND_SPEED=value        - Set extend motion speed"));
+      Serial.println(F("SET EXTEND_ACCEL=value        - Set extend acceleration"));
+      Serial.println(F("SET EXTEND_DELAY=value        - Set extend delay (ms)"));
+      Serial.println(F("SET RETRACT_SPEED=value       - Set retract motion speed"));
+      Serial.println(F("SET RETRACT_ACCEL=value       - Set retract acceleration"));
+      Serial.println(F("SET RETRACT_DELAY_BEFORE=val  - Set retract delay before (ms)"));
+      Serial.println(F("SET RETRACT_DELAY_AFTER=val   - Set retract delay after (ms)"));
+      Serial.println(F("SET RETRACT_ADJUSTMENT=val    - Set retract step adjustment"));
+      Serial.println(F("SHOW                          - Show current configuration"));
+      Serial.println(F("HELP                          - Show this help"));
+      Serial.println(F("============================"));
     }
     else {
-      Serial.println("Unknown command. Type HELP for available commands.");
+      Serial.println(F("Unknown command. Type HELP for available commands."));
     }
   }
 }
@@ -120,8 +132,8 @@ void setup() {
   pinMode(ENABLE_PIN, OUTPUT);
   pinMode(DIRECTION_PIN, OUTPUT);
   
-  Serial.println("OT Pack V3 - Serial Commander Ready");
-  Serial.println("Type HELP for available commands");
+  Serial.println(F("OT Pack V3 - Serial Commander Ready"));
+  Serial.println(F("Type HELP for available commands"));
 }
 
 void loop() {
@@ -131,16 +143,16 @@ void loop() {
   // Display sensor status (reduced frequency for readability)
   static unsigned long lastStatusTime = 0;
   if (millis() - lastStatusTime > 500) {  // Update every 500ms
-    Serial.print("| SENSOR_PIN: ");
+    Serial.print(F("| SENSOR_PIN: "));
     Serial.print(digitalRead(SENSOR_PIN));
-    Serial.print(" | State: ");
-    Serial.println(isExtended ? "Extended" : "Retracted");
+    Serial.print(F(" | State: "));
+    Serial.println(isExtended ? F("Extended") : F("Retracted"));
     lastStatusTime = millis();
   }
 
   // Main motion control logic
   if (digitalRead(SENSOR_PIN) == HIGH && !isExtended) {
-    Serial.println("Starting extend motion...");
+    Serial.println(F("Starting extend motion..."));
     stepper.setMaxSpeed(extendMaxSpeed * MICROSTEPPING_RESOLUTION);
     stepper.setAcceleration(extendAcceleration * MICROSTEPPING_RESOLUTION);
     delay(extendDelayBefore);
@@ -148,11 +160,11 @@ void loop() {
     digitalWrite(ENABLE_PIN, HIGH);
     stepper.runToPosition();
     isExtended = true;
-    Serial.println("Extend motion completed.");
+    Serial.println(F("Extend motion completed."));
   }
   
   if (digitalRead(SENSOR_PIN) == LOW && isExtended) {
-    Serial.println("Starting retract motion...");
+    Serial.println(F("Starting retract motion..."));
     stepper.setMaxSpeed(retractMaxSpeed * MICROSTEPPING_RESOLUTION);
     stepper.setAcceleration(retractAcceleration * MICROSTEPPING_RESOLUTION);
     delay(retractDelayBefore);
@@ -161,6 +173,6 @@ void loop() {
     delay(retractDelayAfter);
     digitalWrite(ENABLE_PIN, LOW);
     isExtended = false;
-    Serial.println("Retract motion completed.");
+    Serial.println(F("Retract motion completed."));
   }
 }

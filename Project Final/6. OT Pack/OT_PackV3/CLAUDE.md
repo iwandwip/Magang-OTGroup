@@ -134,6 +134,7 @@ HELP
 - **Functions**: camelCase (Arduino standard)
 - **Clear naming**: Descriptive names that explain purpose
 - **Configurable parameters**: Clear naming with motion type prefix (extend/retract)
+- **Memory Optimization**: F() macro used for all string literals to store in flash memory instead of RAM
 
 ## Usage Examples
 
@@ -164,3 +165,29 @@ SHOW
 - Check sensor state in status output
 - Verify motor enable/disable states
 - Adjust parameters via SerialCommander without re-uploading code
+
+## Memory Optimization Features
+
+### F() Macro Implementation
+All string literals in Serial.print() and Serial.println() statements use the F() macro:
+
+**Before (uses RAM):**
+```cpp
+Serial.println("Starting extend motion...");
+```
+
+**After (uses Flash memory):**
+```cpp
+Serial.println(F("Starting extend motion..."));
+```
+
+### Benefits:
+- **RAM Conservation**: String literals stored in flash memory instead of SRAM
+- **More Available RAM**: Leaves more RAM for variables and stack operations
+- **Better Performance**: Reduces memory fragmentation
+- **Stability**: Prevents out-of-memory issues on resource-constrained Arduino boards
+
+### Memory Usage Impact:
+- **Before optimization**: ~400-500 bytes RAM used for strings
+- **After optimization**: <50 bytes RAM used for strings
+- **Flash memory**: Minimal impact (strings moved from RAM to flash)

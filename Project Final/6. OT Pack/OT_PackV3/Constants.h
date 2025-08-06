@@ -59,4 +59,16 @@ const unsigned long DEBOUNCE_DELAY = 50;  // Debounce delay in milliseconds
 const int DEBOUNCE_SAMPLES = 5;            // Number of consistent readings required
 const unsigned long DEBOUNCE_SAMPLE_INTERVAL = 2;  // Interval between samples in milliseconds
 
+// Motion Smoothness Configuration
+const int DEFAULT_JERK_REDUCTION_STEPS = 10;        // Number of steps for S-curve ramp
+const int DEFAULT_ENABLE_RAMP_DELAY = 50;           // Gradual enable ramp delay (ms)
+const int DEFAULT_DISABLE_RAMP_DELAY = 30;          // Gradual disable ramp delay (ms)
+const float DEFAULT_SPEED_RAMP_FACTOR = 0.1;       // Speed ramping factor (0.1 = 10% steps)
+const int DEFAULT_MOTION_SETTLE_DELAY = 25;         // Settling delay after motion (ms)
+
+// Resonance Avoidance Configuration
+const float RESONANCE_AVOID_MIN_SPEED = 100.0;     // Minimum speed to avoid resonance
+const float RESONANCE_AVOID_MAX_SPEED = 350.0;     // Maximum speed to avoid resonance
+const float RESONANCE_SAFE_SPEED = 500.0;          // Safe speed above resonance zone
+
 #endif  // CONSTANTS_H

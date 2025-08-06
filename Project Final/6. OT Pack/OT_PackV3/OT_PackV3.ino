@@ -64,38 +64,25 @@ void loop() {
     }
   }
 
-  // Main motion control logic
+  // Main motion control logic with interrupt protection
+  noInterrupts();  // Disable interrupts during critical sensor reading
   int currentSensorReading = getSensorReading();
+  interrupts();    // Re-enable interrupts
+  
   if (currentSensorReading == HIGH && !isExtended) {
-    performExtendMotion();
+    performSmoothExtendMotion();
   }
 
   if (currentSensorReading == LOW && isExtended) {
-    performRetractMotion();
+    performSmoothRetractMotion();
   }
 }
 
+// Legacy motion functions for backward compatibility
 void performExtendMotion() {
-  Serial.println(F("Starting extend motion..."));
-  stepper.setMaxSpeed(extendMaxSpeed * MICROSTEPPING_RESOLUTION);
-  stepper.setAcceleration(extendAcceleration * MICROSTEPPING_RESOLUTION);
-  delay(extendDelayBefore);
-  stepper.move(stepsPerRevolution);
-  digitalWrite(ENABLE_PIN, HIGH);
-  stepper.runToPosition();
-  isExtended = true;
-  Serial.println(F("Extend motion completed."));
+  performSmoothExtendMotion();
 }
 
 void performRetractMotion() {
-  Serial.println(F("Starting retract motion..."));
-  stepper.setMaxSpeed(retractMaxSpeed * MICROSTEPPING_RESOLUTION);
-  stepper.setAcceleration(retractAcceleration * MICROSTEPPING_RESOLUTION);
-  delay(retractDelayBefore);
-  stepper.move(-stepsPerRevolution + retractStepAdjustment);
-  stepper.runToPosition();
-  delay(retractDelayAfter);
-  digitalWrite(ENABLE_PIN, LOW);
-  isExtended = false;
-  Serial.println(F("Retract motion completed."));
+  performSmoothRetractMotion();
 }

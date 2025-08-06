@@ -102,6 +102,31 @@ void processSetCommand(String command) {
       Serial.print(F("Retract step adjustment set to: "));
       Serial.println(retractStepAdjustment);
       saveToEEPROM();
+    }
+    // Motion Smoothness Parameters
+    else if (paramName == "JERK_STEPS") {
+      jerkReductionSteps = (int)value;
+      Serial.print(F("Jerk reduction steps set to: "));
+      Serial.println(jerkReductionSteps);
+    } else if (paramName == "ENABLE_RAMP") {
+      enableRampDelay = (int)value;
+      Serial.print(F("Enable ramp delay set to: "));
+      Serial.print(enableRampDelay);
+      Serial.println(F("ms"));
+    } else if (paramName == "DISABLE_RAMP") {
+      disableRampDelay = (int)value;
+      Serial.print(F("Disable ramp delay set to: "));
+      Serial.print(disableRampDelay);
+      Serial.println(F("ms"));
+    } else if (paramName == "SPEED_RAMP") {
+      speedRampFactor = value;
+      Serial.print(F("Speed ramp factor set to: "));
+      Serial.println(speedRampFactor);
+    } else if (paramName == "SETTLE_DELAY") {
+      motionSettleDelay = (int)value;
+      Serial.print(F("Motion settle delay set to: "));
+      Serial.print(motionSettleDelay);
+      Serial.println(F("ms"));
     } else {
       Serial.print(F("Unknown parameter: "));
       Serial.println(paramName);
@@ -129,6 +154,17 @@ void showConfiguration() {
   Serial.println(retractDelayAfter);
   Serial.print(F("RETRACT_ADJUSTMENT="));
   Serial.println(retractStepAdjustment);
+  Serial.println(F("--- Motion Smoothness ---"));
+  Serial.print(F("JERK_STEPS="));
+  Serial.println(jerkReductionSteps);
+  Serial.print(F("ENABLE_RAMP="));
+  Serial.println(enableRampDelay);
+  Serial.print(F("DISABLE_RAMP="));
+  Serial.println(disableRampDelay);
+  Serial.print(F("SPEED_RAMP="));
+  Serial.println(speedRampFactor);
+  Serial.print(F("SETTLE_DELAY="));
+  Serial.println(motionSettleDelay);
   Serial.println(F("--- System Information ---"));
   Serial.print(F("Operation Mode: "));
   Serial.println(operationMode == MODE_NORMAL ? F("NORMAL") : F("TESTING"));
@@ -173,6 +209,13 @@ void showHelp() {
   Serial.println(F("SET RETRACT_DELAY_BEFORE=val  - Set retract delay before (ms)"));
   Serial.println(F("SET RETRACT_DELAY_AFTER=val   - Set retract delay after (ms)"));
   Serial.println(F("SET RETRACT_ADJUSTMENT=val    - Set retract step adjustment"));
+  Serial.println(F("--- Motion Smoothness Commands ---"));
+  Serial.println(F("SET JERK_STEPS=val            - Set S-curve jerk reduction steps"));
+  Serial.println(F("SET ENABLE_RAMP=val           - Set enable ramp delay (ms)"));
+  Serial.println(F("SET DISABLE_RAMP=val          - Set disable ramp delay (ms)"));
+  Serial.println(F("SET SPEED_RAMP=val            - Set speed ramp factor (0.1-1.0)"));
+  Serial.println(F("SET SETTLE_DELAY=val          - Set motion settle delay (ms)"));
+  Serial.println(F("--- General Commands ---"));
   Serial.println(F("SHOW                          - Show current configuration"));
   Serial.println(F("SAVE                          - Save current config to EEPROM"));
   Serial.println(F("LOAD                          - Load config from EEPROM"));

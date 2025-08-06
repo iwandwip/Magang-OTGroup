@@ -76,17 +76,19 @@ The system operates in two main states based on sensor input:
 
 ## Key Features
 1. **State-based Control**: Tracks extend/retract states via `isExtended` to prevent unwanted movement
-2. **Smooth Motion**: Uses acceleration/deceleration for smooth operation
+2. **Advanced Smooth Motion**: S-curve acceleration profiles with jerk control for vibration reduction
 3. **Sensor Integration**: Digital input `SENSOR_PIN` triggers motion sequences with advanced debouncing
-4. **Power Management**: `ENABLE_PIN` control for motor power saving
-5. **Precise Positioning**: `MICROSTEPPING_RESOLUTION` for improved accuracy
-6. **Runtime Configuration**: SerialCommander for real-time parameter adjustment
+4. **Smart Power Management**: Gradual enable/disable with ramping to reduce electrical and mechanical shock
+5. **Precise Positioning**: `MICROSTEPPING_RESOLUTION` for improved accuracy with resonance avoidance
+6. **Runtime Configuration**: SerialCommander for real-time parameter adjustment including smoothness settings
 7. **Enhanced Debugging**: Improved serial output with motion status and state information
 8. **Persistent Storage**: EEPROM-based configuration storage with automatic save/load
 9. **Configuration Management**: SAVE, LOAD, and RESET commands for parameter management
 10. **Debug Mode Control**: Toggle-able debug output for cleaner serial interface when not debugging
 11. **Testing Mode**: Sensor simulation mode for testing without hardware
 12. **Advanced Debouncing**: Multi-sample averaging with configurable parameters to eliminate sensor noise
+13. **Motion Smoothness Control**: Configurable jerk reduction, speed ramping, and settle delays
+14. **Resonance Avoidance**: Automatic speed adjustment to avoid mechanical resonance zones
 
 ## Code Structure
 The project uses a modular architecture with multiple `.ino` files for better organization:
@@ -96,6 +98,7 @@ The project uses a modular architecture with multiple `.ino` files for better or
 - **`SerialCommand.ino`** - All serial command handling and help system  
 - **`Memory.ino`** - EEPROM storage and SRAM memory monitoring functions
 - **`Sensor.ino`** - Advanced sensor debouncing and reading functions
+- **`MotionControl.ino`** - Advanced smooth motion control with S-curve profiles
 - **`Constants.h`** - Centralized configuration and constant definitions
 
 ### **Main Functions:**
@@ -147,6 +150,13 @@ Retract motion completed.
 
 **Debug Commands:**
 - `DEBUG` - Toggle debug status output ON/OFF
+
+**Motion Smoothness Commands:**
+- `SET JERK_STEPS=value` - Set S-curve jerk reduction steps (5-20)
+- `SET ENABLE_RAMP=value` - Set enable ramp delay in ms (20-100)
+- `SET DISABLE_RAMP=value` - Set disable ramp delay in ms (10-50)  
+- `SET SPEED_RAMP=value` - Set speed ramp factor (0.05-0.5)
+- `SET SETTLE_DELAY=value` - Set motion settle delay in ms (10-100)
 
 **Mode Commands:**
 - `MODE` - Toggle between NORMAL and TESTING mode

@@ -86,7 +86,8 @@ The system operates in two main states based on sensor input:
 9. **Configuration Management**: SAVE, LOAD, and RESET commands for parameter management
 
 ## Code Structure
-- Single-file Arduino sketch (`OT_PackV3.ino`)
+- **Main sketch**: `OT_PackV3.ino` - Core application logic
+- **Constants file**: `Constants.h` - All constant definitions and configuration
 - `setup()`: Initializes pins, serial communication, and displays welcome message
 - `loop()`: Main execution loop with serial command processing and motion control
 - `serialCommander()`: Handles real-time configuration via serial commands
@@ -157,6 +158,7 @@ HELP    // Show all commands
 - **Configurable parameters**: Clear naming with motion type prefix (extend/retract)
 - **Memory Optimization**: F() macro used for all string literals to store in flash memory instead of RAM
 - **Persistent Storage**: EEPROM integration for configuration persistence across power cycles
+- **Modular Design**: Separation of constants and logic for better maintainability
 
 ## Usage Examples
 
@@ -215,6 +217,47 @@ Serial.println(F("Starting extend motion..."));
 - **Flash memory**: Minimal impact (strings moved from RAM to flash)
 - **EEPROM usage**: 36 bytes for configuration storage
 
+## File Structure
+
+### Constants.h
+Centralized configuration file containing:
+
+```cpp
+// Pin Definitions
+const byte SENSOR_PIN = 3;
+const byte STEP_PIN = 10;
+const byte ENABLE_PIN = 9;
+const byte DIRECTION_PIN = 8;
+
+// Motor Configuration
+const int MICROSTEPPING_RESOLUTION = 4;
+const int BASE_STEPS_PER_REV = 58;
+
+// EEPROM Memory Mapping (36 bytes)
+const int EEPROM_SIGNATURE_ADDR = 0;
+const int EXTEND_SPEED_ADDR = 4;
+// ... (complete mapping)
+
+// Default Values
+const float DEFAULT_EXTEND_MAX_SPEED = 1200.0;
+const float DEFAULT_EXTEND_ACCELERATION = 600.0;
+// ... (all default parameters)
+
+// System Information
+const char* SYSTEM_NAME = "OT Pack V3";
+const char* VERSION = "3.0";
+const long SERIAL_BAUD_RATE = 9600;
+const unsigned long STATUS_UPDATE_INTERVAL = 500;
+```
+
+### Benefits of Constants.h:
+1. **Centralized Configuration**: All constants in one place
+2. **Easy Maintenance**: Single file to modify configuration
+3. **Version Control**: System version and build info included
+4. **Cleaner Code**: Main .ino file focuses on logic, not configuration
+5. **Reusability**: Constants can be easily shared across multiple files
+6. **Documentation**: Clear organization and commenting of all parameters
+
 ## EEPROM Configuration Storage
 
 ### Memory Mapping:
@@ -242,3 +285,25 @@ RETRACT_ADJUSTMENT_ADDR = 32   // 4 bytes - int retractStepAdjustment
 - **Zero Setup**: No manual save required - automatic on every change
 - **Reliable**: Signature validation ensures data integrity
 - **User-Friendly**: Simple SAVE/LOAD/RESET commands for advanced users
+
+## Configuration Management
+
+### Easy Parameter Updates
+To modify default values, simply edit `Constants.h`:
+
+```cpp
+// Change default extend speed from 1200 to 1500
+const float DEFAULT_EXTEND_MAX_SPEED = 1500.0;
+
+// Change default delays
+const int DEFAULT_EXTEND_DELAY_BEFORE = 200;
+const int DEFAULT_RETRACT_DELAY_BEFORE = 300;
+```
+
+### System Information
+The system now displays version information:
+```
+OT Pack V3 v3.0 - Serial Commander Ready
+```
+
+All system constants are centralized for easy updates and maintenance.

@@ -1,4 +1,4 @@
-#include <AccelStepper.h>
+#include "OTPack.h"
 
 // Hardware Pin Assignments
 const byte SENSOR_INPUT_PIN = 3;
@@ -6,128 +6,60 @@ const byte STEPPER_STEP_PIN = 10;
 const byte STEPPER_ENABLE_PIN = 9;
 const byte STEPPER_DIRECTION_PIN = 8;
 
-// Motor Configuration Constants
-const int MICROSTEPPING_RESOLUTION = 4;
-const int STEPS_PER_REVOLUTION = 58;
-const int TOTAL_STEPS = STEPS_PER_REVOLUTION * MICROSTEPPING_RESOLUTION;
-
-// Motion Profile Constants
-const float FORWARD_MAX_SPEED = 1200.0;
-const float FORWARD_ACCELERATION = 600.0;
-const float REVERSE_MAX_SPEED = 3000.0;
-const float REVERSE_ACCELERATION = 1900.0;
-
-// Timing Constants
-const int FORWARD_DEBOUNCE_DELAY = 150;
-const int REVERSE_DEBOUNCE_DELAY = 250;
-const int REVERSE_SETTLE_DELAY = 100;
-const int POSITION_OFFSET = 2;
-
-// System States
-enum PackingState {
-  WAITING_FOR_FORWARD,
-  WAITING_FOR_REVERSE
-};
-
-// Global Variables
-AccelStepper stepper(AccelStepper::DRIVER, STEPPER_STEP_PIN, STEPPER_DIRECTION_PIN);
-PackingState currentState = WAITING_FOR_FORWARD;
+// Create OTPack instance
+OTPack otpack(SENSOR_INPUT_PIN, STEPPER_STEP_PIN, STEPPER_DIRECTION_PIN, STEPPER_ENABLE_PIN);
 
 void setup() {
   Serial.begin(9600);
   
-  initializePins();
-  initializeMotor();
+  // Initialize OTPack with default settings
+  otpack.begin();
   
-  Serial.println("OT Pack V2 - Initialized");
-  Serial.println("Waiting for sensor trigger...");
-}
-
-void initializePins() {
-  pinMode(SENSOR_INPUT_PIN, INPUT_PULLUP);
-  pinMode(STEPPER_STEP_PIN, OUTPUT);
-  pinMode(STEPPER_ENABLE_PIN, OUTPUT);
-  pinMode(STEPPER_DIRECTION_PIN, OUTPUT);
+  // Optional: Customize settings
+  otpack.setMotorConfig(58, 4);  // 58 steps/rev, 4x microstepping
+  otpack.setForwardProfile(1200.0, 600.0, 150);  // speed, accel, debounce
+  otpack.setReverseProfile(3000.0, 1900.0, 250, 100);  // speed, accel, debounce, settle
+  otpack.setPositionOffset(2);
   
-  digitalWrite(STEPPER_ENABLE_PIN, LOW);
-}
-
-void initializeMotor() {
-  stepper.setMaxSpeed(FORWARD_MAX_SPEED * MICROSTEPPING_RESOLUTION);
-  stepper.setAcceleration(FORWARD_ACCELERATION * MICROSTEPPING_RESOLUTION);
+  // Choose motion mode
+  otpack.setMotionMode(OTPack::NON_BLOCKING);  // or OTPack::BLOCKING
+  
+  Serial.print("OT Pack V2 - Ready | Mode: ");
+  Serial.println(otpack.getMotionMode() == OTPack::BLOCKING ? "BLOCKING" : "NON_BLOCKING");
 }
 
 void loop() {
-  bool sensorTriggered = digitalRead(SENSOR_INPUT_PIN) == HIGH;
+  // Update OTPack - handles all sensor reading and motion control
+  otpack.update();
   
-  printSensorStatus(sensorTriggered);
-  
-  switch (currentState) {
-    case WAITING_FOR_FORWARD:
-      if (sensorTriggered) {
-        executeForwardMotion();
-        currentState = WAITING_FOR_REVERSE;
-      }
-      break;
-      
-    case WAITING_FOR_REVERSE:
-      if (!sensorTriggered) {
-        executeReverseMotion();
-        currentState = WAITING_FOR_FORWARD;
-      }
-      break;
+  // Optional: Print status periodically
+  static unsigned long lastPrint = 0;
+  if (millis() - lastPrint > 1000) {  // Print every 1 second
+    printStatus();
+    lastPrint = millis();
   }
+  
+  delay(10);  // Small delay for stability
 }
 
-void printSensorStatus(bool triggered) {
-  Serial.print("Sensor Status: ");
-  Serial.print(triggered ? "TRIGGERED" : "CLEAR");
-  Serial.print(" | State: ");
-  Serial.println(currentState == WAITING_FOR_FORWARD ? "WAITING_FORWARD" : "WAITING_REVERSE");
+void printStatus() {
+  Serial.print("State: ");
+  Serial.print(otpack.getState() == OTPack::WAITING_FORWARD ? "WAITING_FORWARD" : "WAITING_REVERSE");
+  Serial.print(" | Mode: ");
+  Serial.print(otpack.getMotionMode() == OTPack::BLOCKING ? "BLOCKING" : "NON_BLOCKING");
+  Serial.print(" | Busy: ");
+  Serial.print(otpack.isBusy() ? "YES" : "NO");
+  Serial.print(" | Moving: ");
+  Serial.println(otpack.isMoving() ? "YES" : "NO");
 }
 
-void executeForwardMotion() {
-  Serial.println("Executing Forward Motion...");
-  
-  configureMotorForForward();
-  delay(FORWARD_DEBOUNCE_DELAY);
-  
-  enableMotor();
-  stepper.move(TOTAL_STEPS);
-  stepper.runToPosition();
-  
-  Serial.println("Forward Motion Complete");
-}
-
-void executeReverseMotion() {
-  Serial.println("Executing Reverse Motion...");
-  
-  configureMotorForReverse();
-  delay(REVERSE_DEBOUNCE_DELAY);
-  
-  stepper.move(-(TOTAL_STEPS - POSITION_OFFSET));
-  stepper.runToPosition();
-  
-  delay(REVERSE_SETTLE_DELAY);
-  disableMotor();
-  
-  Serial.println("Reverse Motion Complete");
-}
-
-void configureMotorForForward() {
-  stepper.setMaxSpeed(FORWARD_MAX_SPEED * MICROSTEPPING_RESOLUTION);
-  stepper.setAcceleration(FORWARD_ACCELERATION * MICROSTEPPING_RESOLUTION);
-}
-
-void configureMotorForReverse() {
-  stepper.setMaxSpeed(REVERSE_MAX_SPEED * MICROSTEPPING_RESOLUTION);
-  stepper.setAcceleration(REVERSE_ACCELERATION * MICROSTEPPING_RESOLUTION);
-}
-
-void enableMotor() {
-  digitalWrite(STEPPER_ENABLE_PIN, HIGH);
-}
-
-void disableMotor() {
-  digitalWrite(STEPPER_ENABLE_PIN, LOW);
+// Example function to switch between modes (call from serial input or button)
+void toggleMotionMode() {
+  if (otpack.getMotionMode() == OTPack::BLOCKING) {
+    otpack.setMotionMode(OTPack::NON_BLOCKING);
+    Serial.println("Switched to NON_BLOCKING mode");
+  } else {
+    otpack.setMotionMode(OTPack::BLOCKING);
+    Serial.println("Switched to BLOCKING mode");
+  }
 }

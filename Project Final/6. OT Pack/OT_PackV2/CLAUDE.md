@@ -1,7 +1,7 @@
 # OT Pack V2 Project Documentation
 
 ## Project Overview
-OT_PackV2 is a stepper motor control system for packaging automation. The system controls a single stepper motor with acceleration/deceleration profiles using the AccelStepper library. The improved version features better code organization, clear naming conventions, and structured program flow.
+OT_PackV2 is a stepper motor control system for packaging automation. The system controls a single stepper motor with acceleration/deceleration profiles using the AccelStepper library. The latest version features a clean OOP design with the OTPack class, providing simple yet powerful functionality while maintaining ease of use.
 
 ## Hardware Configuration
 - **Microcontroller**: Arduino compatible board
@@ -17,31 +17,75 @@ STEPPER_ENABLE_PIN (Pin 9)    - Motor enable/disable control
 STEPPER_DIRECTION_PIN (Pin 8) - Direction control pin
 ```
 
-## Software Architecture (Improved Version)
+## Software Architecture (OTPack Class Design)
 
 ### Core Components
-1. **AccelStepper Library Integration**: Uses DRIVER mode for step/direction control
-2. **Enum-Based State Machine**: Structured state management using `PackingState` enum
-3. **Function-Based Organization**: Clear separation of concerns with dedicated functions
-4. **Constant Definitions**: All magic numbers replaced with named constants
+1. **OTPack Class**: Encapsulated stepper motor control with clean public interface
+2. **AccelStepper Integration**: Uses DRIVER mode for step/direction control
+3. **Enum-Based State Machine**: Structured state management using `OTPack::State` enum
+4. **Automatic Debouncing**: Built-in sensor debouncing with configurable timing
+5. **Simple Public API**: Easy to use methods for configuration and control
 
-### Improved Code Structure
+### OTPack Class Structure
 ```cpp
-enum PackingState {
-  WAITING_FOR_FORWARD,
-  WAITING_FOR_REVERSE
+class OTPack {
+public:
+    enum State {
+        WAITING_FORWARD,
+        WAITING_REVERSE
+    };
+    
+    // Constructor & Setup
+    OTPack(byte sensorPin, byte stepPin, byte dirPin, byte enablePin);
+    void begin();
+    
+    // Runtime Control
+    void update();
+    void reset();
+    
+    // Configuration Methods
+    void setMotorConfig(int stepsPerRev, int microstepping = 4);
+    void setForwardProfile(float speed, float accel, int debounceMs = 150);
+    void setReverseProfile(float speed, float accel, int debounceMs = 250, int settleMs = 100);
+    void setPositionOffset(int offset = 2);
+    
+    // Status Methods
+    State getState() const;
+    bool isBusy() const;
 };
 ```
 
-### Function Organization
-- `initializePins()` - Hardware pin configuration
-- `initializeMotor()` - Motor setup and default parameters  
-- `executeForwardMotion()` - Forward motion sequence
-- `executeReverseMotion()` - Reverse motion sequence
-- `configureMotorForForward()` - Forward motion parameters
-- `configureMotorForReverse()` - Reverse motion parameters
-- `enableMotor()` / `disableMotor()` - Motor control functions
-- `printSensorStatus()` - Enhanced debugging output
+### Simple Usage Pattern
+```cpp
+// Create instance
+OTPack otpack(sensorPin, stepPin, dirPin, enablePin);
+
+// Setup
+void setup() {
+    otpack.begin();
+    otpack.setMotorConfig(58, 4);  // Optional customization
+    otpack.setMotionMode(OTPack::NON_BLOCKING);  // Choose mode
+}
+
+// Main loop
+void loop() {
+    otpack.update();  // That's it!
+}
+```
+
+### Blocking vs Non-Blocking Modes
+
+#### BLOCKING Mode (Default)
+- **Behavior**: `runToPosition()` - Program waits until motion completes
+- **Pros**: Simple, guaranteed completion before next operation
+- **Cons**: Cannot do other tasks during motion
+- **Use Case**: Simple applications, single-task operations
+
+#### NON_BLOCKING Mode  
+- **Behavior**: `run()` - Returns immediately, motion continues in background
+- **Pros**: Can perform other tasks while motor moves
+- **Cons**: Need to check `isMoving()` status
+- **Use Case**: Multi-tasking, responsive systems, UI updates
 
 ### Motion Control Logic
 The system operates using a state machine with two distinct states:
@@ -183,32 +227,37 @@ const int POSITION_OFFSET = 2;
 - **ESP32/ESP8266**: Should work with pin mapping adjustments
 - **Faster Processors**: Recommended for higher speed operation
 
-## Code Improvements Implemented
+## OTPack Class Benefits
 
-### 1. **Enhanced Variable Naming**
-- Replaced generic names (`P1_Input`, `P2_Output`) with descriptive constants
-- All pin assignments use clear, self-documenting names
-- Motion parameters have meaningful constant names
+### 1. **Encapsulation & Clean Interface**
+- All stepper motor functionality encapsulated in OTPack class
+- Private implementation details hidden from user code
+- Simple public API with intuitive method names
+- No global variables or complex initialization sequences
 
-### 2. **Structured Program Flow**
-- Enum-based state machine replaces simple boolean state
-- Switch-case structure for cleaner state handling
-- Function-based organization with single responsibility principle
+### 2. **Plug & Play Design**
+- Single constructor with pin assignments
+- Default settings work out of the box
+- Optional configuration methods for customization
+- Single `update()` call handles everything
 
-### 3. **Better Code Organization**
-- Separated initialization into dedicated functions
-- Motion sequences encapsulated in specific functions
-- Motor configuration separated from execution logic
+### 3. **Built-in Safety Features**
+- Automatic sensor debouncing prevents false triggers
+- State machine ensures predictable operation
+- Motor enable/disable handled automatically
+- Reset function for emergency stops
 
-### 4. **Improved Debugging**
-- Enhanced serial output with descriptive status messages
-- State information displayed in readable format
-- Motion execution logging for better troubleshooting
+### 4. **Flexible Configuration**
+- Runtime configuration of all motion parameters
+- Independent forward and reverse profiles
+- Configurable timing and positioning
+- Easy parameter adjustment without code changes
 
-### 5. **Maintainability Enhancements**
-- All magic numbers replaced with named constants
-- Consistent naming conventions throughout codebase
-- Clear separation between configuration and logic
+### 5. **Maintainable Code Structure**
+- Clear separation of concerns within class
+- Private methods handle implementation details
+- Public interface focuses on user needs
+- Self-contained with minimal dependencies
 
 ## Future Improvement Suggestions
 1. **Non-blocking Operation**: Replace `runToPosition()` with `run()` for better responsiveness
@@ -219,10 +268,140 @@ const int POSITION_OFFSET = 2;
 6. **Parameter Validation**: Add bounds checking for motion parameters
 7. **Interrupt-Based Input**: Use interrupts for more responsive sensor handling
 
+## OTPack Usage Examples
+
+### Basic Usage - Blocking Mode
+```cpp
+#include "OTPack.h"
+
+OTPack otpack(3, 10, 8, 9);  // sensor, step, dir, enable pins
+
+void setup() {
+    Serial.begin(9600);
+    otpack.begin();  // Uses default BLOCKING mode
+}
+
+void loop() {
+    otpack.update();  // Handles everything automatically
+    // Program waits here during motion
+}
+```
+
+### Basic Usage - Non-Blocking Mode
+```cpp
+void setup() {
+    Serial.begin(9600);
+    otpack.begin();
+    otpack.setMotionMode(OTPack::NON_BLOCKING);  // Enable non-blocking
+}
+
+void loop() {
+    otpack.update();  // Motion happens in background
+    
+    // Can do other tasks here while motor moves
+    handleSerialInput();
+    updateDisplay();
+    checkOtherSensors();
+}
+```
+
+### Mode Comparison Examples
+```cpp
+// BLOCKING - Simple but blocks execution
+otpack.setMotionMode(OTPack::BLOCKING);
+otpack.update();  // Waits for motion to complete
+Serial.println("Motion finished");  // This waits
+
+// NON_BLOCKING - Responsive but requires status checking
+otpack.setMotionMode(OTPack::NON_BLOCKING);
+otpack.update();  // Returns immediately
+if (otpack.isMoving()) {
+    Serial.println("Still moving...");  // This executes immediately
+}
+```
+
+### Advanced Configuration
+```cpp
+void setup() {
+    Serial.begin(9600);
+    otpack.begin();
+    
+    // Motor configuration
+    otpack.setMotorConfig(200, 8);  // 200 steps/rev, 8x microstepping
+    
+    // Motion profiles
+    otpack.setForwardProfile(800.0, 400.0, 100);  // slower, smoother
+    otpack.setReverseProfile(1500.0, 800.0, 200, 50);  // custom timing
+    otpack.setPositionOffset(5);  // larger offset
+    
+    // Choose motion mode
+    otpack.setMotionMode(OTPack::NON_BLOCKING);
+}
+```
+
+### Status Monitoring & Control
+```cpp
+void loop() {
+    otpack.update();
+    
+    // State checking
+    if (otpack.getState() == OTPack::WAITING_FORWARD) {
+        // Ready for forward motion
+    }
+    
+    // Motion status (especially useful for non-blocking)
+    if (otpack.isBusy()) {
+        // System is busy (moving or settling)
+    }
+    
+    if (otpack.isMoving()) {
+        // Motor is actively moving right now
+    }
+    
+    // Mode checking
+    if (otpack.getMotionMode() == OTPack::NON_BLOCKING) {
+        // In non-blocking mode
+    }
+}
+
+// Runtime mode switching
+void switchToNonBlocking() {
+    otpack.setMotionMode(OTPack::NON_BLOCKING);
+    Serial.println("Now in non-blocking mode");
+}
+
+// Emergency control
+void emergencyStop() {
+    otpack.reset();  // Stop motor, disable, reset to initial state
+}
+```
+
 ## Enhanced Usage Notes
-- Motor must be properly connected and powered before operation
-- Input sensor should provide clean digital signals for reliable operation
-- Enable pin controls motor driver power - ensure proper wiring and power supply
-- Serial monitor provides comprehensive system status and debugging information
-- All timing parameters can be easily adjusted via named constants
-- State machine ensures predictable and safe operation sequences
+
+### Integration
+- **Simple Setup**: Just include OTPack.h and create instance
+- **One-Line Operation**: Single `update()` call handles all functionality
+- **Hardware Independence**: Works with any Arduino-compatible board
+
+### Motion Modes
+- **BLOCKING (Default)**: Simple, program waits for motion completion
+- **NON_BLOCKING**: Advanced, allows multitasking during motion
+- **Runtime Switching**: Can change modes anytime with `setMotionMode()`
+
+### Configuration & Control
+- **Easy Customization**: Optional methods for all parameters
+- **Built-in Safety**: Automatic debouncing, state machine protection
+- **Status Monitoring**: Multiple status checking methods available
+- **Emergency Control**: Reset function for immediate stop and restart
+
+### Best Practices
+- **BLOCKING Mode**: Use for simple, single-task applications
+- **NON_BLOCKING Mode**: Use when you need to do other tasks during motion
+- **Status Checking**: Use `isMoving()` in non-blocking mode for real-time status
+- **Error Recovery**: Always have `reset()` available for emergency situations
+
+### Performance Notes
+- **Timing**: Non-blocking mode provides better system responsiveness  
+- **CPU Usage**: Blocking mode uses less CPU but limits multitasking
+- **Memory**: Minimal overhead for both modes
+- **Reliability**: Both modes handle debouncing and state management automatically

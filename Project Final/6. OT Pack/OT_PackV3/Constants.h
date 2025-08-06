@@ -50,4 +50,8 @@ const unsigned long STATUS_UPDATE_INTERVAL = 500;  // Status update interval in 
 #define BUILD_DATE __DATE__
 #define BUILD_TIME __TIME__
 
+// Operating Modes
+const int MODE_NORMAL = 0;   // Normal operation mode
+const int MODE_TESTING = 1;  // Testing/simulation mode
+
 #endif  // CONSTANTS_H

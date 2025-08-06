@@ -10,6 +10,10 @@ bool isExtended = false;
 // Debug Mode
 bool debugMode = false;  // Debug mode toggle for status output
 
+// Operation Mode and Sensor Simulation
+int operationMode = MODE_NORMAL;  // Current operation mode (normal/testing)
+int sensorValue = HIGH;           // Virtual sensor value for testing mode
+
 // Configurable Motion Parameters (Initialized with defaults from Constants.h)
 float extendMaxSpeed = DEFAULT_EXTEND_MAX_SPEED;
 float extendAcceleration = DEFAULT_EXTEND_ACCELERATION;
@@ -20,6 +24,15 @@ float retractAcceleration = DEFAULT_RETRACT_ACCELERATION;
 int retractDelayBefore = DEFAULT_RETRACT_DELAY_BEFORE;
 int retractDelayAfter = DEFAULT_RETRACT_DELAY_AFTER;
 int retractStepAdjustment = DEFAULT_RETRACT_STEP_ADJUSTMENT;
+
+// Function to get current sensor reading (real or simulated)
+int getSensorReading() {
+  if (operationMode == MODE_NORMAL) {
+    return digitalRead(SENSOR_PIN);  // Real sensor reading
+  } else {
+    return sensorValue;  // Simulated sensor value
+  }
+}
 
 // EEPROM Functions
 void saveToEEPROM() {
@@ -175,6 +188,19 @@ void serialCommander() {
       debugMode = !debugMode;  // Toggle debug mode
       Serial.print(F("Debug mode "));
       Serial.println(debugMode ? F("ENABLED") : F("DISABLED"));
+    } else if (command == "MODE") {
+      operationMode = (operationMode == MODE_NORMAL) ? MODE_TESTING : MODE_NORMAL;
+      Serial.print(F("Operation mode: "));
+      Serial.println(operationMode == MODE_NORMAL ? F("NORMAL") : F("TESTING"));
+      if (operationMode == MODE_TESTING) {
+        Serial.println(F("Testing mode enabled - use SENSOR_HIGH/SENSOR_LOW commands"));
+      }
+    } else if (command == "SENSOR_HIGH" && operationMode == MODE_TESTING) {
+      sensorValue = HIGH;
+      Serial.println(F("Simulated sensor set to HIGH"));
+    } else if (command == "SENSOR_LOW" && operationMode == MODE_TESTING) {
+      sensorValue = LOW;
+      Serial.println(F("Simulated sensor set to LOW"));
     } else if (command == "HELP") {
       Serial.println(F("=== SerialCommander Help ==="));
       Serial.println(F("SET EXTEND_SPEED=value        - Set extend motion speed"));
@@ -189,7 +215,13 @@ void serialCommander() {
       Serial.println(F("SAVE                          - Save current config to EEPROM"));
       Serial.println(F("LOAD                          - Load config from EEPROM"));
       Serial.println(F("RESET                         - Reset config to defaults"));
+      Serial.println(F("MODE                          - Toggle NORMAL/TESTING mode"));
       Serial.println(F("DEBUG                         - Toggle debug status output"));
+      if (operationMode == MODE_TESTING) {
+        Serial.println(F("--- Testing Mode Commands ---"));
+        Serial.println(F("SENSOR_HIGH                   - Set simulated sensor to HIGH"));
+        Serial.println(F("SENSOR_LOW                    - Set simulated sensor to LOW"));
+      }
       Serial.println(F("HELP                          - Show this help"));
       Serial.println(F("============================"));
     } else {
@@ -222,8 +254,10 @@ void loop() {
   if (debugMode) {
     static unsigned long lastStatusTime = 0;
     if (millis() - lastStatusTime > STATUS_UPDATE_INTERVAL) {
-      Serial.print(F("| SENSOR_PIN: "));
-      Serial.print(digitalRead(SENSOR_PIN));
+      int currentSensor = getSensorReading();
+      Serial.print(F("| SENSOR: "));
+      Serial.print(currentSensor);
+      Serial.print(operationMode == MODE_TESTING ? F(" (SIM)") : F(" (REAL)"));
       Serial.print(F(" | State: "));
       Serial.println(isExtended ? F("Extended") : F("Retracted"));
       lastStatusTime = millis();
@@ -231,7 +265,8 @@ void loop() {
   }
 
   // Main motion control logic
-  if (digitalRead(SENSOR_PIN) == HIGH && !isExtended) {
+  int currentSensorReading = getSensorReading();
+  if (currentSensorReading == HIGH && !isExtended) {
     Serial.println(F("Starting extend motion..."));
     stepper.setMaxSpeed(extendMaxSpeed * MICROSTEPPING_RESOLUTION);
     stepper.setAcceleration(extendAcceleration * MICROSTEPPING_RESOLUTION);
@@ -243,7 +278,7 @@ void loop() {
     Serial.println(F("Extend motion completed."));
   }
 
-  if (digitalRead(SENSOR_PIN) == LOW && isExtended) {
+  if (currentSensorReading == LOW && isExtended) {
     Serial.println(F("Starting retract motion..."));
     stepper.setMaxSpeed(retractMaxSpeed * MICROSTEPPING_RESOLUTION);
     stepper.setAcceleration(retractAcceleration * MICROSTEPPING_RESOLUTION);

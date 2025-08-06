@@ -85,6 +85,7 @@ The system operates in two main states based on sensor input:
 8. **Persistent Storage**: EEPROM-based configuration storage with automatic save/load
 9. **Configuration Management**: SAVE, LOAD, and RESET commands for parameter management
 10. **Debug Mode Control**: Toggle-able debug output for cleaner serial interface when not debugging
+11. **Testing Mode**: Sensor simulation mode for testing without hardware
 
 ## Code Structure
 - **Main sketch**: `OT_PackV3.ino` - Core application logic
@@ -131,6 +132,11 @@ Retract motion completed.
 **Debug Commands:**
 - `DEBUG` - Toggle debug status output ON/OFF
 
+**Mode Commands:**
+- `MODE` - Toggle between NORMAL and TESTING mode
+- `SENSOR_HIGH` - Set simulated sensor to HIGH (testing mode only)
+- `SENSOR_LOW` - Set simulated sensor to LOW (testing mode only)
+
 ### Command Examples:
 ```
 // Set parameters (automatically saved to EEPROM)
@@ -147,6 +153,11 @@ RESET   // Reset to factory defaults
 
 // Debug mode control
 DEBUG   // Toggle debug output ON/OFF
+
+// Mode control
+MODE    // Toggle NORMAL/TESTING mode
+SENSOR_HIGH  // Simulate sensor HIGH (testing mode)
+SENSOR_LOW   // Simulate sensor LOW (testing mode)
 
 HELP    // Show all commands
 ```
@@ -346,4 +357,56 @@ Debug mode ENABLED
 // Disable debug output  
 DEBUG
 Debug mode DISABLED
+```
+
+## Testing Mode Feature
+
+### Sensor Simulation for Testing
+The system includes a testing mode that allows sensor simulation without physical hardware:
+
+**Default State**: Operation mode is NORMAL (uses real sensor)
+**Toggle Command**: `MODE` - switches between NORMAL/TESTING
+
+### Testing Mode Behavior:
+- **NORMAL Mode**: Uses real `digitalRead(SENSOR_PIN)` for sensor input
+- **TESTING Mode**: Uses simulated sensor value that can be controlled via commands
+
+### Testing Mode Commands:
+- `SENSOR_HIGH` - Set simulated sensor to HIGH state
+- `SENSOR_LOW` - Set simulated sensor to LOW state
+
+### Benefits:
+- **Hardware-Free Testing**: Test motion logic without physical sensor
+- **Debugging**: Simulate specific sensor conditions for troubleshooting
+- **Development**: Test firmware changes without hardware setup
+- **Validation**: Verify motion sequences programmatically
+
+### Usage Examples:
+```
+// Switch to testing mode
+MODE
+Operation mode: TESTING
+Testing mode enabled - use SENSOR_HIGH/SENSOR_LOW commands
+
+// Simulate sensor HIGH (trigger extend)
+SENSOR_HIGH
+Simulated sensor set to HIGH
+Starting extend motion...
+Extend motion completed.
+
+// Simulate sensor LOW (trigger retract)
+SENSOR_LOW
+Simulated sensor set to LOW
+Starting retract motion...
+Retract motion completed.
+
+// Back to normal mode
+MODE
+Operation mode: NORMAL
+```
+
+### Debug Output in Testing Mode:
+```
+| SENSOR: 1 (SIM) | State: Extended    // Testing mode with simulated HIGH
+| SENSOR: 0 (REAL) | State: Retracted  // Normal mode with real sensor
 ```

@@ -89,12 +89,27 @@ The system operates in two main states based on sensor input:
 12. **Advanced Debouncing**: Multi-sample averaging with configurable parameters to eliminate sensor noise
 
 ## Code Structure
-- **Main sketch**: `OT_PackV3.ino` - Core application logic
-- **Constants file**: `Constants.h` - All constant definitions and configuration
-- `setup()`: Initializes pins, serial communication, and displays welcome message
-- `loop()`: Main execution loop with serial command processing and motion control
-- `serialCommander()`: Handles real-time configuration via serial commands
+The project uses a modular architecture with multiple `.ino` files for better organization:
+
+### **File Organization:**
+- **`OT_PackV3.ino`** - Main core logic (setup, loop, motion control functions)
+- **`SerialCommand.ino`** - All serial command handling and help system  
+- **`Memory.ino`** - EEPROM storage and SRAM memory monitoring functions
+- **`Sensor.ino`** - Advanced sensor debouncing and reading functions
+- **`Constants.h`** - Centralized configuration and constant definitions
+
+### **Main Functions:**
+- `setup()`: Initializes pins, serial communication, loads EEPROM config
+- `loop()`: Main execution loop with command processing and motion control
+- `performExtendMotion()`: Handles extend motion sequence
+- `performRetractMotion()`: Handles retract motion sequence
 - State machine prevents multiple triggers and ensures proper sequencing
+
+### **Modular Benefits:**
+- **Separation of Concerns**: Each file handles specific functionality
+- **Easy Maintenance**: Locate and modify specific features quickly
+- **Reusability**: Functions can be easily reused across modules
+- **Arduino IDE Magic**: Files automatically concatenated during compilation
 
 ## Serial Commander Interface
 The system provides a comprehensive serial interface for configuration and monitoring:

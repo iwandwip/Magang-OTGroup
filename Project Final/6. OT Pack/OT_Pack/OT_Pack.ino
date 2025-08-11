@@ -36,8 +36,8 @@ void loop() {
   }
   if (digitalRead(P1_Input) == LOW && state) {
     stepper.setMaxSpeed(3000.0 * MicrosteppingResolution);
-    stepper.setAcceleration(1900.0 * MicrosteppingResolution);
-    delay(250);
+    stepper.setAcceleration(2900.0 * MicrosteppingResolution);
+    delay(300);
     stepper.move(-Steps + 2);
     stepper.runToPosition();
     delay(100);

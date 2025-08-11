@@ -1,14 +1,12 @@
 #include <AltSoftSerial.h>
 #include <SoftwareSerial.h>
 
-
 // ==================== CONSTANTS ====================
 // Serial Communication
 const int RS485_RX_PIN = 10;
 const int RS485_TX_PIN = 11;
 // RE/DE pin removed - hardwired to GND
 const long SERIAL_BAUD_RATE = 9600;
-
 
 // Output Pins
 const int BUZZER_PIN = 4;
@@ -17,7 +15,6 @@ const int YELLOW_LED_PIN = 6;
 const int GREEN_LED_PIN = 7;
 const int COMMAND_ACTIVE_PIN = 13;
 
-
 // Input Pins
 const int START_OUTPUT_PIN = A0;
 const int START_INPUT_PIN = A1;
@@ -25,22 +22,18 @@ const int STOP_OUTPUT_PIN = A2;
 const int STOP_INPUT_PIN = A3;
 const int MOTOR_DONE_PIN = 3;
 
-
 //RETRY SYSTEM
 const int MAX_MOTOR_RETRIES = 10;  // Maksimum 7x retry
 int motorRetryCount = 0;
-
 
 // Timing Constants
 const unsigned long DEBOUNCE_DELAY_MS = 100;
 const unsigned long DRIVER_TIMEOUT_MS = 10000;
 const unsigned long BLINK_INTERVAL_MS = 200;
 
-
 // Motor Commands terpisah
 const char MOTOR_PARK_Z_COMMAND[] PROGMEM = "Z0";
 const char MOTOR_PARK_XYGT_COMMAND[] PROGMEM = "X0,Y0,T0,G0";
-
 
 // ==================== GLOBAL VARIABLES ====================
 // State Machine
@@ -53,27 +46,22 @@ enum SystemState {
 bool stopRequested = false;
 bool isCalibrationMode = false;  // Flag untuk membedakan CAL dari PARK
 
-
 // PARK Sequence Variables
 bool isParkSequenceActive = false;
 unsigned long parkSequenceStartTime = 0;
 byte parkSequenceStep = 0;
 const unsigned long PARK_SEQUENCE_DELAY_MS = 2000;  // 2 detik
 
-
 unsigned long lastMotorCheckTime = 0;
 bool lastMotorState = HIGH;
 const unsigned long MOTOR_CHECK_INTERVAL = 20;  // Check setiap 20ms
 
-
 SystemState currentState = STATE_ZEROING;
 unsigned long stateTimer = 0;
-
 
 // Serial Communication
 AltSoftSerial motorSerial;
 SoftwareSerial rs485Serial(RS485_RX_PIN, RS485_TX_PIN);
-
 
 uint8_t calculateXORChecksum(const char* data, int length) {
   uint8_t checksum = 0;
@@ -82,7 +70,6 @@ uint8_t calculateXORChecksum(const char* data, int length) {
   }
   return checksum;
 }
-
 
 bool parseAndValidateMessage(const char* receivedMessage, char* cleanCommand) {
   // Cari separator '*' dari belakang
@@ -121,11 +108,9 @@ bool parseAndValidateMessage(const char* receivedMessage, char* cleanCommand) {
   }
 }
 
-
 // Command Processing - Reduced buffer size
 char commandBuffer[64];
 byte commandIndex = 0;
-
 
 // Multi-step command execution
 enum CommandSequence {
@@ -134,11 +119,9 @@ enum CommandSequence {
   SEQ_GLAD
 };
 
-
 bool waitingForMotorReady = false;
 unsigned long motorReadyWaitStart = 0;
 const unsigned long MOTOR_READY_WAIT_MS = 100;  // 100ms delay
-
 
 // Command timing control
 unsigned long lastCommandSentTime = 0;
@@ -146,7 +129,6 @@ unsigned long lastMotorReadyTime = 0;
 bool motorWasReady = false;
 const unsigned long MIN_COMMAND_INTERVAL_MS = 100;  // Minimum 100ms between commands
 const unsigned long MOTOR_STABILIZE_MS = 50;        // Wait after motor ready
-
 
 struct ButtonState {
   bool lastReading;
@@ -159,27 +141,22 @@ struct ButtonState {
 ButtonState startButtonState = { HIGH, HIGH, HIGH, 0, false };
 ButtonState stopButtonState = { HIGH, HIGH, HIGH, 0, false };
 
-
 // Compact command structures using int16_t instead of int
 struct HomeCommand {
   int16_t x, y, z, t, g;
   byte step;
 };
 
-
 struct GladCommand {
-  int16_t xn, yn, zn, tn, dp, gp, za, zb, xa, ta;
+  int16_t xn, yn, zn, tn, dp, gp, za, zb;
   byte step;
 };
-
 
 CommandSequence currentSequence = SEQ_NONE;
 HomeCommand homeCmd;
 GladCommand gladCmd;
 
-
 bool isARM2_device = false;
-
 
 // ==================== SETUP ====================
 void setup() {
@@ -188,11 +165,9 @@ void setup() {
 
   initializePins();
 
-
   isARM2_device = isARM2();
   Serial.print(F("Device detected as: "));
   Serial.println(isARM2_device ? F("ARM2") : F("ARM1"));
-
 
   initializeSerial();
 
@@ -200,12 +175,10 @@ void setup() {
   startButtonState = { HIGH, HIGH, HIGH, 0, false };
   stopButtonState = { HIGH, HIGH, HIGH, 0, false };
 
-
   turnOffAllOutputs();
   enterZeroingState();
   isCalibrationMode = false;  // Initialize flag
 }
-
 
 // ==================== MAIN LOOP ====================
 void loop() {
@@ -215,7 +188,6 @@ void loop() {
   updateCommandSequence();
   updateParkSequence();
 }
-
 
 // ==================== INITIALIZATION ====================
 void initializePins() {
@@ -233,22 +205,18 @@ void initializePins() {
   pinMode(STOP_INPUT_PIN, INPUT_PULLUP);
   pinMode(MOTOR_DONE_PIN, INPUT_PULLUP);
 
-
   // Set output pins to HIGH initially (idle state)
   digitalWrite(START_OUTPUT_PIN, HIGH);
   digitalWrite(STOP_OUTPUT_PIN, HIGH);
-
 
   pinMode(A4, INPUT_PULLUP);
   pinMode(A5, OUTPUT);
   digitalWrite(A5, LOW);  // Set A5 sebagai ground reference
 }
 
-
 bool isARM2() {
   return digitalRead(A4) == LOW;  // Jika A4 terhubung ke A5 (LOW)
 }
-
 
 void initializeSerial() {
   // Initialize motor control serial
@@ -259,7 +227,6 @@ void initializeSerial() {
   // RE/DE pin removed - hardwired to GND for permanent receive mode
   Serial.println(F("RS485 in permanent receive mode (RE/DE = GND)"));
 }
-
 
 // ==================== STATE MACHINE ====================
 void updateStateMachine() {
@@ -282,7 +249,6 @@ void updateStateMachine() {
   }
 }
 
-
 void handleZeroingState() {
   updateBlinkingLeds();
 
@@ -299,11 +265,9 @@ void handleZeroingState() {
   }
 }
 
-
 void handleSleepingState() {
   setLedState(true, false, false);  // Red LED only
   setBuzzerState(false);
-
 
   // Indikasi sistem siap menerima USB test commands
   static unsigned long lastPrint = 0;
@@ -317,7 +281,6 @@ void handleSleepingState() {
   }
 }
 
-
 void handleReadyState() {
   // Indikasi visual berdasarkan status
   setLedState(true, true, false);  // Red & Yellow LEDs
@@ -325,7 +288,6 @@ void handleReadyState() {
   // Serial commands are processed in processSerialCommands()
   // READY -> RUNNING transition happens when HOME command is completed
 }
-
 
 void handleRunningState() {
   // Indikasi visual berdasarkan status
@@ -364,12 +326,10 @@ void handleRunningState() {
     return;
   }
 
-
   // Serial commands are processed in processSerialCommands()
   // RUNNING -> READY transition happens when GLAD command is completed
   setBuzzerState(false);
 }
-
 
 void updateParkSequence() {
   if (!isParkSequenceActive) return;
@@ -394,7 +354,6 @@ void updateParkSequence() {
   }
 }
 
-
 // ==================== STATE TRANSITIONS ====================
 void enterZeroingState() {
   currentState = STATE_ZEROING;
@@ -413,7 +372,6 @@ void enterZeroingState() {
   sendMotorCommandPGM(MOTOR_PARK_Z_COMMAND);
 }
 
-
 void enterSleepingState() {
   currentState = STATE_SLEEPING;
   Serial.println(F("Entering SLEEPING state"));
@@ -422,7 +380,6 @@ void enterSleepingState() {
   digitalWrite(COMMAND_ACTIVE_PIN, HIGH);
   Serial.println(F("Command active pin HIGH - SLEEPING state"));
 }
-
 
 void enterReadyState() {
   currentState = STATE_READY;
@@ -434,16 +391,13 @@ void enterReadyState() {
   Serial.println(F("Command active pin LOW - READY state"));
 }
 
-
 void enterRunningState() {
   currentState = STATE_RUNNING;
   Serial.println(F("Entering RUNNING state"));
 
-
   // Set COMMAND_ACTIVE_PIN LOW when entering RUNNING state
   digitalWrite(COMMAND_ACTIVE_PIN, LOW);
 }
-
 
 // ==================== SERIAL COMMUNICATION ====================
 void processSerialCommands() {
@@ -468,22 +422,18 @@ void processSerialCommands() {
   }
 }
 
-
 void processCommand(const char* command) {
   Serial.print(F("Received command: "));
   Serial.println(command);
 
-
   // Buffer untuk clean command
   char cleanCommand[64];
-
 
   // Validasi CRC dulu
   if (!parseAndValidateMessage(command, cleanCommand)) {
     Serial.println(F("Command rejected - CRC invalid"));
     return;  // Tolak command jika CRC tidak valid
   }
-
 
   Serial.print(F("Valid command: "));
   Serial.println(cleanCommand);
@@ -499,7 +449,6 @@ void processCommand(const char* command) {
     }
   }
 }
-
 
 void executeCommand(const char* action) {
   Serial.print(F("Executing action: "));
@@ -556,7 +505,6 @@ void executeCommand(const char* action) {
   }
 }
 
-
 void sendMotorCommand(const char* command) {
   // Pastikan ada jeda minimum antara command
   unsigned long timeSinceLastCommand = millis() - lastCommandSentTime;
@@ -564,20 +512,17 @@ void sendMotorCommand(const char* command) {
     delay(MIN_COMMAND_INTERVAL_MS - timeSinceLastCommand);
   }
 
-
   uint8_t checksum = calculateXORChecksum(command, strlen(command));
 
   digitalWrite(COMMAND_ACTIVE_PIN, HIGH);
   Serial.print(F("Sending motor command: "));
   Serial.println(command);
 
-
   // PERBAIKAN: Kirim dalam satu baris dengan format COMMAND*CHECKSUM
   motorSerial.print(command);
   motorSerial.print("*");
   motorSerial.print(checksum, HEX);
   motorSerial.println();  // Akhiri dengan newline
-
 
   for (int attempt = 1; attempt <= MAX_MOTOR_RETRIES; attempt++) {
     if (waitForMotorResponse(200)) {
@@ -597,19 +542,15 @@ void sendMotorCommand(const char* command) {
   }
 }
 
-
 void sendMotorCommandPGM(const char* command) {
   char buffer[64];
   strcpy_P(buffer, command);
   sendMotorCommand(buffer);
 }
 
-
 // ==================== INPUT HANDLING ====================
 
-
 // ==================== INPUT HANDLING (MODIFIED FOR 4-SECOND HOLD) ====================
-
 
 bool isStartButtonPressed() {
   static unsigned long pressStartTime = 0;
@@ -678,7 +619,6 @@ bool isStartButtonPressed() {
   return false;
 }
 
-
 bool isStopButtonPressed() {
   static unsigned long pressStartTime = 0;
   static bool wasPressed = false;
@@ -746,7 +686,6 @@ bool isStopButtonPressed() {
   return false;
 }
 
-
 bool isMotorReady() {
   // Hanya check setiap 20ms untuk mengurangi noise
   if (millis() - lastMotorCheckTime < MOTOR_CHECK_INTERVAL) {
@@ -774,7 +713,6 @@ bool isMotorReady() {
   return stableReading == HIGH;
 }
 
-
 // ==================== OUTPUT CONTROL ====================
 void setLedState(bool red, bool yellow, bool green) {
   // LEDs are active LOW
@@ -783,19 +721,16 @@ void setLedState(bool red, bool yellow, bool green) {
   digitalWrite(GREEN_LED_PIN, green ? LOW : HIGH);
 }
 
-
 void setBuzzerState(bool active) {
   // Buzzer is active LOW
   digitalWrite(BUZZER_PIN, active ? LOW : HIGH);
 }
-
 
 void turnOffAllOutputs() {
   setLedState(false, false, false);
   setBuzzerState(false);
   digitalWrite(COMMAND_ACTIVE_PIN, HIGH);
 }
-
 
 void updateBlinkingLeds() {
   static unsigned long lastToggle = 0;
@@ -808,7 +743,6 @@ void updateBlinkingLeds() {
     lastToggle = millis();
   }
 }
-
 
 // ==================== COMMAND PARSING ====================
 bool parseHomeCommand(const char* action) {
@@ -844,9 +778,8 @@ bool parseHomeCommand(const char* action) {
   return true;
 }
 
-
 bool parseGladCommand(const char* action) {
-  // Format: GLAD(xn,yn,zn,tn,dp,gp,za,zb,xa)
+  // Format: GLAD(xn,yn,zn,tn,dp,gp,za,zb)
   const char* openParen = strchr(action, '(');
   const char* closeParen = strchr(action, ')');
 
@@ -855,16 +788,13 @@ bool parseGladCommand(const char* action) {
     return false;
   }
 
-  // Extract parameters - PERBAIKAN: Baca 10 parameter sesuai struct
-  int parsed = sscanf(openParen + 1, "%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+  // Extract parameters
+  int parsed = sscanf(openParen + 1, "%d,%d,%d,%d,%d,%d,%d,%d",
                       &gladCmd.xn, &gladCmd.yn, &gladCmd.zn, &gladCmd.tn,
-                      &gladCmd.dp, &gladCmd.gp, &gladCmd.za, &gladCmd.zb,
-                      &gladCmd.xa, &gladCmd.ta);
+                      &gladCmd.dp, &gladCmd.gp, &gladCmd.za, &gladCmd.zb);
 
-  // PERBAIKAN: Cek 10 parameter (sesuai dengan jumlah %d di sscanf)
-  if (parsed != 10) {
-    Serial.print(F("ERROR: GLAD command requires 12 parameters, got "));
-    Serial.println(parsed);
+  if (parsed != 8) {
+    Serial.println(F("ERROR: GLAD command requires 8 parameters"));
     return false;
   }
 
@@ -883,20 +813,16 @@ bool parseGladCommand(const char* action) {
   Serial.print(F(", Za="));
   Serial.print(gladCmd.za);
   Serial.print(F(", Zb="));
-  Serial.print(gladCmd.zb);
-  Serial.print(F(", Xa="));
-  Serial.print(gladCmd.xa);
+  Serial.println(gladCmd.zb);
 
   return true;
 }
-
 
 // ==================== COMMAND SEQUENCES ====================
 void startHomeSequence() {
   Serial.println(F("Starting HOME sequence"));
   currentSequence = SEQ_HOME;
   homeCmd.step = 1;
-
 
   //  if (isMotorReady()) {
   //    Serial.println(F("Motor ready detected - adding safety delay"));
@@ -906,7 +832,6 @@ void startHomeSequence() {
   executeHomeStep();
   //  }
 }
-
 
 void startGladSequence() {
   Serial.println(F("Starting GLAD sequence"));
@@ -922,12 +847,10 @@ void startGladSequence() {
   }
 }
 
-
 void updateCommandSequence() {
   if (currentSequence == SEQ_NONE) {
     return;
   }
-
 
   if (waitingForMotorReady) {
     if (millis() - motorReadyWaitStart >= MOTOR_READY_WAIT_MS) {
@@ -937,7 +860,6 @@ void updateCommandSequence() {
     }
     return;
   }
-
 
   // Check if motor is ready for next step dengan stabilization delay
   bool motorReady = isMotorReady();
@@ -964,7 +886,6 @@ void updateCommandSequence() {
     motorWasReady = false;
   }
 }
-
 
 void executeHomeStep() {
   char command[64];  // Reduced buffer size
@@ -1003,11 +924,9 @@ void executeHomeStep() {
         }
       }
 
-
       break;
   }
 }
-
 
 // Helper function to safely create and send motor commands
 void sendSafeMotorCommand(const char* format, ...) {
@@ -1032,12 +951,10 @@ void sendSafeMotorCommand(const char* format, ...) {
   }
 }
 
-
 void executeGladStep() {
   Serial.print(F("=== executeGladStep() called - Current step: "));
   Serial.print(gladCmd.step);
   Serial.println(F(" ==="));
-
 
   switch (gladCmd.step) {
     case 1:
@@ -1093,23 +1010,12 @@ void executeGladStep() {
         int z_position_final = gladCmd.zn - gladCmd.za;
         sendSafeMotorCommand(PSTR("Z%d"), z_position_final);
         gladCmd.step = 8;
-        Serial.print(F("GLAD Step 7: Z move to "));
+        Serial.print(F("GLAD Step 7: Final Z move to "));
         Serial.println(z_position_final);
       }
       break;
 
-
     case 8:
-      // Eigth command: Xa,Ya,Ta,Ga
-      {
-        sendSafeMotorCommand(PSTR("X%d,T%d"), gladCmd.xa, gladCmd.ta);
-        gladCmd.step = 9;
-        Serial.println(F("GLAD Step 8: Standby XYTG position before Homing "));
-      }
-      break;
-
-
-    case 9:
       // Sequence complete
       Serial.println(F("GLAD sequence completed"));
       currentSequence = SEQ_NONE;
@@ -1137,7 +1043,6 @@ void executeGladStep() {
   }
 }
 
-
 bool waitForMotorResponse(int delay1) {
   unsigned long startTime = millis();
 
@@ -1153,7 +1058,6 @@ bool waitForMotorResponse(int delay1) {
   return false;
 }
 
-
 void handleMotorTimeout() {
   Serial.println(F("CRITICAL: Motor driver timeout - entering error state"));
 
@@ -1167,7 +1071,6 @@ void handleMotorTimeout() {
     delay(500);
   }
 }
-
 
 void processUSBCommands() {
   // Hanya aktif dalam state SLEEPING

@@ -2,7 +2,6 @@
 #include <avr/pgmspace.h>
 #include <EEPROM.h>
 
-
 // Pin definitions
 const int SENSOR1_PIN = A4;
 const int SENSOR2_PIN = A5;
@@ -11,12 +10,10 @@ const int ARM1_PIN = 7;       // Changed from 6 to 7
 const int ARM2_PIN = 8;       // Changed from 7 to 8
 const int CONVEYOR_PIN = 13;  // D13 - Conveyor control (active LOW)
 
-
 // RS485 pins
 const int RS485_RO = 10;
 const int RS485_DI = 11;
 // RE/DE connected to VCC (always enabled for transmission)
-
 
 // DIP Switch pins for ARM1 layer reading
 const int ARM1_DIP_1 = 5;  // D5
@@ -24,23 +21,19 @@ const int ARM1_DIP_2 = 6;  // D6
 const int ARM1_DIP_4 = 3;  // D3
 const int ARM1_DIP_8 = 4;  // D4
 
-
 // DIP Switch pins for ARM2 layer reading
 const int ARM2_DIP_1 = A0;
 const int ARM2_DIP_2 = A1;
 const int ARM2_DIP_4 = A3;  // Note: corrected order
 const int ARM2_DIP_8 = A2;  // Note: corrected order
 
-
 // EEPROM Configuration
 const int EEPROM_START_ADDR = 0;
 const int EEPROM_MAGIC = 0xABCD;  // Magic number to check if EEPROM is initialized
 const int EEPROM_VERSION = 1;
 
-
 // Create SoftwareSerial object for RS485
 SoftwareSerial rs485(RS485_RO, RS485_DI);
-
 
 // Definisi State untuk ARM
 enum ArmState {
@@ -52,13 +45,11 @@ enum ArmState {
   ARM_ERROR               // ARM dalam keadaan error
 };
 
-
 enum SpecialCommand {
   SPECIAL_NONE,
   SPECIAL_PARK,
   SPECIAL_CALI
 };
-
 
 // Struktur ARM Data yang sudah dimodifikasi dengan State Machine
 struct ArmDataStateMachine {
@@ -82,7 +73,6 @@ struct ArmDataStateMachine {
   // Debugging
   bool debug_state_changes;
 
-
   // Retry mechanism variables
   String last_command_sent;
   unsigned long command_sent_time;
@@ -94,11 +84,9 @@ struct ArmDataStateMachine {
   static const int MAX_RETRY_COUNT = 7;                    // maksimal 7x retry
   static const unsigned long RETRY_DELAY = 200;            // delay 200ms antar retry
 
-
   // Special command handling
   SpecialCommand pending_special_command;
   bool need_special_command;
-
 
   // ADD THESE NEW FIELDS:
   bool was_busy_after_command;
@@ -108,14 +96,11 @@ struct ArmDataStateMachine {
   static const int BUSY_STABLE_THRESHOLD = 3;
 };
 
-
 //DELAY after ARM leave center
 static const int LEAVE_CENTER_DELAY = 500;
 
-
 // Replace global arm1 dan arm2 dengan versi state machine
 ArmDataStateMachine arm1_sm, arm2_sm;
-
 
 // System variables
 bool sensor1_state = false;
@@ -127,17 +112,14 @@ byte arm_in_center = 0;  // 0=none, 1=ARM1, 2=ARM2
 bool last_arm_sent = false;
 bool sensor3_prev_state = false;
 
-
 // Conveyor control variables
 bool conveyor_active = true;  // true = ON, false = OFF
 unsigned long conveyor_off_time = 0;
 const unsigned long CONVEYOR_OFF_DURATION = 3000;  // 3 seconds
 
-
 // Timing variables
 unsigned long lastSensorRead = 0;
 const unsigned long SENSOR_READ_INTERVAL = 50;
-
 
 // Global variables for USB commands
 bool debug_mode = false;
@@ -145,11 +127,9 @@ bool monitor_mode = false;
 unsigned long last_monitor_update = 0;
 const unsigned long MONITOR_INTERVAL = 1000;  // 1 second
 
-
 // Buffer for reading USB serial commands
 char usbBuffer[32];
 byte usbBufferIndex = 0;
-
 
 // EEPROM Header structure
 struct EEPROMHeader {
@@ -157,7 +137,6 @@ struct EEPROMHeader {
   int version;
   int checksum;
 };
-
 
 // Configuration Parameters - Stored in SRAM for runtime access
 struct Parameters {
@@ -211,7 +190,6 @@ struct Parameters {
   int XE8;  //X8 Even
   int YE8;  //Y8 Even
 
-
   // ARM1 Offset (LEFT) (5)
   int xL;
   int yL;
@@ -230,26 +208,20 @@ struct Parameters {
   byte y_pattern[8];
 };
 
-
 Parameters params;
-
 
 const int MULTIPLIER = 3;
 
-
 char serialBuffer[32];
 byte serialIndex = 0;
-
 
 // String constants in PROGMEM
 const char msg_system_start[] PROGMEM = "=== ARM Control System Started ===";
 const char msg_system_ready[] PROGMEM = "System ready with generated commands";
 const char msg_dip_reading[] PROGMEM = "Reading DIP switch layer positions...";
 
-
 // Buffer for building commands (reused)
 char commandBuffer[80];
-
 
 // Function to read DIP switch value for ARM1
 int readArm1DipSwitch() {
@@ -261,7 +233,6 @@ int readArm1DipSwitch() {
   return value;
 }
 
-
 // Function to read DIP switch value for ARM2
 int readArm2DipSwitch() {
   int value = 0;
@@ -272,13 +243,11 @@ int readArm2DipSwitch() {
   return value;
 }
 
-
 // Function to calculate Z values based on rules
 int calculateZ(int layer) {
   if (layer == 0) return params.Z1;
   return params.Z1 - layer * params.H;
 }
-
 
 // Function to calculate XO values based on rules
 int calculateXO(int task) {
@@ -295,7 +264,6 @@ int calculateXO(int task) {
   }
 }
 
-
 // Function to calculate YO values based on rules
 int calculateYO(int task) {
   switch (task) {
@@ -311,7 +279,6 @@ int calculateYO(int task) {
   }
 }
 
-
 // Function to calculate TO values based on rules
 int calculateTO(int task) {
   if (task >= 0 && task <= 3) {
@@ -320,7 +287,6 @@ int calculateTO(int task) {
     return params.t;  // TO5 to TO8
   }
 }
-
 
 // Function to calculate XE values based on rules
 int calculateXE(int task) {
@@ -337,7 +303,6 @@ int calculateXE(int task) {
   }
 }
 
-
 // Function to calculate YE values based on rules
 int calculateYE(int task) {
   switch (task) {
@@ -353,7 +318,6 @@ int calculateYE(int task) {
   }
 }
 
-
 // Function to calculate TE values based on rules
 int calculateTE(int task) {
   if (task >= 0 && task <= 3) {
@@ -362,7 +326,6 @@ int calculateTE(int task) {
     return params.t;  // TE5 to TE8
   }
 }
-
 
 // Calculate checksum for parameters
 int calculateChecksum(const Parameters& params) {
@@ -373,7 +336,6 @@ int calculateChecksum(const Parameters& params) {
   }
   return checksum;
 }
-
 
 // Save parameters to EEPROM
 void saveParametersToEEPROM() {
@@ -390,7 +352,6 @@ void saveParametersToEEPROM() {
 
   Serial.println(F("Parameters saved to EEPROM"));
 }
-
 
 // Load parameters from EEPROM
 bool loadParametersFromEEPROM() {
@@ -421,11 +382,9 @@ bool loadParametersFromEEPROM() {
   return true;
 }
 
-
 // ===================================================================
 // STATE MACHINE CORE FUNCTIONS
 // ===================================================================
-
 
 // Fungsi untuk mengubah state ARM
 void changeArmState(ArmDataStateMachine* arm, ArmState newState) {
@@ -433,7 +392,6 @@ void changeArmState(ArmDataStateMachine* arm, ArmState newState) {
     arm->previous_state = arm->state;
     arm->state = newState;
     arm->state_enter_time = millis();
-
 
     if (newState == ARM_PICKING) {
       arm->was_busy_after_command = false;
@@ -453,7 +411,6 @@ void changeArmState(ArmDataStateMachine* arm, ArmState newState) {
   }
 }
 
-
 // Helper function untuk convert state ke string (untuk debugging)
 String getStateString(ArmState state) {
   switch (state) {
@@ -466,7 +423,6 @@ String getStateString(ArmState state) {
     default: return F("UNKNOWN");
   }
 }
-
 
 // Helper function untuk debounced busy check
 bool isArmTrulyNotBusy(ArmDataStateMachine* arm, bool hardware_busy) {
@@ -487,23 +443,19 @@ bool isArmTrulyNotBusy(ArmDataStateMachine* arm, bool hardware_busy) {
   }
 }
 
-
 // Fungsi untuk mengecek timeout
 bool isStateTimeout(ArmDataStateMachine* arm, unsigned long timeout) {
   return (millis() - arm->state_enter_time) > timeout;
 }
 
-
 // ===================================================================
 // STATE HANDLERS - Setiap state memiliki handler terpisah
 // ===================================================================
-
 
 void handleIdleState(ArmDataStateMachine* arm) {
   // ARM idle, siap menerima command
   // Transisi ke MOVING_TO_CENTER akan dilakukan dari handleSystemLogic()
 }
-
 
 void handleMovingToCenterState(ArmDataStateMachine* arm) {
   // Cek timeout
@@ -521,7 +473,6 @@ void handleMovingToCenterState(ArmDataStateMachine* arm) {
   }
 }
 
-
 void handleInCenterState(ArmDataStateMachine* arm) {
   // ARM sudah di center, menunggu product
   // Transisi ke PICKING akan dilakukan dari handleProductPickup()
@@ -535,7 +486,6 @@ void handleInCenterState(ArmDataStateMachine* arm) {
     changeArmState(arm, ARM_IDLE);
   }
 }
-
 
 void handlePickingState(ArmDataStateMachine* arm) {
   // Cek timeout
@@ -563,7 +513,6 @@ void handlePickingState(ArmDataStateMachine* arm) {
     bool is_even_layer_number = ((current_layer + 1) % 2 == 0);
     bool layer_complete = (position_in_layer == 15);
 
-
     if (is_even_layer_number && layer_complete && arm->current_pos < arm->total_commands) {
       arm->pending_special_command = SPECIAL_CALI;
       arm->need_special_command = true;
@@ -578,7 +527,6 @@ void handlePickingState(ArmDataStateMachine* arm) {
     arm_in_center = 0;
   }
 }
-
 
 void handleExecutingSpecialState(ArmDataStateMachine* arm) {
   bool hardware_busy = digitalRead((arm->arm_id == 1) ? ARM1_PIN : ARM2_PIN);
@@ -615,7 +563,6 @@ void handleExecutingSpecialState(ArmDataStateMachine* arm) {
   }
 }
 
-
 void handleErrorState(ArmDataStateMachine* arm) {
   // ARM dalam keadaan error
   // Bisa ditambahkan logic untuk recovery atau manual reset
@@ -632,11 +579,9 @@ void handleErrorState(ArmDataStateMachine* arm) {
   }
 }
 
-
 // ===================================================================
 // MAIN STATE MACHINE UPDATE FUNCTION
 // ===================================================================
-
 
 void updateArmStateMachine(ArmDataStateMachine* arm) {
   bool hardware_busy = digitalRead((arm->arm_id == 1) ? ARM1_PIN : ARM2_PIN);
@@ -652,7 +597,6 @@ void updateArmStateMachine(ArmDataStateMachine* arm) {
     arm->is_busy = !isArmTrulyNotBusy(arm, hardware_busy);
   }
 
-
   // Execute state handler
   switch (arm->state) {
     case ARM_IDLE:
@@ -662,7 +606,6 @@ void updateArmStateMachine(ArmDataStateMachine* arm) {
     case ARM_MOVING_TO_CENTER:
       handleMovingToCenterState(arm);
       break;
-
 
     case ARM_EXECUTING_SPECIAL:
       handleExecutingSpecialState(arm);
@@ -682,16 +625,13 @@ void updateArmStateMachine(ArmDataStateMachine* arm) {
   }
 }
 
-
 // ===================================================================
 // MODIFIED SYSTEM FUNCTIONS FOR STATE MACHINE
 // ===================================================================
 
-
 // Modified initializeArmData untuk state machine
 void initializeArmDataStateMachine() {
   Serial.println(F("Initializing ARM State Machines..."));
-
 
   // ARM1 initialization
   arm1_sm.total_commands = params.Ly * 8 * 2;
@@ -707,19 +647,15 @@ void initializeArmDataStateMachine() {
   arm1_sm.state_enter_time = millis();
   arm1_sm.debug_state_changes = true;
 
-
   arm1_sm.waiting_for_busy_response = false;
   arm1_sm.retry_count = 0;
   arm1_sm.last_command_sent = "";
 
-
   arm1_sm.pending_special_command = SPECIAL_NONE;
   arm1_sm.need_special_command = false;
 
-
   arm1_sm.was_busy_after_command = false;
   arm1_sm.busy_stable_count = 0;
-
 
   // ARM2 initialization
   arm2_sm.total_commands = params.Ly * 8 * 2;
@@ -735,19 +671,15 @@ void initializeArmDataStateMachine() {
   arm2_sm.state_enter_time = millis();
   arm2_sm.debug_state_changes = true;
 
-
   arm2_sm.waiting_for_busy_response = false;
   arm2_sm.retry_count = 0;
   arm2_sm.last_command_sent = "";
 
-
   arm2_sm.pending_special_command = SPECIAL_NONE;
   arm2_sm.need_special_command = false;
 
-
   arm2_sm.was_busy_after_command = false;
   arm2_sm.busy_stable_count = 0;
-
 
   Serial.print(F("ARM1 SM starts at position: "));
   Serial.print(arm1_sm.current_pos);
@@ -764,7 +696,6 @@ void initializeArmDataStateMachine() {
   Serial.println(F("ARM State Machines initialized"));
 }
 
-
 // Modified getNextCommand untuk state machine
 String getNextCommandStateMachine(ArmDataStateMachine* arm) {
   // Cek apakah ada special command yang pending
@@ -780,7 +711,6 @@ String getNextCommandStateMachine(ArmDataStateMachine* arm) {
     }
   }
 
-
   // Cek apakah sudah selesai semua command
   if (arm->current_pos >= arm->total_commands) {
     // AUTO-RESET: Kembali ke layer 0 (posisi 0)
@@ -788,10 +718,8 @@ String getNextCommandStateMachine(ArmDataStateMachine* arm) {
     Serial.print(arm->arm_id);
     Serial.println(F(" completed all commands - RESETTING to Layer 0"));
 
-
     // Reset ke posisi 0
     arm->current_pos = 0;
-
 
     Serial.print(F("ARM"));
     Serial.print(arm->arm_id);
@@ -802,7 +730,6 @@ String getNextCommandStateMachine(ArmDataStateMachine* arm) {
   arm->current_pos++;
   return command;
 }
-
 
 // Modified handleProductPickup untuk state machine
 void handleProductPickupStateMachine() {
@@ -837,13 +764,11 @@ void handleProductPickupStateMachine() {
   changeArmState(currentArm, ARM_PICKING);
 }
 
-
 // Modified sendArmToCenterSmart untuk state machine
 void sendArmToCenterSmartStateMachine() {
   // PRIORITAS 1: Cek ARM yang butuh special command (PARK/CALI) terlebih dahulu
   ArmDataStateMachine* specialArm = nullptr;
   byte specialArmId = 0;
-
 
   // ADD SAFETY CHECK:
   unsigned long current_time = millis();
@@ -888,20 +813,16 @@ void sendArmToCenterSmartStateMachine() {
     Serial.print(F("Sent special command: "));
     Serial.println(fullCommand);
 
-
     // Set state ke EXECUTING_SPECIAL
     changeArmState(specialArm, ARM_EXECUTING_SPECIAL);
-
 
     // PENTING: Reset flags SETELAH command dikirim
     specialArm->need_special_command = false;
     specialArm->pending_special_command = SPECIAL_NONE;
 
-
     arm_in_center = 0;  // Reset segera setelah mengirim special command
     Serial.print(F("arm_in_center reset to 0 after sending "));
     Serial.println(actionName);
-
 
     return;  // Exit function setelah mengirim special command
   }
@@ -954,7 +875,6 @@ void sendArmToCenterSmartStateMachine() {
   Serial.println(fullCommand);
 }
 
-
 // Modified handleSystemLogic untuk state machine
 void handleSystemLogicStateMachine() {
   // PRIORITAS 1: Check for product pickup (jika ada ARM di center)
@@ -963,7 +883,6 @@ void handleSystemLogicStateMachine() {
     return;  // Exit setelah handle pickup
   }
 
-
   // PRIORITAS 2: Handle special commands yang pending (tidak perlu sensor3 HIGH)
   bool hasSpecialCommand = (arm1_sm.need_special_command && arm1_sm.state == ARM_IDLE) || (arm2_sm.need_special_command && arm2_sm.state == ARM_IDLE);
 
@@ -971,7 +890,6 @@ void handleSystemLogicStateMachine() {
     sendArmToCenterSmartStateMachine();
     return;  // Exit setelah handle special command
   }
-
 
   // ===== TAMBAHAN: PRIORITAS 2.5 - ARM yang baru selesai special command =====
   // Cek ARM yang baru selesai special command dan perlu HOME berikutnya
@@ -985,7 +903,6 @@ void handleSystemLogicStateMachine() {
     }
   }
 
-
   // Deteksi transisi sensor3: dari ada ARM (LOW) ke tidak ada ARM (HIGH)
   if (sensor3_prev_state == false && sensor3_state == true) {
     Serial.println(F("ARM left center - delay"));
@@ -995,13 +912,11 @@ void handleSystemLogicStateMachine() {
   // Update previous state
   sensor3_prev_state = sensor3_state;
 
-
   // PRIORITAS 3: Send ARM to center untuk command normal (hanya jika sensor3 HIGH)
   if (sensor3_state && arm_in_center == 0) {
     sendArmToCenterSmartStateMachine();
   }
 }
-
 
 // Reset parameters to default values
 void resetParametersToDefault() {
@@ -1018,7 +933,6 @@ void resetParametersToDefault() {
   params.zb = 1320;
   params.T90 = 1600 + params.t;  //before 2080
   params.Z1 = 1325;
-
 
   params.H = 100;
   params.Ly = 11;
@@ -1081,7 +995,6 @@ void resetParametersToDefault() {
   Serial.println(F("Parameters reset to default values"));
 }
 
-
 void setup() {
   Serial.begin(9600);
   rs485.begin(9600);
@@ -1102,7 +1015,6 @@ void setup() {
   pinMode(ARM2_DIP_2, INPUT_PULLUP);
   pinMode(ARM2_DIP_4, INPUT_PULLUP);
   pinMode(ARM2_DIP_8, INPUT_PULLUP);
-
 
   // Configure conveyor pin
   pinMode(CONVEYOR_PIN, OUTPUT);
@@ -1135,7 +1047,6 @@ void setup() {
   Serial.println(F("Type 'HELP' for available commands"));
 }
 
-
 void loop() {
   unsigned long currentTime = millis();
 
@@ -1149,7 +1060,6 @@ void loop() {
   updateArmStateMachine(&arm1_sm);
   updateArmStateMachine(&arm2_sm);
 
-
   // Check command retry untuk kedua ARM
   checkCommandRetry(&arm1_sm);
   checkCommandRetry(&arm2_sm);
@@ -1157,14 +1067,11 @@ void loop() {
   // Handle system logic with state machine
   handleSystemLogicStateMachine();
 
-
   // Control conveyor
   controlConveyor();
 
-
   delay(10);
 }
-
 
 void readDipSwitchLayers() {
   // Read ARM1 layer position from DIP switch
@@ -1196,13 +1103,11 @@ void readDipSwitchLayers() {
   Serial.println(F(")"));
 }
 
-
 void printProgmemString(const char* str) {
   char buffer[60];
   strcpy_P(buffer, str);
   Serial.println(buffer);
 }
-
 
 // Generate command on-demand instead of storing all commands
 String generateCommand(byte armId, int commandIndex) {
@@ -1253,16 +1158,13 @@ String generateCommand(byte armId, int commandIndex) {
     int gladGp = (params.gp + gOffset) * MULTIPLIER;
     int gladZa = params.za * MULTIPLIER;
     int gladZb = (params.zb + zOffset) * MULTIPLIER;
-    int gladXa = (params.XO5 + xOffset) * MULTIPLIER;
-    int gladTa = (params.t + tOffset) * MULTIPLIER;
 
-    sprintf(commandBuffer, "GLAD(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d)",
-            gladXn, gladYn, gladZn, gladTn, gladDp, gladGp, gladZa, gladZb, gladXa, gladTa);
+    sprintf(commandBuffer, "GLAD(%d,%d,%d,%d,%d,%d,%d,%d)",
+            gladXn, gladYn, gladZn, gladTn, gladDp, gladGp, gladZa, gladZb);
   }
 
   return String(commandBuffer);
 }
-
 
 void readSensors() {
   // Sensor 1 and 2: HIGH when object detected (blocked)
@@ -1280,7 +1182,6 @@ void readSensors() {
   arm2_sm.is_busy = arm2_response;
 }
 
-
 // Hitung checksum XOR
 uint8_t calculateXORChecksum(const char* data, int length) {
   uint8_t checksum = 0;
@@ -1289,7 +1190,6 @@ uint8_t calculateXORChecksum(const char* data, int length) {
   }
   return checksum;
 }
-
 
 void sendRS485CommandWithRetry(ArmDataStateMachine* arm, String command) {
   arm->last_command_sent = command;
@@ -1300,7 +1200,6 @@ void sendRS485CommandWithRetry(ArmDataStateMachine* arm, String command) {
   sendRS485Command(command);  // fungsi existing
 }
 
-
 void sendRS485Command(String command) {
   // Since RE/DE is connected to VCC, no need to control it
   uint8_t checksum = calculateXORChecksum(command.c_str(), command.length());
@@ -1309,7 +1208,6 @@ void sendRS485Command(String command) {
   rs485.flush();
   delay(50);  // Small delay to ensure transmission
 }
-
 
 void checkCommandRetry(ArmDataStateMachine* arm) {
   if (!arm->waiting_for_busy_response) return;
@@ -1350,7 +1248,6 @@ void checkCommandRetry(ArmDataStateMachine* arm) {
   }
 }
 
-
 // Control conveyor after GLAD command
 void controlConveyor() {
   unsigned long currentTime = millis();
@@ -1362,7 +1259,6 @@ void controlConveyor() {
     Serial.println(F("Conveyor turned ON"));
   }
 }
-
 
 // Turn OFF conveyor for specified duration
 void turnOffConveyor() {

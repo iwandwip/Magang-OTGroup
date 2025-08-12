@@ -64,8 +64,8 @@ if (sensor3_prev_state == false && sensor3_state == true) {
 ```mermaid
 graph TD
     A[ARM1 picks product] --> B[ARM1 exits sensor3]
-    B --> C[sensor3_prev_state=false, sensor3_state=true]
-    C --> D[delay(500) - BLOCKS ENTIRE SYSTEM]
+    B --> C[sensor3 transition detected]
+    C --> D[delay 500ms BLOCKS ENTIRE SYSTEM]
     D --> E[Main loop frozen for 500ms]
     E --> F[ARM2 dispatch blocked]
     F --> G[ARM1 continues GLAD sequence]

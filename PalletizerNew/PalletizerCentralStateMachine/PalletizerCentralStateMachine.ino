@@ -146,6 +146,11 @@ unsigned long last_monitor_update = 0;
 const unsigned long MONITOR_INTERVAL = 1000;  // 1 second
 
 
+// Non-blocking leave center delay variables
+static unsigned long leave_center_timer = 0;
+static bool leave_center_delay_active = false;
+
+
 // Buffer for reading USB serial commands
 char usbBuffer[32];
 byte usbBufferIndex = 0;
@@ -986,15 +991,26 @@ void handleSystemLogicStateMachine() {
   }
 
 
-  // Deteksi transisi sensor3: dari ada ARM (LOW) ke tidak ada ARM (HIGH)
+  // Non-blocking leave center delay management
   if (sensor3_prev_state == false && sensor3_state == true) {
-    Serial.println(F("ARM left center - delay"));
-    delay(LEAVE_CENTER_DELAY);
+    Serial.println(F("ARM left center - starting non-blocking delay"));
+    leave_center_timer = millis();
+    leave_center_delay_active = true;
   }
 
   // Update previous state
   sensor3_prev_state = sensor3_state;
 
+  // Check if leave center delay is active
+  if (leave_center_delay_active) {
+    if (millis() - leave_center_timer >= LEAVE_CENTER_DELAY) {
+      leave_center_delay_active = false;
+      Serial.println(F("Leave center delay completed - ARM dispatch now allowed"));
+    } else {
+      // Still in delay period, skip ARM dispatch
+      return;
+    }
+  }
 
   // PRIORITAS 3: Send ARM to center untuk command normal (hanya jika sensor3 HIGH)
   if (sensor3_state && arm_in_center == 0) {

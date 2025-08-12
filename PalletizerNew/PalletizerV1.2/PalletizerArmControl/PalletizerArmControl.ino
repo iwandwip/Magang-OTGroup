@@ -863,7 +863,7 @@ bool parseGladCommand(const char* action) {
 
   // PERBAIKAN: Cek 10 parameter (sesuai dengan jumlah %d di sscanf)
   if (parsed != 10) {
-    Serial.print(F("ERROR: GLAD command requires 12 parameters, got "));
+    Serial.print(F("ERROR: GLAD command requires 10 parameters, got "));
     Serial.println(parsed);
     return false;
   }
@@ -945,6 +945,16 @@ void updateCommandSequence() {
     // Motor baru saja ready, catat waktu
     lastMotorReadyTime = millis();
     motorWasReady = true;
+    // Don't return immediately - allow progression if stabilization time is 0
+    if (MOTOR_STABILIZE_MS == 0) {
+      if (currentSequence == SEQ_HOME) {
+        executeHomeStep();
+      } else if (currentSequence == SEQ_GLAD) {
+        executeGladStep();
+      }
+      motorWasReady = false;
+      return;
+    }
     return;
   }
 
@@ -1102,7 +1112,7 @@ void executeGladStep() {
     case 8:
       // Eigth command: Xa,Ya,Ta,Ga
       {
-        sendSafeMotorCommand(PSTR("X%d,T%d"), gladCmd.xa, gladCmd.ta);
+        sendSafeMotorCommand(PSTR("X%d,Y%d,T%d,G%d"), gladCmd.xa, gladCmd.yn, gladCmd.ta, gladCmd.gp);
         gladCmd.step = 9;
         Serial.println(F("GLAD Step 8: Standby XYTG position before Homing "));
       }

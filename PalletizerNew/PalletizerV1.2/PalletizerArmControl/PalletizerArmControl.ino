@@ -145,7 +145,7 @@ unsigned long lastCommandSentTime = 0;
 unsigned long lastMotorReadyTime = 0;
 bool motorWasReady = false;
 const unsigned long MIN_COMMAND_INTERVAL_MS = 100;  // Minimum 100ms between commands
-const unsigned long MOTOR_STABILIZE_MS = 50;        // Wait after motor ready
+const unsigned long MOTOR_STABILIZE_MS = 0;        // Wait after motor ready - Set to 0 for immediate progression
 
 
 struct ButtonState {

@@ -145,7 +145,7 @@ unsigned long lastCommandSentTime = 0;
 unsigned long lastMotorReadyTime = 0;
 bool motorWasReady = false;
 const unsigned long MIN_COMMAND_INTERVAL_MS = 100;  // Minimum 100ms between commands
-const unsigned long MOTOR_STABILIZE_MS = 0;        // Wait after motor ready - Set to 0 for immediate progression
+const unsigned long MOTOR_STABILIZE_MS = 50;        // Wait after motor ready
 
 
 struct ButtonState {
@@ -945,16 +945,6 @@ void updateCommandSequence() {
     // Motor baru saja ready, catat waktu
     lastMotorReadyTime = millis();
     motorWasReady = true;
-    // Don't return immediately - allow progression if stabilization time is 0
-    if (MOTOR_STABILIZE_MS == 0) {
-      if (currentSequence == SEQ_HOME) {
-        executeHomeStep();
-      } else if (currentSequence == SEQ_GLAD) {
-        executeGladStep();
-      }
-      motorWasReady = false;
-      return;
-    }
     return;
   }
 
@@ -1112,7 +1102,7 @@ void executeGladStep() {
     case 8:
       // Eigth command: Xa,Ya,Ta,Ga
       {
-        sendSafeMotorCommand(PSTR("X%d,Y%d,T%d,G%d"), gladCmd.xa, gladCmd.yn, gladCmd.ta, gladCmd.gp);
+        sendSafeMotorCommand(PSTR("X%d,T%d"), gladCmd.xa, gladCmd.ta);
         gladCmd.step = 9;
         Serial.println(F("GLAD Step 8: Standby XYTG position before Homing "));
       }

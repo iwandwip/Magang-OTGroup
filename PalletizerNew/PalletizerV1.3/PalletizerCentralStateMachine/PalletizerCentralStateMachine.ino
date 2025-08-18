@@ -110,14 +110,14 @@ bool arm1_response = false;
 bool arm2_response = false;
 
 // ENHANCED DUAL-ARM COORDINATION VARIABLES
-bool arm1_near_center = false;    // ARM1 in center area (standby or pickup)
-bool arm2_near_center = false;    // ARM2 in center area (standby or pickup)
-byte active_pickup_arm = 0;       // 0=none, 1=ARM1, 2=ARM2 (actively picking)
-byte last_arm_sent = 0;           // 0=none, 1=ARM1, 2=ARM2 (for alternating)
+bool arm1_near_center = false;  // ARM1 in center area (standby or pickup)
+bool arm2_near_center = false;  // ARM2 in center area (standby or pickup)
+byte active_pickup_arm = 0;     // 0=none, 1=ARM1, 2=ARM2 (actively picking)
+byte last_arm_sent = 0;         // 0=none, 1=ARM1, 2=ARM2 (for alternating)
 bool sensor3_prev_state = false;
 
 // Concurrent operation flags
-bool concurrent_mode = true;      // Enable concurrent ARM operation
+bool concurrent_mode = true;  // Enable concurrent ARM operation
 
 // Conveyor control variables
 bool conveyor_active = true;  // true = ON, false = OFF
@@ -481,9 +481,9 @@ void handleMovingToCenterState(ArmDataStateMachine* arm) {
     } else {
       arm2_near_center = true;
     }
-    
+
     changeArmState(arm, ARM_IN_CENTER);
-    
+
     Serial.print(F("ARM"));
     Serial.print(arm->arm_id);
     Serial.println(F(" reached center area - ready for pickup"));
@@ -496,7 +496,7 @@ void handleInCenterState(ArmDataStateMachine* arm) {
 
   // ENHANCED: ARM can stay in center area for standby
   // Only return to IDLE if specifically commanded or error
-  
+
   // Safety check - detect if ARM left center area unexpectedly
   if (sensor3_state && active_pickup_arm == arm->arm_id) {
     // Only log if this ARM was actively picking
@@ -544,10 +544,10 @@ void handlePickingState(ArmDataStateMachine* arm) {
     } else {
       changeArmState(arm, ARM_IDLE);
     }
-    
+
     // ENHANCED: Clear active pickup but keep near center status
     active_pickup_arm = 0;
-    
+
     // ARM can remain near center for next pickup
     Serial.print(F("ARM"));
     Serial.print(arm->arm_id);
@@ -711,9 +711,9 @@ void initializeArmDataStateMachine() {
   arm2_sm.was_busy_after_command = false;
   arm2_sm.busy_stable_count = 0;
 
-  // Initialize ARM2 center status  
+  // Initialize ARM2 center status
   arm2_near_center = false;
-  
+
   // Initialize system coordination
   active_pickup_arm = 0;
   last_arm_sent = 0;
@@ -733,7 +733,7 @@ void initializeArmDataStateMachine() {
   Serial.println(F("ARM State Machines initialized"));
   Serial.print(F("Concurrent mode: "));
   Serial.println(concurrent_mode ? F("ENABLED") : F("DISABLED"));
-  
+
   if (concurrent_mode) {
     Serial.println(F("=== CONCURRENT DUAL-ARM OPERATION ACTIVE ==="));
     Serial.println(F("- Both ARMs can move to center simultaneously"));
@@ -781,22 +781,22 @@ String getNextCommandStateMachine(ArmDataStateMachine* arm) {
 void handleProductPickupStateMachine() {
   // Check if product is available and pickup area is free
   if (!sensor1_state && !sensor2_state && !sensor3_state) {
-    
+
     // Find ready ARM for pickup (priority system)
     ArmDataStateMachine* readyArm = nullptr;
     byte selectedArmId = 0;
-    
+
     // Priority 1: ARM that was previously active (for continuity)
     if (active_pickup_arm > 0) {
       ArmDataStateMachine* prevArm = (active_pickup_arm == 1) ? &arm1_sm : &arm2_sm;
       bool prevArmNearCenter = (active_pickup_arm == 1) ? arm1_near_center : arm2_near_center;
-      
+
       if (prevArm->state == ARM_IN_CENTER && !prevArm->is_busy && prevArmNearCenter) {
         readyArm = prevArm;
         selectedArmId = active_pickup_arm;
       }
     }
-    
+
     // Priority 2: First available ARM if no previous active ARM
     if (readyArm == nullptr) {
       // Check ARM1
@@ -810,41 +810,39 @@ void handleProductPickupStateMachine() {
         selectedArmId = 2;
       }
     }
-    
+
     // Priority 3: Alternating selection if both available
-    if (readyArm == nullptr && 
-        arm1_sm.state == ARM_IN_CENTER && !arm1_sm.is_busy && arm1_near_center &&
-        arm2_sm.state == ARM_IN_CENTER && !arm2_sm.is_busy && arm2_near_center) {
-      
+    if (readyArm == nullptr && arm1_sm.state == ARM_IN_CENTER && !arm1_sm.is_busy && arm1_near_center && arm2_sm.state == ARM_IN_CENTER && !arm2_sm.is_busy && arm2_near_center) {
+
       // Alternate between ARMs
       selectedArmId = (last_arm_sent == 1) ? 2 : 1;
       readyArm = (selectedArmId == 1) ? &arm1_sm : &arm2_sm;
       last_arm_sent = selectedArmId;
     }
-    
+
     // Execute pickup if ARM is ready
     if (readyArm != nullptr && selectedArmId > 0) {
       String gladCommand = getNextCommandStateMachine(readyArm);
-      
+
       if (gladCommand.length() == 0) {
         Serial.print(F("No more commands for ARM"));
         Serial.println(selectedArmId);
         return;
       }
-      
+
       // Mark ARM as actively picking
       active_pickup_arm = selectedArmId;
-      
+
       String armPrefix = (selectedArmId == 1) ? "L" : "R";
       String fullCommand = armPrefix + "#" + gladCommand;
       sendRS485CommandWithRetry(readyArm, fullCommand);
       turnOffConveyor();
-      
+
       Serial.print(F("ARM"));
       Serial.print(selectedArmId);
       Serial.print(F(" selected for pickup - Sent GLAD: "));
       Serial.println(fullCommand);
-      
+
       changeArmState(readyArm, ARM_PICKING);
     } else {
       // Debug: No ARM ready
@@ -906,7 +904,7 @@ void sendArmToCenterSmartStateMachine() {
     String armPrefix = (specialArmId == 1) ? "L" : "R";
     String fullCommand = armPrefix + "#" + command;
     sendRS485CommandWithRetry(specialArm, fullCommand);
-    
+
     Serial.print(F("ARM"));
     Serial.print(specialArmId);
     Serial.print(F(" executing "));
@@ -917,19 +915,17 @@ void sendArmToCenterSmartStateMachine() {
     changeArmState(specialArm, ARM_EXECUTING_SPECIAL);
     specialArm->need_special_command = false;
     specialArm->pending_special_command = SPECIAL_NONE;
-    
+
     return;
   }
 
   // PRIORITAS 2: Send ARMs to center (CONCURRENT MODE)
   if (concurrent_mode && sensor3_state) {  // Center area available
-    
+
     // Check which ARMs can move to center
-    bool arm1_can_move = (arm1_sm.state == ARM_IDLE) && !arm1_sm.is_busy && 
-                         !arm1_sm.need_special_command && !arm1_near_center;
-    bool arm2_can_move = (arm2_sm.state == ARM_IDLE) && !arm2_sm.is_busy && 
-                         !arm2_sm.need_special_command && !arm2_near_center;
-    
+    bool arm1_can_move = (arm1_sm.state == ARM_IDLE) && !arm1_sm.is_busy && !arm1_sm.need_special_command && !arm1_near_center;
+    bool arm2_can_move = (arm2_sm.state == ARM_IDLE) && !arm2_sm.is_busy && !arm2_sm.need_special_command && !arm2_near_center;
+
     // Send both ARMs to center if both can move
     if (arm1_can_move && arm2_can_move) {
       // Send ARM1
@@ -938,40 +934,40 @@ void sendArmToCenterSmartStateMachine() {
         String fullCommand1 = "L#" + command1;
         sendRS485CommandWithRetry(&arm1_sm, fullCommand1);
         changeArmState(&arm1_sm, ARM_MOVING_TO_CENTER);
-        
+
         Serial.print(F("Concurrent: ARM1 moving to center: "));
         Serial.println(fullCommand1);
       }
-      
+
       delay(100);  // Small delay between commands
-      
+
       // Send ARM2
       String command2 = getNextCommandStateMachine(&arm2_sm);
       if (command2.length() > 0) {
         String fullCommand2 = "R#" + command2;
         sendRS485CommandWithRetry(&arm2_sm, fullCommand2);
         changeArmState(&arm2_sm, ARM_MOVING_TO_CENTER);
-        
+
         Serial.print(F("Concurrent: ARM2 moving to center: "));
         Serial.println(fullCommand2);
       }
-      
+
       Serial.println(F("CONCURRENT MODE: Both ARMs sent to center"));
       return;
     }
-    
+
     // Send single ARM if only one can move
     else if (arm1_can_move || arm2_can_move) {
       ArmDataStateMachine* currentArm = arm1_can_move ? &arm1_sm : &arm2_sm;
       byte selectedArmId = arm1_can_move ? 1 : 2;
-      
+
       String command = getNextCommandStateMachine(currentArm);
       if (command.length() > 0) {
         String armPrefix = (selectedArmId == 1) ? "L" : "R";
         String fullCommand = armPrefix + "#" + command;
         sendRS485CommandWithRetry(currentArm, fullCommand);
         changeArmState(currentArm, ARM_MOVING_TO_CENTER);
-        
+
         Serial.print(F("Single ARM"));
         Serial.print(selectedArmId);
         Serial.print(F(" moving to center: "));
@@ -980,7 +976,7 @@ void sendArmToCenterSmartStateMachine() {
       return;
     }
   }
-  
+
   // FALLBACK: Sequential mode (original logic)
   else {
     bool arm1_ready = (arm1_sm.state == ARM_IDLE) && !arm1_sm.is_busy && !arm1_sm.need_special_command;
@@ -998,13 +994,13 @@ void sendArmToCenterSmartStateMachine() {
 
     ArmDataStateMachine* currentArm = (selectedArm == 1) ? &arm1_sm : &arm2_sm;
     String command = getNextCommandStateMachine(currentArm);
-    
+
     if (command.length() > 0) {
       String armPrefix = (selectedArm == 1) ? "L" : "R";
       String fullCommand = armPrefix + "#" + command;
       sendRS485CommandWithRetry(currentArm, fullCommand);
       changeArmState(currentArm, ARM_MOVING_TO_CENTER);
-      
+
       Serial.print(F("Sequential: ARM"));
       Serial.print(selectedArm);
       Serial.print(F(" to center: "));
@@ -1022,8 +1018,7 @@ void handleSystemLogicStateMachine() {
   }
 
   // PRIORITAS 2: Handle special commands
-  bool hasSpecialCommand = (arm1_sm.need_special_command && arm1_sm.state == ARM_IDLE) || 
-                          (arm2_sm.need_special_command && arm2_sm.state == ARM_IDLE);
+  bool hasSpecialCommand = (arm1_sm.need_special_command && arm1_sm.state == ARM_IDLE) || (arm2_sm.need_special_command && arm2_sm.state == ARM_IDLE);
 
   if (hasSpecialCommand) {
     sendArmToCenterSmartStateMachine();
@@ -1031,10 +1026,8 @@ void handleSystemLogicStateMachine() {
   }
 
   // PRIORITAS 3: Send ARMs needing HOME commands
-  bool arm1_needs_home = (arm1_sm.state == ARM_IDLE && !arm1_sm.is_busy && 
-                         arm1_sm.current_pos < arm1_sm.total_commands && !arm1_near_center);
-  bool arm2_needs_home = (arm2_sm.state == ARM_IDLE && !arm2_sm.is_busy && 
-                         arm2_sm.current_pos < arm2_sm.total_commands && !arm2_near_center);
+  bool arm1_needs_home = (arm1_sm.state == ARM_IDLE && !arm1_sm.is_busy && arm1_sm.current_pos < arm1_sm.total_commands && !arm1_near_center);
+  bool arm2_needs_home = (arm2_sm.state == ARM_IDLE && !arm2_sm.is_busy && arm2_sm.current_pos < arm2_sm.total_commands && !arm2_near_center);
 
   if (arm1_needs_home || arm2_needs_home) {
     sendArmToCenterSmartStateMachine();
@@ -1045,9 +1038,8 @@ void handleSystemLogicStateMachine() {
   // Check if ARMs should stay in center for quick pickup
   if (concurrent_mode) {
     // Keep at least one ARM near center if work is not complete
-    bool work_remaining = (arm1_sm.current_pos < arm1_sm.total_commands) || 
-                         (arm2_sm.current_pos < arm2_sm.total_commands);
-    
+    bool work_remaining = (arm1_sm.current_pos < arm1_sm.total_commands) || (arm2_sm.current_pos < arm2_sm.total_commands);
+
     if (work_remaining && !arm1_near_center && !arm2_near_center) {
       // Send ARM to center proactively
       if (sensor3_state) {  // Center area available
@@ -1195,7 +1187,7 @@ void setup() {
   Serial.println(arm1_sm.total_commands);
   Serial.print(F("ARM2 Commands: "));
   Serial.println(arm2_sm.total_commands);
-  
+
   // Display concurrent mode status
   Serial.println(F("======================================"));
   if (concurrent_mode) {

@@ -1,2 +1,2 @@
-# Magang-OTGroup
-Magang-OTGroup
+# OT-ProjectAutomation
+OT-ProjectAutomation

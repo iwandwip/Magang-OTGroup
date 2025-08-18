@@ -184,7 +184,7 @@ bool isARM2_device = false;
 // ==================== SETUP ====================
 void setup() {
   Serial.begin(SERIAL_BAUD_RATE);
-  Serial.println(F("Controller Starting... (Modified - Receive Only)"));
+  Serial.println(F("ARM Controller Starting... (Concurrent Mode Ready)"));
 
   initializePins();
 
@@ -523,7 +523,9 @@ void executeCommand(const char* action) {
     // HOME command: READY -> RUNNING transition
     if (currentState == STATE_READY) {
       if (parseHomeCommand(action)) {
-        Serial.println(F("HOME command parsed successfully - keeping command active pin HIGH"));
+        Serial.print(F("ARM"));
+        Serial.print(isARM2_device ? "2" : "1");
+        Serial.println(F(" HOME command parsed - moving to center area"));
         startHomeSequence();
       } else {
         digitalWrite(COMMAND_ACTIVE_PIN, HIGH);  // Turn off on error

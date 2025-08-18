@@ -36,6 +36,7 @@ const uint8_t DRIVER_ID_T = 0b011;
 const int SERIAL_BAUD_RATE = 9600;
 const char COMMAND_DELIMITER = ',';
 const char LINE_DELIMITER = '\n';
+const int LED_MINIMUM_DELAY = 200;
 
 
 // Hardware objects
@@ -50,6 +51,8 @@ int MOVE_MAX_SPEED;     // Variable speed based on A1-A2 connection
 int MOVE_ACCELERATION;  // Always half of MOVE_MAX_SPEED
 int MOVE_HOME_SPEED;
 int MOVE_HOME_ACCELERATION;
+unsigned long ledOffTime = 0;  // Waktu ketika LED dimatikan
+int TOLERANCE = 5;
 
 
 uint8_t calculateXORChecksum(const char* data, int length) {
@@ -189,25 +192,35 @@ void setSpeedParameters() {
 
 
   if (driverID == 'X') {
-    MOVE_MAX_SPEED = 2500;
-    MOVE_HOME_SPEED = 300;
-    MOVE_HOME_ACCELERATION = 0.3 * MOVE_HOME_SPEED;
-  } else if (driverID == 'Y') {
-    MOVE_MAX_SPEED = 4000;
-    MOVE_HOME_SPEED = 300;
-    MOVE_HOME_ACCELERATION = 0.5 * MOVE_HOME_SPEED;
-  } else if (driverID == 'Z') {
-    MOVE_MAX_SPEED = 4000;
+    MOVE_MAX_SPEED = 2600;
+    MOVE_ACCELERATION = MOVE_MAX_SPEED * 0.5;
     MOVE_HOME_SPEED = 300;
     MOVE_HOME_ACCELERATION = 0.1 * MOVE_HOME_SPEED;
-  } else if (driverID == 'T') {
+    TOLERANCE = 3;
+  } else if (driverID == 'Y') {
     MOVE_MAX_SPEED = 4000;
+    MOVE_ACCELERATION = MOVE_MAX_SPEED * 0.5;
+    MOVE_HOME_SPEED = 300;
+    MOVE_HOME_ACCELERATION = 0.5 * MOVE_HOME_SPEED;
+    TOLERANCE = 10;
+  } else if (driverID == 'Z') {
+    MOVE_MAX_SPEED = 4000;
+    MOVE_ACCELERATION = MOVE_MAX_SPEED * 0.5;
+    MOVE_HOME_SPEED = 300;
+    MOVE_HOME_ACCELERATION = 0.1 * MOVE_HOME_SPEED;
+    TOLERANCE = 0;
+  } else if (driverID == 'T') {
+    MOVE_MAX_SPEED = 5000;
+    MOVE_ACCELERATION = MOVE_MAX_SPEED * 0.3;
     MOVE_HOME_SPEED = 4000;
     MOVE_HOME_ACCELERATION = 0.5 * MOVE_HOME_SPEED;
+    TOLERANCE = 100;
   } else if (driverID == 'G') {
     MOVE_MAX_SPEED = 4000;
+    MOVE_ACCELERATION = MOVE_MAX_SPEED * 0.5;
     MOVE_HOME_SPEED = 150;
     MOVE_HOME_ACCELERATION = 0.5 * MOVE_HOME_SPEED;
+    TOLERANCE = 10;
   }
 
 
@@ -224,7 +237,6 @@ void setSpeedParameters() {
   }
 
   // MOVE_ACCELERATION is always half of MOVE_MAX_SPEED
-  MOVE_ACCELERATION = MOVE_MAX_SPEED / 2;
 }
 
 
@@ -305,16 +317,9 @@ void executeCommand(String command) {
         if (targetPosition == 0) {
           performHoming();
         } else {
-          // Special speed handling untuk driver Z
-          if (driverID == 'Z') {
-            long distance = abs(targetPosition);
-            float speed = constrain(100 * sqrt(distance), 300, 3000);
-            stepperMotor.setMaxSpeed(speed);
-            stepperMotor.setAcceleration(0.5 * speed);
-            Serial.print("Z-axis dynamic speed: ");
-            Serial.println(speed);
-          }
+          setStatusLED(false);  // Turn off LED during movement
           moveToPosition(targetPosition);
+          setStatusLED(true);  // Turn on LED when idle
         }
 
         // Break setelah menemukan command untuk driver ini
@@ -336,14 +341,20 @@ void moveToPosition(long targetPosition) {
   Serial.print("Moving to position: ");
   Serial.println(targetPosition);
 
-  setStatusLED(false);  // Turn off LED during movement
 
   stepperMotor.setMaxSpeed(MOVE_MAX_SPEED);
   stepperMotor.setAcceleration(MOVE_ACCELERATION);
-  stepperMotor.moveTo(targetPosition);
-  stepperMotor.runToPosition();
 
-  setStatusLED(true);  // Turn on LED when idle
+
+  stepperMotor.moveTo(targetPosition);
+
+
+  while (stepperMotor.distanceToGo() != 0) {
+    stepperMotor.run();
+    if (stepperMotor.distanceToGo() <= TOLERANCE) {
+      setStatusLED(true);
+    }
+  }
 }
 
 
@@ -412,5 +423,16 @@ void returnToHome() {
 
 
 void setStatusLED(bool state) {
-  digitalWrite(LED_STATUS_PIN, state ? HIGH : LOW);
+  if (!state) {
+    // LED dimatikan, catat waktunya
+    ledOffTime = millis();
+    digitalWrite(LED_STATUS_PIN, LOW);
+  } else {
+    // LED akan dinyalakan, cek apakah sudah lewat 100ms
+    unsigned long elapsedTime = millis() - ledOffTime;
+    if (elapsedTime < LED_MINIMUM_DELAY) {
+      delay(LED_MINIMUM_DELAY - elapsedTime);
+    }
+    digitalWrite(LED_STATUS_PIN, HIGH);
+  }
 }

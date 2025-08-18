@@ -2,6 +2,7 @@
 #include <avr/pgmspace.h>
 #include <EEPROM.h>
 
+
 // Pin definitions
 const int SENSOR1_PIN = A4;
 const int SENSOR2_PIN = A5;
@@ -10,10 +11,12 @@ const int ARM1_PIN = 7;       // Changed from 6 to 7
 const int ARM2_PIN = 8;       // Changed from 7 to 8
 const int CONVEYOR_PIN = 13;  // D13 - Conveyor control (active LOW)
 
+
 // RS485 pins
 const int RS485_RO = 10;
 const int RS485_DI = 11;
 // RE/DE connected to VCC (always enabled for transmission)
+
 
 // DIP Switch pins for ARM1 layer reading
 const int ARM1_DIP_1 = 5;  // D5
@@ -21,19 +24,23 @@ const int ARM1_DIP_2 = 6;  // D6
 const int ARM1_DIP_4 = 3;  // D3
 const int ARM1_DIP_8 = 4;  // D4
 
+
 // DIP Switch pins for ARM2 layer reading
 const int ARM2_DIP_1 = A0;
 const int ARM2_DIP_2 = A1;
 const int ARM2_DIP_4 = A3;  // Note: corrected order
 const int ARM2_DIP_8 = A2;  // Note: corrected order
 
+
 // EEPROM Configuration
 const int EEPROM_START_ADDR = 0;
 const int EEPROM_MAGIC = 0xABCD;  // Magic number to check if EEPROM is initialized
 const int EEPROM_VERSION = 1;
 
+
 // Create SoftwareSerial object for RS485
 SoftwareSerial rs485(RS485_RO, RS485_DI);
+
 
 // Definisi State untuk ARM
 enum ArmState {
@@ -45,11 +52,13 @@ enum ArmState {
   ARM_ERROR               // ARM dalam keadaan error
 };
 
+
 enum SpecialCommand {
   SPECIAL_NONE,
   SPECIAL_PARK,
   SPECIAL_CALI
 };
+
 
 // Struktur ARM Data yang sudah dimodifikasi dengan State Machine
 struct ArmDataStateMachine {
@@ -73,6 +82,7 @@ struct ArmDataStateMachine {
   // Debugging
   bool debug_state_changes;
 
+
   // Retry mechanism variables
   String last_command_sent;
   unsigned long command_sent_time;
@@ -84,9 +94,11 @@ struct ArmDataStateMachine {
   static const int MAX_RETRY_COUNT = 7;                    // maksimal 7x retry
   static const unsigned long RETRY_DELAY = 200;            // delay 200ms antar retry
 
+
   // Special command handling
   SpecialCommand pending_special_command;
   bool need_special_command;
+
 
   // ADD THESE NEW FIELDS:
   bool was_busy_after_command;
@@ -96,11 +108,14 @@ struct ArmDataStateMachine {
   static const int BUSY_STABLE_THRESHOLD = 3;
 };
 
+
 //DELAY after ARM leave center
-static const int LEAVE_CENTER_DELAY = 500;
+static const int LEAVE_CENTER_DELAY = 1;
+
 
 // Replace global arm1 dan arm2 dengan versi state machine
 ArmDataStateMachine arm1_sm, arm2_sm;
+
 
 // System variables
 bool sensor1_state = false;
@@ -108,25 +123,21 @@ bool sensor2_state = false;
 bool sensor3_state = false;
 bool arm1_response = false;
 bool arm2_response = false;
-
-// ENHANCED DUAL-ARM COORDINATION VARIABLES
-bool arm1_near_center = false;  // ARM1 in center area (standby or pickup)
-bool arm2_near_center = false;  // ARM2 in center area (standby or pickup)
-byte active_pickup_arm = 0;     // 0=none, 1=ARM1, 2=ARM2 (actively picking)
-byte last_arm_sent = 0;         // 0=none, 1=ARM1, 2=ARM2 (for alternating)
+byte arm_in_center = 0;  // 0=none, 1=ARM1, 2=ARM2
+bool last_arm_sent = false;
 bool sensor3_prev_state = false;
 
-// Concurrent operation flags
-bool concurrent_mode = true;  // Enable concurrent ARM operation
 
 // Conveyor control variables
 bool conveyor_active = true;  // true = ON, false = OFF
 unsigned long conveyor_off_time = 0;
 const unsigned long CONVEYOR_OFF_DURATION = 3000;  // 3 seconds
 
+
 // Timing variables
 unsigned long lastSensorRead = 0;
-const unsigned long SENSOR_READ_INTERVAL = 50;
+const unsigned long SENSOR_READ_INTERVAL = 30;
+
 
 // Global variables for USB commands
 bool debug_mode = false;
@@ -134,9 +145,11 @@ bool monitor_mode = false;
 unsigned long last_monitor_update = 0;
 const unsigned long MONITOR_INTERVAL = 1000;  // 1 second
 
+
 // Buffer for reading USB serial commands
 char usbBuffer[32];
 byte usbBufferIndex = 0;
+
 
 // EEPROM Header structure
 struct EEPROMHeader {
@@ -144,6 +157,7 @@ struct EEPROMHeader {
   int version;
   int checksum;
 };
+
 
 // Configuration Parameters - Stored in SRAM for runtime access
 struct Parameters {
@@ -197,6 +211,7 @@ struct Parameters {
   int XE8;  //X8 Even
   int YE8;  //Y8 Even
 
+
   // ARM1 Offset (LEFT) (5)
   int xL;
   int yL;
@@ -215,19 +230,25 @@ struct Parameters {
   byte y_pattern[8];
 };
 
+
 Parameters params;
+
 
 const int MULTIPLIER = 3;
 
+
 byte serialIndex = 0;
+
 
 // String constants in PROGMEM
 const char msg_system_start[] PROGMEM = "=== ARM Control System Started ===";
 const char msg_system_ready[] PROGMEM = "System ready with generated commands";
 const char msg_dip_reading[] PROGMEM = "Reading DIP switch layer positions...";
 
+
 // Buffer for building commands (reused)
 char commandBuffer[150];
+
 
 // Function to read DIP switch value for ARM1
 int readArm1DipSwitch() {
@@ -239,6 +260,7 @@ int readArm1DipSwitch() {
   return value;
 }
 
+
 // Function to read DIP switch value for ARM2
 int readArm2DipSwitch() {
   int value = 0;
@@ -249,11 +271,13 @@ int readArm2DipSwitch() {
   return value;
 }
 
+
 // Function to calculate Z values based on rules
 int calculateZ(int layer) {
   if (layer == 0) return params.Z1;
   return params.Z1 - layer * params.H;
 }
+
 
 // Function to calculate XO values based on rules
 int calculateXO(int task) {
@@ -270,6 +294,7 @@ int calculateXO(int task) {
   }
 }
 
+
 // Function to calculate YO values based on rules
 int calculateYO(int task) {
   switch (task) {
@@ -285,6 +310,7 @@ int calculateYO(int task) {
   }
 }
 
+
 // Function to calculate TO values based on rules
 int calculateTO(int task) {
   if (task >= 0 && task <= 3) {
@@ -293,6 +319,7 @@ int calculateTO(int task) {
     return params.t;  // TO5 to TO8
   }
 }
+
 
 // Function to calculate XE values based on rules
 int calculateXE(int task) {
@@ -309,6 +336,7 @@ int calculateXE(int task) {
   }
 }
 
+
 // Function to calculate YE values based on rules
 int calculateYE(int task) {
   switch (task) {
@@ -324,6 +352,7 @@ int calculateYE(int task) {
   }
 }
 
+
 // Function to calculate TE values based on rules
 int calculateTE(int task) {
   if (task >= 0 && task <= 3) {
@@ -332,6 +361,7 @@ int calculateTE(int task) {
     return params.t;  // TE5 to TE8
   }
 }
+
 
 // Calculate checksum for parameters
 int calculateChecksum(const Parameters& params) {
@@ -342,6 +372,7 @@ int calculateChecksum(const Parameters& params) {
   }
   return checksum;
 }
+
 
 // Save parameters to EEPROM
 void saveParametersToEEPROM() {
@@ -358,6 +389,7 @@ void saveParametersToEEPROM() {
 
   Serial.println(F("Parameters saved to EEPROM"));
 }
+
 
 // Load parameters from EEPROM
 bool loadParametersFromEEPROM() {
@@ -388,9 +420,11 @@ bool loadParametersFromEEPROM() {
   return true;
 }
 
+
 // ===================================================================
 // STATE MACHINE CORE FUNCTIONS
 // ===================================================================
+
 
 // Fungsi untuk mengubah state ARM
 void changeArmState(ArmDataStateMachine* arm, ArmState newState) {
@@ -398,6 +432,7 @@ void changeArmState(ArmDataStateMachine* arm, ArmState newState) {
     arm->previous_state = arm->state;
     arm->state = newState;
     arm->state_enter_time = millis();
+
 
     if (newState == ARM_PICKING) {
       arm->was_busy_after_command = false;
@@ -417,6 +452,7 @@ void changeArmState(ArmDataStateMachine* arm, ArmState newState) {
   }
 }
 
+
 // Helper function untuk convert state ke string (untuk debugging)
 String getStateString(ArmState state) {
   switch (state) {
@@ -429,6 +465,7 @@ String getStateString(ArmState state) {
     default: return F("UNKNOWN");
   }
 }
+
 
 // Helper function untuk debounced busy check
 bool isArmTrulyNotBusy(ArmDataStateMachine* arm, bool hardware_busy) {
@@ -449,19 +486,23 @@ bool isArmTrulyNotBusy(ArmDataStateMachine* arm, bool hardware_busy) {
   }
 }
 
+
 // Fungsi untuk mengecek timeout
 bool isStateTimeout(ArmDataStateMachine* arm, unsigned long timeout) {
   return (millis() - arm->state_enter_time) > timeout;
 }
 
+
 // ===================================================================
 // STATE HANDLERS - Setiap state memiliki handler terpisah
 // ===================================================================
+
 
 void handleIdleState(ArmDataStateMachine* arm) {
   // ARM idle, siap menerima command
   // Transisi ke MOVING_TO_CENTER akan dilakukan dari handleSystemLogic()
 }
+
 
 void handleMovingToCenterState(ArmDataStateMachine* arm) {
   // Cek timeout
@@ -473,39 +514,27 @@ void handleMovingToCenterState(ArmDataStateMachine* arm) {
     return;
   }
 
-  // ENHANCED: ARM reaches center area (can be concurrent)
-  if (!arm->is_busy) {
-    // Mark ARM as near center
-    if (arm->arm_id == 1) {
-      arm1_near_center = true;
-    } else {
-      arm2_near_center = true;
-    }
-
+  // Cek apakah ARM sudah sampai di center (sensor3 LOW dan ARM tidak busy)
+  if (!sensor3_state && !arm->is_busy && arm_in_center == arm->arm_id) {
     changeArmState(arm, ARM_IN_CENTER);
-
-    Serial.print(F("ARM"));
-    Serial.print(arm->arm_id);
-    Serial.println(F(" reached center area - ready for pickup"));
   }
 }
+
 
 void handleInCenterState(ArmDataStateMachine* arm) {
-  // ARM sudah di center, menunggu product atau standby
+  // ARM sudah di center, menunggu product
   // Transisi ke PICKING akan dilakukan dari handleProductPickup()
 
-  // ENHANCED: ARM can stay in center area for standby
-  // Only return to IDLE if specifically commanded or error
-
-  // Safety check - detect if ARM left center area unexpectedly
-  if (sensor3_state && active_pickup_arm == arm->arm_id) {
-    // Only log if this ARM was actively picking
+  // Safety check - jika ARM tidak lagi di center secara fisik
+  if (sensor3_state) {
     Serial.print(F("ARM"));
     Serial.print(arm->arm_id);
-    Serial.println(F(" pickup completed - remaining in center area"));
-    active_pickup_arm = 0;  // Clear active pickup
+    Serial.println(F(" not in center anymore - back to IDLE"));
+    arm_in_center = 0;
+    changeArmState(arm, ARM_IDLE);
   }
 }
+
 
 void handlePickingState(ArmDataStateMachine* arm) {
   // Cek timeout
@@ -533,7 +562,8 @@ void handlePickingState(ArmDataStateMachine* arm) {
     bool is_even_layer_number = ((current_layer + 1) % 2 == 0);
     bool layer_complete = (position_in_layer == 15);
 
-    if (is_even_layer_number && layer_complete && arm->current_pos < arm->total_commands) {
+
+    if (/*is_even_layer_number && layer_complete*/ (arm->current_pos % 64 == 0) && arm->current_pos < arm->total_commands) {
       arm->pending_special_command = SPECIAL_CALI;
       arm->need_special_command = true;
       changeArmState(arm, ARM_EXECUTING_SPECIAL);
@@ -544,16 +574,10 @@ void handlePickingState(ArmDataStateMachine* arm) {
     } else {
       changeArmState(arm, ARM_IDLE);
     }
-
-    // ENHANCED: Clear active pickup but keep near center status
-    active_pickup_arm = 0;
-
-    // ARM can remain near center for next pickup
-    Serial.print(F("ARM"));
-    Serial.print(arm->arm_id);
-    Serial.println(F(" completed pickup - available for next product"));
+    //arm_in_center = 0;
   }
 }
+
 
 void handleExecutingSpecialState(ArmDataStateMachine* arm) {
   bool hardware_busy = digitalRead((arm->arm_id == 1) ? ARM1_PIN : ARM2_PIN);
@@ -590,6 +614,7 @@ void handleExecutingSpecialState(ArmDataStateMachine* arm) {
   }
 }
 
+
 void handleErrorState(ArmDataStateMachine* arm) {
   // ARM dalam keadaan error
   // Bisa ditambahkan logic untuk recovery atau manual reset
@@ -606,9 +631,11 @@ void handleErrorState(ArmDataStateMachine* arm) {
   }
 }
 
+
 // ===================================================================
 // MAIN STATE MACHINE UPDATE FUNCTION
 // ===================================================================
+
 
 void updateArmStateMachine(ArmDataStateMachine* arm) {
   bool hardware_busy = digitalRead((arm->arm_id == 1) ? ARM1_PIN : ARM2_PIN);
@@ -624,6 +651,7 @@ void updateArmStateMachine(ArmDataStateMachine* arm) {
     arm->is_busy = !isArmTrulyNotBusy(arm, hardware_busy);
   }
 
+
   // Execute state handler
   switch (arm->state) {
     case ARM_IDLE:
@@ -633,6 +661,7 @@ void updateArmStateMachine(ArmDataStateMachine* arm) {
     case ARM_MOVING_TO_CENTER:
       handleMovingToCenterState(arm);
       break;
+
 
     case ARM_EXECUTING_SPECIAL:
       handleExecutingSpecialState(arm);
@@ -652,13 +681,16 @@ void updateArmStateMachine(ArmDataStateMachine* arm) {
   }
 }
 
+
 // ===================================================================
 // MODIFIED SYSTEM FUNCTIONS FOR STATE MACHINE
 // ===================================================================
 
+
 // Modified initializeArmData untuk state machine
 void initializeArmDataStateMachine() {
   Serial.println(F("Initializing ARM State Machines..."));
+
 
   // ARM1 initialization
   arm1_sm.total_commands = params.Ly * 8 * 2;
@@ -674,18 +706,19 @@ void initializeArmDataStateMachine() {
   arm1_sm.state_enter_time = millis();
   arm1_sm.debug_state_changes = true;
 
+
   arm1_sm.waiting_for_busy_response = false;
   arm1_sm.retry_count = 0;
   arm1_sm.last_command_sent = "";
 
+
   arm1_sm.pending_special_command = SPECIAL_NONE;
   arm1_sm.need_special_command = false;
+
 
   arm1_sm.was_busy_after_command = false;
   arm1_sm.busy_stable_count = 0;
 
-  // Initialize ARM1 center status
-  arm1_near_center = false;
 
   // ARM2 initialization
   arm2_sm.total_commands = params.Ly * 8 * 2;
@@ -701,22 +734,19 @@ void initializeArmDataStateMachine() {
   arm2_sm.state_enter_time = millis();
   arm2_sm.debug_state_changes = true;
 
+
   arm2_sm.waiting_for_busy_response = false;
   arm2_sm.retry_count = 0;
   arm2_sm.last_command_sent = "";
 
+
   arm2_sm.pending_special_command = SPECIAL_NONE;
   arm2_sm.need_special_command = false;
+
 
   arm2_sm.was_busy_after_command = false;
   arm2_sm.busy_stable_count = 0;
 
-  // Initialize ARM2 center status
-  arm2_near_center = false;
-
-  // Initialize system coordination
-  active_pickup_arm = 0;
-  last_arm_sent = 0;
 
   Serial.print(F("ARM1 SM starts at position: "));
   Serial.print(arm1_sm.current_pos);
@@ -731,16 +761,8 @@ void initializeArmDataStateMachine() {
   Serial.println(F(")"));
 
   Serial.println(F("ARM State Machines initialized"));
-  Serial.print(F("Concurrent mode: "));
-  Serial.println(concurrent_mode ? F("ENABLED") : F("DISABLED"));
-
-  if (concurrent_mode) {
-    Serial.println(F("=== CONCURRENT DUAL-ARM OPERATION ACTIVE ==="));
-    Serial.println(F("- Both ARMs can move to center simultaneously"));
-    Serial.println(F("- Immediate pickup switching when ARM exits sensor"));
-    Serial.println(F("- Enhanced coordination for maximum throughput"));
-  }
 }
+
 
 // Modified getNextCommand untuk state machine
 String getNextCommandStateMachine(ArmDataStateMachine* arm) {
@@ -757,6 +779,7 @@ String getNextCommandStateMachine(ArmDataStateMachine* arm) {
     }
   }
 
+
   // Cek apakah sudah selesai semua command
   if (arm->current_pos >= arm->total_commands) {
     // AUTO-RESET: Kembali ke layer 0 (posisi 0)
@@ -764,8 +787,10 @@ String getNextCommandStateMachine(ArmDataStateMachine* arm) {
     Serial.print(arm->arm_id);
     Serial.println(F(" completed all commands - RESETTING to Layer 0"));
 
+
     // Reset ke posisi 0
     arm->current_pos = 0;
+
 
     Serial.print(F("ARM"));
     Serial.print(arm->arm_id);
@@ -777,101 +802,52 @@ String getNextCommandStateMachine(ArmDataStateMachine* arm) {
   return command;
 }
 
-// ENHANCED: Concurrent ARM coordination for product pickup
+
+// Modified handleProductPickup untuk state machine
 void handleProductPickupStateMachine() {
-  // Check if product is available and pickup area is free
-  if (!sensor1_state && !sensor2_state && !sensor3_state) {
-
-    // Find ready ARM for pickup (priority system)
-    ArmDataStateMachine* readyArm = nullptr;
-    byte selectedArmId = 0;
-
-    // Priority 1: ARM that was previously active (for continuity)
-    if (active_pickup_arm > 0) {
-      ArmDataStateMachine* prevArm = (active_pickup_arm == 1) ? &arm1_sm : &arm2_sm;
-      bool prevArmNearCenter = (active_pickup_arm == 1) ? arm1_near_center : arm2_near_center;
-
-      if (prevArm->state == ARM_IN_CENTER && !prevArm->is_busy && prevArmNearCenter) {
-        readyArm = prevArm;
-        selectedArmId = active_pickup_arm;
-      }
-    }
-
-    // Priority 2: First available ARM if no previous active ARM
-    if (readyArm == nullptr) {
-      // Check ARM1
-      if (arm1_sm.state == ARM_IN_CENTER && !arm1_sm.is_busy && arm1_near_center) {
-        readyArm = &arm1_sm;
-        selectedArmId = 1;
-      }
-      // Check ARM2 if ARM1 not available
-      else if (arm2_sm.state == ARM_IN_CENTER && !arm2_sm.is_busy && arm2_near_center) {
-        readyArm = &arm2_sm;
-        selectedArmId = 2;
-      }
-    }
-
-    // Priority 3: Alternating selection if both available
-    if (readyArm == nullptr && arm1_sm.state == ARM_IN_CENTER && !arm1_sm.is_busy && arm1_near_center && arm2_sm.state == ARM_IN_CENTER && !arm2_sm.is_busy && arm2_near_center) {
-
-      // Alternate between ARMs
-      selectedArmId = (last_arm_sent == 1) ? 2 : 1;
-      readyArm = (selectedArmId == 1) ? &arm1_sm : &arm2_sm;
-      last_arm_sent = selectedArmId;
-    }
-
-    // Execute pickup if ARM is ready
-    if (readyArm != nullptr && selectedArmId > 0) {
-      String gladCommand = getNextCommandStateMachine(readyArm);
-
-      if (gladCommand.length() == 0) {
-        Serial.print(F("No more commands for ARM"));
-        Serial.println(selectedArmId);
-        return;
-      }
-
-      // Mark ARM as actively picking
-      active_pickup_arm = selectedArmId;
-
-      String armPrefix = (selectedArmId == 1) ? "L" : "R";
-      String fullCommand = armPrefix + "#" + gladCommand;
-      sendRS485CommandWithRetry(readyArm, fullCommand);
-      turnOffConveyor();
-
-      Serial.print(F("ARM"));
-      Serial.print(selectedArmId);
-      Serial.print(F(" selected for pickup - Sent GLAD: "));
-      Serial.println(fullCommand);
-
-      changeArmState(readyArm, ARM_PICKING);
-    } else {
-      // Debug: No ARM ready
-      if (concurrent_mode) {
-        static unsigned long lastDebug = 0;
-        if (millis() - lastDebug > 2000) {  // Debug every 2 seconds
-          Serial.print(F("Product available, but no ARM ready - ARM1 near:"));
-          Serial.print(arm1_near_center);
-          Serial.print(F(", ARM1 state:"));
-          Serial.print(arm1_sm.state);
-          Serial.print(F(", ARM2 near:"));
-          Serial.print(arm2_near_center);
-          Serial.print(F(", ARM2 state:"));
-          Serial.println(arm2_sm.state);
-          lastDebug = millis();
-        }
-      }
-    }
+  // Safety checks
+  if (arm_in_center == 0 || sensor3_state) {
+    return;
   }
+
+  ArmDataStateMachine* currentArm = (arm_in_center == 1) ? &arm1_sm : &arm2_sm;
+
+  // Hanya proses jika ARM dalam state IN_CENTER dan tidak busy
+  if (currentArm->state != ARM_IN_CENTER || currentArm->is_busy) {
+    return;
+  }
+
+  String gladCommand = getNextCommandStateMachine(currentArm);
+
+  if (gladCommand.length() == 0) {
+    Serial.print(F("No more commands for ARM"));
+    Serial.println(arm_in_center);
+    return;
+  }
+
+  String armPrefix = (arm_in_center == 1) ? "L" : "R";
+  String fullCommand = armPrefix + "#" + gladCommand;
+  sendRS485CommandWithRetry(currentArm, fullCommand);
+  turnOffConveyor();
+
+  Serial.print(F("Sent GLAD: "));
+  Serial.println(fullCommand);
+
+  changeArmState(currentArm, ARM_PICKING);
 }
 
-// ENHANCED: Concurrent ARM coordination for center movement
+
+// Modified sendArmToCenterSmart untuk state machine
 void sendArmToCenterSmartStateMachine() {
-  // PRIORITAS 1: Handle special commands (PARK/CALI)
+  // PRIORITAS 1: Cek ARM yang butuh special command (PARK/CALI) terlebih dahulu
   ArmDataStateMachine* specialArm = nullptr;
   byte specialArmId = 0;
+
+
+  // ADD SAFETY CHECK:
   unsigned long current_time = millis();
 
-  // Find ARM needing special command
+  // Cari ARM yang butuh special command dan dalam state IDLE
   if (arm1_sm.state == ARM_IDLE && arm1_sm.need_special_command && !arm1_sm.is_busy) {
     if (current_time >= arm1_sm.min_wait_time) {
       specialArm = &arm1_sm;
@@ -884,7 +860,7 @@ void sendArmToCenterSmartStateMachine() {
     }
   }
 
-  // Execute special command if needed
+  // Jika ada ARM yang butuh special command, proses dulu
   if (specialArm != nullptr) {
     String command;
     String actionName;
@@ -897,205 +873,173 @@ void sendArmToCenterSmartStateMachine() {
       actionName = "CALIBRATION";
     }
 
-    // Clear ARM's center status for special commands
-    if (specialArmId == 1) arm1_near_center = false;
-    else arm2_near_center = false;
-
-    String armPrefix = (specialArmId == 1) ? "L" : "R";
-    String fullCommand = armPrefix + "#" + command;
-    sendRS485CommandWithRetry(specialArm, fullCommand);
-
     Serial.print(F("ARM"));
     Serial.print(specialArmId);
     Serial.print(F(" executing "));
     Serial.print(actionName);
-    Serial.print(F(": "));
+    Serial.println(F(" command"));
+
+    // Kirim command
+    String armPrefix = (specialArmId == 1) ? "L" : "R";
+    String fullCommand = armPrefix + "#" + command;
+    sendRS485CommandWithRetry(specialArm, fullCommand);
+    delay(100);
+    Serial.print(F("Sent special command: "));
     Serial.println(fullCommand);
 
+
+    // Set state ke EXECUTING_SPECIAL
     changeArmState(specialArm, ARM_EXECUTING_SPECIAL);
+
+
+    // PENTING: Reset flags SETELAH command dikirim
     specialArm->need_special_command = false;
     specialArm->pending_special_command = SPECIAL_NONE;
 
+
+    arm_in_center = 0;  // Reset segera setelah mengirim special command
+    Serial.print(F("arm_in_center reset to 0 after sending "));
+    Serial.println(actionName);
+
+
+    return;  // Exit function setelah mengirim special command
+  }
+
+  // PRIORITAS 2: Handle command normal (HOME) jika tidak ada special command
+  bool arm1_ready = (arm1_sm.state == ARM_IDLE) && !arm1_sm.is_busy && !arm1_sm.need_special_command;
+  bool arm2_ready = (arm2_sm.state == ARM_IDLE) && !arm2_sm.is_busy && !arm2_sm.need_special_command;
+
+  if (!arm1_ready && !arm2_ready) {
+    return;  // Tidak ada ARM yang ready untuk command normal
+  }
+
+  // Pilih ARM untuk command normal
+  byte selectedArm = 0;
+  ArmDataStateMachine* currentArm = nullptr;
+
+  if (arm1_ready && arm2_ready) {
+    last_arm_sent = !last_arm_sent;
+    selectedArm = last_arm_sent ? 2 : 1;
+  } else if (arm1_ready) {
+    selectedArm = 1;
+    last_arm_sent = false;
+  } else if (arm2_ready) {
+    selectedArm = 2;
+    last_arm_sent = true;
+  }
+
+  currentArm = (selectedArm == 1) ? &arm1_sm : &arm2_sm;
+
+  // Generate HOME command
+  String command = getNextCommandStateMachine(currentArm);
+  if (command.length() == 0) {
+    Serial.print(F("No more commands for ARM"));
+    Serial.println(selectedArm);
     return;
   }
 
-  // PRIORITAS 2: Send ARMs to center (CONCURRENT MODE)
-  if (concurrent_mode && sensor3_state) {  // Center area available
+  // Set ARM as in center dan ubah state
+  arm_in_center = selectedArm;
+  changeArmState(currentArm, ARM_MOVING_TO_CENTER);
 
-    // Check which ARMs can move to center
-    bool arm1_can_move = (arm1_sm.state == ARM_IDLE) && !arm1_sm.is_busy && !arm1_sm.need_special_command && !arm1_near_center;
-    bool arm2_can_move = (arm2_sm.state == ARM_IDLE) && !arm2_sm.is_busy && !arm2_sm.need_special_command && !arm2_near_center;
+  // Kirim HOME command
+  String armPrefix = (selectedArm == 1) ? "L" : "R";
+  String fullCommand = armPrefix + "#" + command;
+  sendRS485CommandWithRetry(currentArm, fullCommand);
 
-    // Send both ARMs to center if both can move
-    if (arm1_can_move && arm2_can_move) {
-      // Send ARM1
-      String command1 = getNextCommandStateMachine(&arm1_sm);
-      if (command1.length() > 0) {
-        String fullCommand1 = "L#" + command1;
-        sendRS485CommandWithRetry(&arm1_sm, fullCommand1);
-        changeArmState(&arm1_sm, ARM_MOVING_TO_CENTER);
-
-        Serial.print(F("Concurrent: ARM1 moving to center: "));
-        Serial.println(fullCommand1);
-      }
-
-      delay(100);  // Small delay between commands
-
-      // Send ARM2
-      String command2 = getNextCommandStateMachine(&arm2_sm);
-      if (command2.length() > 0) {
-        String fullCommand2 = "R#" + command2;
-        sendRS485CommandWithRetry(&arm2_sm, fullCommand2);
-        changeArmState(&arm2_sm, ARM_MOVING_TO_CENTER);
-
-        Serial.print(F("Concurrent: ARM2 moving to center: "));
-        Serial.println(fullCommand2);
-      }
-
-      Serial.println(F("CONCURRENT MODE: Both ARMs sent to center"));
-      return;
-    }
-
-    // Send single ARM if only one can move
-    else if (arm1_can_move || arm2_can_move) {
-      ArmDataStateMachine* currentArm = arm1_can_move ? &arm1_sm : &arm2_sm;
-      byte selectedArmId = arm1_can_move ? 1 : 2;
-
-      String command = getNextCommandStateMachine(currentArm);
-      if (command.length() > 0) {
-        String armPrefix = (selectedArmId == 1) ? "L" : "R";
-        String fullCommand = armPrefix + "#" + command;
-        sendRS485CommandWithRetry(currentArm, fullCommand);
-        changeArmState(currentArm, ARM_MOVING_TO_CENTER);
-
-        Serial.print(F("Single ARM"));
-        Serial.print(selectedArmId);
-        Serial.print(F(" moving to center: "));
-        Serial.println(fullCommand);
-      }
-      return;
-    }
-  }
-
-  // FALLBACK: Sequential mode (original logic)
-  else {
-    bool arm1_ready = (arm1_sm.state == ARM_IDLE) && !arm1_sm.is_busy && !arm1_sm.need_special_command;
-    bool arm2_ready = (arm2_sm.state == ARM_IDLE) && !arm2_sm.is_busy && !arm2_sm.need_special_command;
-
-    if (!arm1_ready && !arm2_ready) return;
-
-    byte selectedArm = 0;
-    if (arm1_ready && arm2_ready) {
-      selectedArm = (last_arm_sent == 1) ? 2 : 1;
-      last_arm_sent = selectedArm;
-    } else {
-      selectedArm = arm1_ready ? 1 : 2;
-    }
-
-    ArmDataStateMachine* currentArm = (selectedArm == 1) ? &arm1_sm : &arm2_sm;
-    String command = getNextCommandStateMachine(currentArm);
-
-    if (command.length() > 0) {
-      String armPrefix = (selectedArm == 1) ? "L" : "R";
-      String fullCommand = armPrefix + "#" + command;
-      sendRS485CommandWithRetry(currentArm, fullCommand);
-      changeArmState(currentArm, ARM_MOVING_TO_CENTER);
-
-      Serial.print(F("Sequential: ARM"));
-      Serial.print(selectedArm);
-      Serial.print(F(" to center: "));
-      Serial.println(fullCommand);
-    }
-  }
+  Serial.print(F("Sent HOME to ARM"));
+  Serial.print(selectedArm);
+  Serial.print(F(": "));
+  Serial.println(fullCommand);
 }
 
-// ENHANCED: Concurrent system logic coordination
+
+// Modified handleSystemLogic untuk state machine
 void handleSystemLogicStateMachine() {
-  // PRIORITAS 1: Product pickup (enhanced for concurrent operation)
-  if (!sensor1_state && !sensor2_state) {  // Product detected
+  // PRIORITAS 1: Check for product pickup (jika ada ARM di center)
+  if (!sensor1_state && !sensor2_state && !sensor3_state && arm_in_center != 0) {
     handleProductPickupStateMachine();
-    return;
+    return;  // Exit setelah handle pickup
   }
 
-  // PRIORITAS 2: Handle special commands
+
+  // PRIORITAS 2: Handle special commands yang pending (tidak perlu sensor3 HIGH)
   bool hasSpecialCommand = (arm1_sm.need_special_command && arm1_sm.state == ARM_IDLE) || (arm2_sm.need_special_command && arm2_sm.state == ARM_IDLE);
 
   if (hasSpecialCommand) {
     sendArmToCenterSmartStateMachine();
-    return;
+    return;  // Exit setelah handle special command
   }
 
-  // PRIORITAS 3: Send ARMs needing HOME commands
-  bool arm1_needs_home = (arm1_sm.state == ARM_IDLE && !arm1_sm.is_busy && arm1_sm.current_pos < arm1_sm.total_commands && !arm1_near_center);
-  bool arm2_needs_home = (arm2_sm.state == ARM_IDLE && !arm2_sm.is_busy && arm2_sm.current_pos < arm2_sm.total_commands && !arm2_near_center);
 
-  if (arm1_needs_home || arm2_needs_home) {
-    sendArmToCenterSmartStateMachine();
-    return;
-  }
+  // ===== TAMBAHAN: PRIORITAS 2.5 - ARM yang baru selesai special command =====
+  // Cek ARM yang baru selesai special command dan perlu HOME berikutnya
+  if (arm_in_center == 0) {
+    bool arm1_needs_home = (arm1_sm.state == ARM_IDLE && !arm1_sm.is_busy && arm1_sm.current_pos < arm1_sm.total_commands);
+    bool arm2_needs_home = (arm2_sm.state == ARM_IDLE && !arm2_sm.is_busy && arm2_sm.current_pos < arm2_sm.total_commands);
 
-  // PRIORITAS 4: Maintain ARM positions in center area
-  // Check if ARMs should stay in center for quick pickup
-  if (concurrent_mode) {
-    // Keep at least one ARM near center if work is not complete
-    bool work_remaining = (arm1_sm.current_pos < arm1_sm.total_commands) || (arm2_sm.current_pos < arm2_sm.total_commands);
-
-    if (work_remaining && !arm1_near_center && !arm2_near_center) {
-      // Send ARM to center proactively
-      if (sensor3_state) {  // Center area available
-        sendArmToCenterSmartStateMachine();
-      }
+    if (arm1_needs_home || arm2_needs_home) {
+      sendArmToCenterSmartStateMachine();
+      return;
     }
   }
 
-  // Handle sensor3 state transitions for coordination
+
+  /*
+  // Deteksi transisi sensor3: dari ada ARM (LOW) ke tidak ada ARM (HIGH)
   if (sensor3_prev_state == false && sensor3_state == true) {
-    Serial.println(F("Pickup area cleared - ARMs can reposition"));
-    active_pickup_arm = 0;  // Clear active pickup flag
+    Serial.println(F("ARM left center - delay"));
     delay(LEAVE_CENTER_DELAY);
   }
-  sensor3_prev_state = sensor3_state;
 
-  // FALLBACK: Original sequential logic
-  if (!concurrent_mode && sensor3_state && active_pickup_arm == 0) {
+
+  // Update previous state
+  sensor3_prev_state = sensor3_state;
+*/
+
+
+  // PRIORITAS 3: Send ARM to center untuk command normal (hanya jika sensor3 HIGH)
+  if (sensor3_state && arm_in_center == 0) {
     sendArmToCenterSmartStateMachine();
   }
 }
 
+
 // Reset parameters to default values
 void resetParametersToDefault() {
   // Default values (sesuai dengan yang sudah ada di struct)
-  params.x = 1290;
+  params.x = 1305;
   params.y1 = 130;
   params.y2 = 410;
   params.z = 1280;
   params.t = 80;  //before 104
   params.g = -10;
   params.gp = 90;
-  params.dp = 20;
+  params.dp = 40;
   params.za = 250;
   params.zb = 1320;
   params.T90 = 1600 + params.t;  //before 2080
   params.Z1 = 1325;
 
+
   params.H = 100;
   params.Ly = 11;
 
-  params.XO1 = 640;  //Koordinat X1,X3 ganjil
+  params.XO1 = 645;  //Koordinat X1,X3 ganjil
   params.YO1 = 310;  //Koordinat Y1,Y2 ganjil
-  params.XO2 = 245;  //Koordinat X2,X4 ganjil. Selisih dengan X1 ganjil adalah panjang produk
+  params.XO2 = 250;  //Koordinat X2,X4 ganjil. Selisih dengan X1 ganjil adalah panjang produk
   params.YO2 = params.YO1;
   params.XO3 = params.XO1;
   params.YO3 = 65;  //Koordinat Y3,Y4 ganjil. Selisih dengan Y1 ganjil adalah lebar produk
   params.XO4 = params.XO2;
   params.YO4 = params.YO3;
-  params.XO5 = 780;  //Koordinat X5 ganjil
+  params.XO5 = 785;  //Koordinat X5 ganjil
   params.YO5 = 735;  //Koordinat Y5,Y6,Y7,Y8 ganjil
-  params.XO6 = 540;  //Koordinat X6 ganjil
+  params.XO6 = 545;  //Koordinat X6 ganjil
   params.YO6 = params.YO5;
-  params.XO7 = 240;  //Koordinat X7 ganjil
+  params.XO7 = 245;  //Koordinat X7 ganjil
   params.YO7 = params.YO5;
-  params.XO8 = 1;  //Koordinat X8 ganjil
+  params.XO8 = 5;  //Koordinat X8 ganjil
   params.YO8 = params.YO5;
   params.XE1 = params.XO1;  //Koordinat X1,X3 genap adalah sama dengan koordinat X1,X3 ganjil
   params.YE1 = 980;         //Koordinat Y1,Y2 genap
@@ -1120,7 +1064,7 @@ void resetParametersToDefault() {
   params.tL = 0;
   params.gL = 0;
 
-  params.xR = -10;
+  params.xR = -20;
   params.yR = 0;
   params.zR = 0;
   params.tR = -30;
@@ -1138,6 +1082,7 @@ void resetParametersToDefault() {
 
   Serial.println(F("Parameters reset to default values"));
 }
+
 
 void setup() {
   Serial.begin(9600);
@@ -1159,6 +1104,7 @@ void setup() {
   pinMode(ARM2_DIP_2, INPUT_PULLUP);
   pinMode(ARM2_DIP_4, INPUT_PULLUP);
   pinMode(ARM2_DIP_8, INPUT_PULLUP);
+
 
   // Configure conveyor pin
   pinMode(CONVEYOR_PIN, OUTPUT);
@@ -1187,23 +1133,10 @@ void setup() {
   Serial.println(arm1_sm.total_commands);
   Serial.print(F("ARM2 Commands: "));
   Serial.println(arm2_sm.total_commands);
-
-  // Display concurrent mode status
-  Serial.println(F("======================================"));
-  if (concurrent_mode) {
-    Serial.println(F("CONCURRENT MODE: ENABLED"));
-    Serial.println(F("- Dual-ARM simultaneous operation"));
-    Serial.println(F("- Immediate pickup switching"));
-    Serial.println(F("- Enhanced throughput coordination"));
-  } else {
-    Serial.println(F("SEQUENTIAL MODE: Active"));
-    Serial.println(F("- Single ARM operation"));
-    Serial.println(F("- Traditional sequential pickup"));
-  }
-  Serial.println(F("======================================"));
   Serial.println(F("=== USB SERIAL COMMANDS READY ==="));
   Serial.println(F("Type 'HELP' for available commands"));
 }
+
 
 void loop() {
   unsigned long currentTime = millis();
@@ -1218,6 +1151,7 @@ void loop() {
   updateArmStateMachine(&arm1_sm);
   updateArmStateMachine(&arm2_sm);
 
+
   // Check command retry untuk kedua ARM
   checkCommandRetry(&arm1_sm);
   checkCommandRetry(&arm2_sm);
@@ -1225,11 +1159,14 @@ void loop() {
   // Handle system logic with state machine
   handleSystemLogicStateMachine();
 
+
   // Control conveyor
   controlConveyor();
 
-  delay(10);
+
+  //delay(10);
 }
+
 
 void readDipSwitchLayers() {
   // Read ARM1 layer position from DIP switch
@@ -1261,11 +1198,13 @@ void readDipSwitchLayers() {
   Serial.println(F(")"));
 }
 
+
 void printProgmemString(const char* str) {
   char buffer[60];
   strcpy_P(buffer, str);
   Serial.println(buffer);
 }
+
 
 // Generate command on-demand instead of storing all commands
 String generateCommand(byte armId, int commandIndex) {
@@ -1316,7 +1255,7 @@ String generateCommand(byte armId, int commandIndex) {
     int gladGp = (params.gp + gOffset) * MULTIPLIER;
     int gladZa = params.za * MULTIPLIER;
     int gladZb = (params.zb + zOffset) * MULTIPLIER;
-    int gladXa = (params.XO5 + xOffset) * MULTIPLIER;
+    int gladXa = (params.XO5 + xOffset - 0) * MULTIPLIER;
     int gladTa = (params.t + tOffset) * MULTIPLIER;
 
     sprintf(commandBuffer, "G(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d)",
@@ -1326,7 +1265,11 @@ String generateCommand(byte armId, int commandIndex) {
   return String(commandBuffer);
 }
 
+
 void readSensors() {
+  // Store previous sensor3 state BEFORE reading new state
+  bool prev_sensor3 = sensor3_state;
+
   // Sensor 1 and 2: HIGH when object detected (blocked)
   sensor1_state = digitalRead(SENSOR1_PIN);
   sensor2_state = digitalRead(SENSOR2_PIN);
@@ -1340,7 +1283,23 @@ void readSensors() {
 
   arm1_sm.is_busy = arm1_response;
   arm2_sm.is_busy = arm2_response;
+
+
+  if (prev_sensor3 == false && sensor3_state == true && arm_in_center != 0) {
+    Serial.print(F("ARM"));
+    Serial.print(arm_in_center);
+    Serial.println(F(" left center - delay"));
+
+    delay(LEAVE_CENTER_DELAY);
+    arm_in_center = 0;
+
+    Serial.println(F("arm_in_center reset to 0"));
+  }
+
+  // Update global previous state untuk keperluan lain
+  sensor3_prev_state = sensor3_state;
 }
+
 
 // Hitung checksum XOR
 uint8_t calculateXORChecksum(const char* data, int length) {
@@ -1351,6 +1310,7 @@ uint8_t calculateXORChecksum(const char* data, int length) {
   return checksum;
 }
 
+
 void sendRS485CommandWithRetry(ArmDataStateMachine* arm, String command) {
   arm->last_command_sent = command;
   arm->command_sent_time = millis();
@@ -1360,6 +1320,7 @@ void sendRS485CommandWithRetry(ArmDataStateMachine* arm, String command) {
   sendRS485Command(command);  // fungsi existing
 }
 
+
 void sendRS485Command(String command) {
   // Since RE/DE is connected to VCC, no need to control it
   uint8_t checksum = calculateXORChecksum(command.c_str(), command.length());
@@ -1368,6 +1329,7 @@ void sendRS485Command(String command) {
   rs485.flush();
   delay(50);  // Small delay to ensure transmission
 }
+
 
 void checkCommandRetry(ArmDataStateMachine* arm) {
   if (!arm->waiting_for_busy_response) return;
@@ -1408,6 +1370,7 @@ void checkCommandRetry(ArmDataStateMachine* arm) {
   }
 }
 
+
 // Control conveyor after GLAD command
 void controlConveyor() {
   unsigned long currentTime = millis();
@@ -1419,6 +1382,7 @@ void controlConveyor() {
     Serial.println(F("Conveyor turned ON"));
   }
 }
+
 
 // Turn OFF conveyor for specified duration
 void turnOffConveyor() {

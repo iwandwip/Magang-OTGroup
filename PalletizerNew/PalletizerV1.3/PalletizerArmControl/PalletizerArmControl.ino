@@ -39,7 +39,8 @@ const unsigned long BLINK_INTERVAL_MS = 200;
 
 // Motor Commands terpisah
 const char MOTOR_PARK_Z_COMMAND[] PROGMEM = "Z0";
-const char MOTOR_PARK_XYGT_COMMAND[] PROGMEM = "X0,Y0,T0,G0";
+const char MOTOR_PARK_XGT_COMMAND[] PROGMEM = "X0,T0,G0";
+const char MOTOR_PARK_Y_COMMAND[] PROGMEM = "Y0";
 
 
 // ==================== GLOBAL VARIABLES ====================
@@ -184,7 +185,7 @@ bool isARM2_device = false;
 // ==================== SETUP ====================
 void setup() {
   Serial.begin(SERIAL_BAUD_RATE);
-  Serial.println(F("ARM Controller Starting... (Concurrent Mode Ready)"));
+  Serial.println(F("Controller Starting... (Modified - Receive Only)"));
 
   initializePins();
 
@@ -377,15 +378,27 @@ void updateParkSequence() {
   switch (parkSequenceStep) {
     case 1:
       // Step 1: Z0 sudah dikirim di enterZeroingState()
-      // Tunggu 2 detik
+      // Tunggu delay
       if (millis() - parkSequenceStartTime >= PARK_SEQUENCE_DELAY_MS) {
         parkSequenceStep = 2;
-        sendMotorCommandPGM(MOTOR_PARK_XYGT_COMMAND);
-        Serial.println(F("PARK Step 2: Sending X0,Y0,T0,G0"));
+        parkSequenceStartTime = millis();  // Reset timer untuk step berikutnya
+        sendMotorCommandPGM(MOTOR_PARK_XGT_COMMAND);
+        Serial.println(F("PARK Step 2: Sending X0,T0,G0"));
       }
       break;
 
+
     case 2:
+      // Tunggu delay setelah X0,T0,G0
+      if (millis() - parkSequenceStartTime >= PARK_SEQUENCE_DELAY_MS) {
+        parkSequenceStep = 3;
+        parkSequenceStartTime = millis();  // Reset timer untuk step berikutnya
+        sendMotorCommandPGM(MOTOR_PARK_Y_COMMAND);
+        Serial.println(F("PARK Step 3: Sending Y0"));
+      }
+      break;
+
+    case 3:
       // Sequence selesai
       isParkSequenceActive = false;
       parkSequenceStep = 0;
@@ -452,6 +465,12 @@ void processSerialCommands() {
     return;
   }
 
+  bool armBusy = !isMotorReady();
+  if (armBusy) {
+    return;
+  }
+
+
   if (rs485Serial.available()) {
     while (rs485Serial.available() && commandIndex < sizeof(commandBuffer) - 1) {
       char receivedChar = rs485Serial.read();
@@ -489,8 +508,8 @@ void processCommand(const char* command) {
   Serial.println(cleanCommand);
 
   // Check if command is for ARM2
-  const char* devicePrefix = isARM2_device ? "ARMR" : "ARML";
-  if (strncmp(command, devicePrefix, 4) == 0) {
+  const char* devicePrefix = isARM2_device ? "R" : "L";
+  if (strncmp(command, devicePrefix, 1) == 0) {
     // Look for command separator
     const char* separator = strchr(command, '#');
     if (separator != NULL) {
@@ -505,27 +524,25 @@ void executeCommand(const char* action) {
   Serial.print(F("Executing action: "));
   Serial.println(action);
 
-  if (strncmp_P(action, PSTR("PARK"), 4) == 0) {
+  if (strncmp_P(action, PSTR("P"), 1) == 0) {
     // PARK command: go directly to ZEROING state
     Serial.println(F("PARK command received - entering ZEROING state"));
 
     isCalibrationMode = false;  // Reset flag untuk PARK
     enterZeroingState();
 
-  } else if (strncmp_P(action, PSTR("CALI"), 4) == 0) {
+  } else if (strncmp_P(action, PSTR("C"), 1) == 0) {
     // CAL command: masuk ke ZEROING state, tapi akan ke READY setelah selesai
     Serial.println(F("CAL command received - entering ZEROING state"));
 
     isCalibrationMode = true;  // Set flag CAL
     enterZeroingState();
 
-  } else if (strncmp_P(action, PSTR("HOME"), 4) == 0) {
+  } else if (strncmp_P(action, PSTR("H"), 1) == 0) {
     // HOME command: READY -> RUNNING transition
     if (currentState == STATE_READY) {
       if (parseHomeCommand(action)) {
-        Serial.print(F("ARM"));
-        Serial.print(isARM2_device ? "2" : "1");
-        Serial.println(F(" HOME command parsed - moving to center area"));
+        Serial.println(F("HOME command parsed successfully - keeping command active pin HIGH"));
         startHomeSequence();
       } else {
         digitalWrite(COMMAND_ACTIVE_PIN, HIGH);  // Turn off on error
@@ -535,7 +552,7 @@ void executeCommand(const char* action) {
       digitalWrite(COMMAND_ACTIVE_PIN, HIGH);  // Turn off on error
     }
 
-  } else if (strncmp_P(action, PSTR("GLAD"), 4) == 0) {
+  } else if (strncmp_P(action, PSTR("G"), 1) == 0) {
     // GLAD command: can be executed in RUNNING state (RUNNING -> READY transition)
     if (currentState == STATE_RUNNING) {
       if (parseGladCommand(action)) {
@@ -560,41 +577,39 @@ void executeCommand(const char* action) {
 
 
 void sendMotorCommand(const char* command) {
-  // Pastikan ada jeda minimum antara command
   unsigned long timeSinceLastCommand = millis() - lastCommandSentTime;
   if (timeSinceLastCommand < MIN_COMMAND_INTERVAL_MS) {
     delay(MIN_COMMAND_INTERVAL_MS - timeSinceLastCommand);
   }
 
-
   uint8_t checksum = calculateXORChecksum(command, strlen(command));
-
   digitalWrite(COMMAND_ACTIVE_PIN, HIGH);
-  Serial.print(F("Sending motor command: "));
-  Serial.println(command);
-
-
-  // PERBAIKAN: Kirim dalam satu baris dengan format COMMAND*CHECKSUM
-  motorSerial.print(command);
-  motorSerial.print("*");
-  motorSerial.print(checksum, HEX);
-  motorSerial.println();  // Akhiri dengan newline
-
 
   for (int attempt = 1; attempt <= MAX_MOTOR_RETRIES; attempt++) {
+    Serial.print(F("Sending motor command (attempt "));
+    Serial.print(attempt);
+    Serial.print("): ");
+    Serial.println(command);
+
+    // 🔧 PERBAIKAN: Kirim perintah pada setiap attempt
+    motorSerial.print(command);
+    motorSerial.print("*");
+    motorSerial.print(checksum, HEX);
+    motorSerial.println();
+
     if (waitForMotorResponse(200)) {
       motorRetryCount = 0;
-      lastCommandSentTime = millis();  // Update waktu pengiriman
-      return;                          // Keluar dari fungsi, berhasil
+      lastCommandSentTime = millis();
+      return;  // Berhasil
+    }
+
+    Serial.print("Retry attempt: ");
+    Serial.println(attempt);
+
+    if (attempt == MAX_MOTOR_RETRIES) {
+      handleMotorTimeout();
     } else {
-      Serial.print("Retry attempt: ");
-      Serial.println(attempt);
-
-      if (attempt == MAX_MOTOR_RETRIES) {
-        handleMotorTimeout();  // Masuk error state
-      }
-
-      delay(50);  // Delay sebelum retry
+      delay(50);  // Delay sebelum retry berikutnya
     }
   }
 }
@@ -865,7 +880,7 @@ bool parseGladCommand(const char* action) {
 
   // PERBAIKAN: Cek 10 parameter (sesuai dengan jumlah %d di sscanf)
   if (parsed != 10) {
-    Serial.print(F("ERROR: GLAD command requires 10 parameters, got "));
+    Serial.print(F("ERROR: GLAD command requires 12 parameters, got "));
     Serial.println(parsed);
     return false;
   }
@@ -1102,13 +1117,19 @@ void executeGladStep() {
 
 
     case 8:
-      // Eigth command: Xa,Ya,Ta,Ga
-      {
-        sendSafeMotorCommand(PSTR("X%d,T%d"), gladCmd.xa, gladCmd.ta);
-        gladCmd.step = 9;
-        Serial.println(F("GLAD Step 8: Standby XYTG position before Homing "));
-      }
+      // Eigth command: Ta
+      sendSafeMotorCommand(PSTR("X%d,T%d"), gladCmd.xa, gladCmd.ta);
+      gladCmd.step = 9;
+      Serial.println(F("GLAD Step 8: Standby XT position before Homing "));
       break;
+
+
+      //    case 9:
+      //      // Ninth command: Xa
+      //      sendSafeMotorCommand(PSTR("X%d"), gladCmd.xa);
+      //      gladCmd.step = 10;
+      //      Serial.println(F("GLAD Step 9: Standby X position before Homing "));
+      //      break;
 
 
     case 9:

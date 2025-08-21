@@ -367,13 +367,14 @@ int calculateYE_R(int task) {
   }
 }
 
-// Function to calculate TO values based on rules
+// Function to calculate TO values based on rules - FIXED: Add return statement
 int calculateTO_L(int task) {
   if (task >= 0 && task <= 3) {
     return params.T90_L;  // TO1 to TO4
   } else if (task >= 4 && task <= 7) {
     return params.t_L;  // TO5 to TO8
   }
+  return params.t_L;  // FIXED: Default return value
 }
 
 int calculateTO_R(int task) {
@@ -382,15 +383,17 @@ int calculateTO_R(int task) {
   } else if (task >= 4 && task <= 7) {
     return params.t_R;  // TO5 to TO8
   }
+  return params.t_R;  // FIXED: Default return value
 }
 
-// Function to calculate TE values based on rules
+// Function to calculate TE values based on rules - FIXED: Add return statement
 int calculateTE_L(int task) {
   if (task >= 0 && task <= 3) {
     return params.T90_L;  // TE1 to TE4
   } else if (task >= 4 && task <= 7) {
     return params.t_L;  // TE5 to TE8
   }
+  return params.t_L;  // FIXED: Default return value
 }
 
 int calculateTE_R(int task) {
@@ -399,6 +402,7 @@ int calculateTE_R(int task) {
   } else if (task >= 4 && task <= 7) {
     return params.t_R;  // TE5 to TE8
   }
+  return params.t_R;  // FIXED: Default return value
 }
 
 // Calculate checksum for parameters
@@ -996,101 +1000,103 @@ void handleSystemLogicStateMachine() {
 
 // Reset parameters to default values
 void resetParametersToDefault() {
-  // Default values (sesuai dengan yang sudah ada di struct)
+  // FIXED: Default values matching V1 exactly with separate parameters
   params.H = 100;
   params.Ly = 11;
-  //ARM HOME LEFT
-  params.x_L = 1305;
-  params.y1_L = 130;
-  params.y2_L = 410;
-  params.z_L = 1280;
-  params.t_L = 80;
-  params.g_L = -10;
-  params.gp_L = 90;
-  params.dp_L = 1;
-  params.za_L = 250;
-  params.zb_L = 1315;
-  params.T90_L = 1600 + params.t_L;
-  params.Z1_L = 1355;
-  //ARM HOME RIGHT
-  params.gp_R = 90;
-  params.dp_R = 5;
-  params.za_R = 280;
-  params.zb_R = 1345;
-  params.T90_R = 1600 + params.t_R;
-  params.Z1_R = 1385;
-  params.x_R = 1285;
-  params.y1_R = 130;
-  params.y2_R = 410;
-  params.z_R = 1310;
-  params.t_R = 50;
-  params.g_R = -5;
-  //ARM GLAD LEFT
-  params.XO1_L = 645;  //Koordinat X1,X3 ganjil
-  params.YO1_L = 310;  //Koordinat Y1,Y2 ganjil
-  params.XO2_L = 250;  //Koordinat X2,X4 ganjil. Selisih dengan X1 ganjil adalah panjang produk
-  params.YO2_L = params.YO1_L;
-  params.XO3_L = params.XO1_L;
-  params.YO3_L = 65;  //Koordinat Y3,Y4 ganjil. Selisih dengan Y1 ganjil adalah lebar produk
-  params.XO4_L = params.XO2_L;
-  params.YO4_L = params.YO3_L;
-  params.XO5_L = 815;  //Koordinat X5 ganjil
-  params.YO5_L = 775;  //Koordinat Y5,Y6,Y7,Y8 ganjil
-  params.XO6_L = 575;  //Koordinat X6 ganjil
-  params.YO6_L = params.YO5_L;
-  params.XO7_L = 275;  //Koordinat X7 ganjil
-  params.YO7_L = params.YO5_L;
-  params.XO8_L = 35;  //Koordinat X8 ganjil
-  params.YO8_L = params.YO5_L;
-  params.XE1_L = params.XO1_L;  //Koordinat X1,X3 genap adalah sama dengan koordinat X1,X3 ganjil
-  params.YE1_L = 980;           //Koordinat Y1,Y2 genap
-  params.XE2_L = params.XO2_L;  //Koordinat X2,X4 genap adalah sama dengan koordinat X2,X4 ganjil
-  params.YE2_L = params.YE1_L;
-  params.XE3_L = params.XO1_L;
-  params.YE3_L = 735;  //Koordinat Y3,Y4 genap
-  params.XE4_L = params.XO2_L;
-  params.YE4_L = params.YE3_L;
-  params.XE5_L = params.XO5_L;  //Koordinat X5,X6,X7,X8 genap adalah sama dengan koordinat X5,X6,X7,X8 ganjil
-  params.YE5_L = 290;           //Koordinat Y5,Y6,Y7,Y8 genap
-  params.XE6_L = params.XO6_L;
-  params.YE6_L = params.YE5_L;
-  params.XE7_L = params.XO7_L;
-  params.YE7_L = params.YE5_L;
-  params.XE8_L = params.XO8_L;
-  params.YE8_L = params.YE5_L;
-  //ARM GLAD RIGHT
-  params.XO1_R = 625;  //Koordinat X1,X3 ganjil
-  params.YO1_R = 310;  //Koordinat Y1,Y2 ganjil
-  params.XO2_R = 230;  //Koordinat X2,X4 ganjil. Selisih dengan X1 ganjil adalah panjang produk
-  params.YO2_R = params.YO1_R;
-  params.XO3_R = params.XO1_R;
-  params.YO3_R = 65;  //Koordinat Y3,Y4 ganjil. Selisih dengan Y1 ganjil adalah lebar produk
-  params.XO4_R = params.XO2_R;
-  params.YO4_R = params.YO3_R;
-  params.XO5_R = 795;  //Koordinat X5 ganjil
-  params.YO5_R = 775;  //Koordinat Y5,Y6,Y7,Y8 ganjil
-  params.XO6_R = 555;  //Koordinat X6 ganjil
-  params.YO6_R = params.YO5_R;
-  params.XO7_R = 255;  //Koordinat X7 ganjil
-  params.YO7_R = params.YO5_R;
-  params.XO8_R = 15;  //Koordinat X8 ganjil
-  params.YO8_R = params.YO5_R;
-  params.XE1_R = params.XO1_R;  //Koordinat X1,X3 genap adalah sama dengan koordinat X1,X3 ganjil
-  params.YE1_R = 980;           //Koordinat Y1,Y2 genap
-  params.XE2_R = params.XO2_R;  //Koordinat X2,X4 genap adalah sama dengan koordinat X2,X4 ganjil
-  params.YE2_R = params.YE1_R;
-  params.XE3_R = params.XO1_R;
-  params.YE3_R = 735;  //Koordinat Y3,Y4 genap
-  params.XE4_R = params.XO2_R;
-  params.YE4_R = params.YE3_R;
-  params.XE5_R = params.XO5_R;  //Koordinat X5,X6,X7,X8 genap adalah sama dengan koordinat X5,X6,X7,X8 ganjil
-  params.YE5_R = 290;           //Koordinat Y5,Y6,Y7,Y8 genap
-  params.XE6_R = params.XO6_R;
-  params.YE6_R = params.YE5_R;
-  params.XE7_R = params.XO7_R;
-  params.YE7_R = params.YE5_R;
-  params.XE8_R = params.XO8_R;
-  params.YE8_R = params.YE5_R;
+  
+  // ARM LEFT (base dari V1: x=1305, offset xL=0)
+  params.x_L = 1305;    // V1: x + xL = 1305 + 0 = 1305
+  params.y1_L = 130;    // V1: y1 + yL = 130 + 0 = 130  
+  params.y2_L = 410;    // V1: y2 + yL = 410 + 0 = 410
+  params.z_L = 1280;    // V1: z + zL = 1280 + 0 = 1280
+  params.t_L = 80;      // V1: t + tL = 80 + 0 = 80
+  params.g_L = -10;     // V1: g + gL = -10 + 0 = -10
+  params.gp_L = 90;     // V1: gp + gL = 90 + 0 = 90
+  params.dp_L = 40;     // FIXED: V1: dp + gL = 40 + 0 = 40
+  params.za_L = 250;    // V1: za (no offset) = 250
+  params.zb_L = 1320;   // FIXED: V1: zb + zL = 1320 + 0 = 1320
+  params.T90_L = 1680;  // FIXED: V1: T90 + tL = (1600 + 80) + 0 = 1680
+  params.Z1_L = 1325;   // FIXED: V1: Z1 + zL = 1325 + 0 = 1325
+  
+  // ARM RIGHT (base dari V1: x=1305, offset xR=-20)
+  params.x_R = 1285;    // V1: x + xR = 1305 + (-20) = 1285
+  params.y1_R = 130;    // V1: y1 + yR = 130 + 0 = 130
+  params.y2_R = 410;    // V1: y2 + yR = 410 + 0 = 410
+  params.z_R = 1280;    // V1: z + zR = 1280 + 0 = 1280
+  params.t_R = 50;      // FIXED: V1: t + tR = 80 + (-30) = 50
+  params.g_R = -5;      // V1: g + gR = -10 + 5 = -5
+  params.gp_R = 95;     // FIXED: V1: gp + gR = 90 + 5 = 95
+  params.dp_R = 45;     // FIXED: V1: dp + gR = 40 + 5 = 45
+  params.za_R = 250;    // V1: za (no offset) = 250
+  params.zb_R = 1320;   // V1: zb + zR = 1320 + 0 = 1320
+  params.T90_R = 1650;  // FIXED: V1: T90 + tR = (1600 + 80) + (-30) = 1650
+  params.Z1_R = 1325;   // V1: Z1 + zR = 1325 + 0 = 1325
+  // ARM LEFT positions (base dari V1 + xL=0, yL=0)
+  params.XO1_L = 645;  // V1: XO1 + xL = 645 + 0 = 645
+  params.YO1_L = 310;  // V1: YO1 + yL = 310 + 0 = 310
+  params.XO2_L = 250;  // V1: XO2 + xL = 250 + 0 = 250
+  params.YO2_L = 310;  // V1: YO2 + yL = 310 + 0 = 310
+  params.XO3_L = 645;  // V1: XO3 + xL = 645 + 0 = 645
+  params.YO3_L = 65;   // V1: YO3 + yL = 65 + 0 = 65
+  params.XO4_L = 250;  // V1: XO4 + xL = 250 + 0 = 250
+  params.YO4_L = 65;   // V1: YO4 + yL = 65 + 0 = 65
+  params.XO5_L = 785;  // FIXED: V1: XO5 + xL = 785 + 0 = 785
+  params.YO5_L = 735;  // FIXED: V1: YO5 + yL = 735 + 0 = 735
+  params.XO6_L = 545;  // FIXED: V1: XO6 + xL = 545 + 0 = 545
+  params.YO6_L = 735;  // V1: YO6 + yL = 735 + 0 = 735
+  params.XO7_L = 245;  // FIXED: V1: XO7 + xL = 245 + 0 = 245
+  params.YO7_L = 735;  // V1: YO7 + yL = 735 + 0 = 735
+  params.XO8_L = 5;    // FIXED: V1: XO8 + xL = 5 + 0 = 5
+  params.YO8_L = 735;  // V1: YO8 + yL = 735 + 0 = 735
+  params.XE1_L = 645;  // V1: XE1 + xL = 645 + 0 = 645
+  params.YE1_L = 980;  // V1: YE1 + yL = 980 + 0 = 980
+  params.XE2_L = 250;  // V1: XE2 + xL = 250 + 0 = 250
+  params.YE2_L = 980;  // V1: YE2 + yL = 980 + 0 = 980
+  params.XE3_L = 645;  // V1: XE3 + xL = 645 + 0 = 645
+  params.YE3_L = 735;  // V1: YE3 + yL = 735 + 0 = 735
+  params.XE4_L = 250;  // V1: XE4 + xL = 250 + 0 = 250
+  params.YE4_L = 735;  // V1: YE4 + yL = 735 + 0 = 735
+  params.XE5_L = 785;  // V1: XE5 + xL = 785 + 0 = 785
+  params.YE5_L = 250;  // FIXED: V1: YE5 + yL = 250 + 0 = 250
+  params.XE6_L = 545;  // V1: XE6 + xL = 545 + 0 = 545
+  params.YE6_L = 250;  // V1: YE6 + yL = 250 + 0 = 250
+  params.XE7_L = 245;  // V1: XE7 + xL = 245 + 0 = 245
+  params.YE7_L = 250;  // V1: YE7 + yL = 250 + 0 = 250
+  params.XE8_L = 5;    // V1: XE8 + xL = 5 + 0 = 5
+  params.YE8_L = 250;  // V1: YE8 + yL = 250 + 0 = 250
+  // ARM RIGHT positions (base dari V1 + xR=-20, yR=0)
+  params.XO1_R = 625;  // V1: XO1 + xR = 645 + (-20) = 625
+  params.YO1_R = 310;  // V1: YO1 + yR = 310 + 0 = 310
+  params.XO2_R = 230;  // V1: XO2 + xR = 250 + (-20) = 230
+  params.YO2_R = 310;  // V1: YO2 + yR = 310 + 0 = 310
+  params.XO3_R = 625;  // V1: XO3 + xR = 645 + (-20) = 625
+  params.YO3_R = 65;   // V1: YO3 + yR = 65 + 0 = 65
+  params.XO4_R = 230;  // V1: XO4 + xR = 250 + (-20) = 230
+  params.YO4_R = 65;   // V1: YO4 + yR = 65 + 0 = 65
+  params.XO5_R = 765;  // FIXED: V1: XO5 + xR = 785 + (-20) = 765
+  params.YO5_R = 735;  // V1: YO5 + yR = 735 + 0 = 735
+  params.XO6_R = 525;  // FIXED: V1: XO6 + xR = 545 + (-20) = 525
+  params.YO6_R = 735;  // V1: YO6 + yR = 735 + 0 = 735
+  params.XO7_R = 225;  // FIXED: V1: XO7 + xR = 245 + (-20) = 225
+  params.YO7_R = 735;  // V1: YO7 + yR = 735 + 0 = 735
+  params.XO8_R = -15;  // FIXED: V1: XO8 + xR = 5 + (-20) = -15
+  params.YO8_R = 735;  // V1: YO8 + yR = 735 + 0 = 735
+  params.XE1_R = 625;  // V1: XE1 + xR = 645 + (-20) = 625
+  params.YE1_R = 980;  // V1: YE1 + yR = 980 + 0 = 980
+  params.XE2_R = 230;  // V1: XE2 + xR = 250 + (-20) = 230
+  params.YE2_R = 980;  // V1: YE2 + yR = 980 + 0 = 980
+  params.XE3_R = 625;  // V1: XE3 + xR = 645 + (-20) = 625
+  params.YE3_R = 735;  // V1: YE3 + yR = 735 + 0 = 735
+  params.XE4_R = 230;  // V1: XE4 + xR = 250 + (-20) = 230
+  params.YE4_R = 735;  // V1: YE4 + yR = 735 + 0 = 735
+  params.XE5_R = 765;  // V1: XE5 + xR = 785 + (-20) = 765
+  params.YE5_R = 250;  // V1: YE5 + yR = 250 + 0 = 250
+  params.XE6_R = 525;  // V1: XE6 + xR = 545 + (-20) = 525
+  params.YE6_R = 250;  // V1: YE6 + yR = 250 + 0 = 250
+  params.XE7_R = 225;  // V1: XE7 + xR = 245 + (-20) = 225
+  params.YE7_R = 250;  // V1: YE7 + yR = 250 + 0 = 250
+  params.XE8_R = -15;  // V1: XE8 + xR = 5 + (-20) = -15
+  params.YE8_R = 250;  // V1: YE8 + yR = 250 + 0 = 250
 
   // Y pattern
   params.y_pattern[0] = 2;
@@ -1232,30 +1238,30 @@ String generateCommand(byte armId, int commandIndex) {
   bool isOdd = (layer % 2 == 0);
 
   if (isHomeCommand) {
-    // Generate HOME command
+    // Generate HOME command - FIXED: Declare all variables properly
     int homeX, homeY, homeZ, homeT, homeG;
 
     if (armId == 1) {  // ARM LEFT
       homeX = params.x_L * MULTIPLIER;
       int yParam = (params.y_pattern[task] == 1) ? params.y1_L : params.y2_L;
-      int homeY = yParam * MULTIPLIER;
-      int homeZ = params.z_L * MULTIPLIER;
-      int homeT = params.t_L * MULTIPLIER;
-      int homeG = params.g_L * MULTIPLIER;
-    } else {  //ARM RIGHT
+      homeY = yParam * MULTIPLIER;  // FIXED: Remove 'int'
+      homeZ = params.z_L * MULTIPLIER;  // FIXED: Remove 'int'
+      homeT = params.t_L * MULTIPLIER;  // FIXED: Remove 'int'
+      homeG = params.g_L * MULTIPLIER;  // FIXED: Remove 'int'
+    } else {  // ARM RIGHT
       homeX = params.x_R * MULTIPLIER;
       int yParam = (params.y_pattern[task] == 1) ? params.y1_R : params.y2_R;
-      int homeY = yParam * MULTIPLIER;
-      int homeZ = params.z_R * MULTIPLIER;
-      int homeT = params.t_R * MULTIPLIER;
-      int homeG = params.g_R * MULTIPLIER;
+      homeY = yParam * MULTIPLIER;  // FIXED: Remove 'int'
+      homeZ = params.z_R * MULTIPLIER;  // FIXED: Remove 'int'
+      homeT = params.t_R * MULTIPLIER;  // FIXED: Remove 'int'
+      homeG = params.g_R * MULTIPLIER;  // FIXED: Remove 'int'
     }
     sprintf(commandBuffer, "H(%d,%d,%d,%d,%d)", homeX, homeY, homeZ, homeT, homeG);
   } else {
-    // Generate GLAD command
+    // Generate GLAD command - FIXED: Proper variable declaration
     int gladXn, gladYn, gladTn, gladZn, gladDp, gladGp, gladZa, gladZb, gladXa, gladTa;
 
-    if (armId == 1) {  //ARM LEFT
+    if (armId == 1) {  // ARM LEFT
       if (isOdd) {
         gladXn = calculateXO_L(task) * MULTIPLIER;
         gladYn = calculateYO_L(task) * MULTIPLIER;
@@ -1272,7 +1278,7 @@ String generateCommand(byte armId, int commandIndex) {
       gladZb = params.zb_L * MULTIPLIER;
       gladXa = params.XO5_L * MULTIPLIER;
       gladTa = params.t_L * MULTIPLIER;
-    } else {  //ARM RIGHT
+    } else {  // ARM RIGHT
       if (isOdd) {
         gladXn = calculateXO_R(task) * MULTIPLIER;
         gladYn = calculateYO_R(task) * MULTIPLIER;

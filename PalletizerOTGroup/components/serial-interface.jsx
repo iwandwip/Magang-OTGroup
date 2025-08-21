@@ -23,13 +23,14 @@ const mockPorts = [
 ];
 
 const arduinoCommands = [
-  { cmd: "GET_PARAMS", desc: "Get all parameters from Arduino" },
-  { cmd: "SAVE_PARAMS", desc: "Save parameters to EEPROM" },
-  { cmd: "LOAD_PARAMS", desc: "Load parameters from EEPROM" },
-  { cmd: "RESET_PARAMS", desc: "Reset to default parameters" },
-  { cmd: "GET_STATUS", desc: "Get system status" },
-  { cmd: "GET_SENSORS", desc: "Get sensor readings" },
-  { cmd: "REBOOT", desc: "Restart Arduino" }
+  { cmd: "L#H(3870,390,3840,240,-30)", desc: "HOME command for ARM LEFT" },
+  { cmd: "R#H(3850,390,3840,240,-25)", desc: "HOME command for ARM RIGHT" },
+  { cmd: "L#G(1620,2205,3975,240,60,270,750,3960,2340,240)", desc: "GLAD command for ARM LEFT" },
+  { cmd: "R#G(1600,2205,3975,240,65,275,750,3960,2340,240)", desc: "GLAD command for ARM RIGHT" },
+  { cmd: "L#P", desc: "PARK command for ARM LEFT" },
+  { cmd: "R#P", desc: "PARK command for ARM RIGHT" },
+  { cmd: "L#C", desc: "CALIBRATION command for ARM LEFT" },
+  { cmd: "R#C", desc: "CALIBRATION command for ARM RIGHT" }
 ];
 
 export function SerialInterface({ connectionStatus, setConnectionStatus }) {
@@ -115,13 +116,14 @@ export function SerialInterface({ connectionStatus, setConnectionStatus }) {
     // Simulate Arduino response
     setTimeout(() => {
       const mockResponses = {
-        "GET_PARAMS": "Parameters loaded: 98 total (H=100, Ly=11, x_L=1305...)",
-        "GET_STATUS": "Status: ARM1=IDLE, ARM2=IDLE, S1=HIGH, S2=HIGH, S3=HIGH",
-        "GET_SENSORS": "Sensors: S1=1, S2=1, S3=1, ARM1_PIN=0, ARM2_PIN=0",
-        "SAVE_PARAMS": "Parameters saved to EEPROM successfully",
-        "LOAD_PARAMS": "Parameters loaded from EEPROM",
-        "RESET_PARAMS": "Parameters reset to default values",
-        "REBOOT": "System rebooting..."
+        "L#H(3870,390,3840,240,-30)": "HOME command received - entering ZEROING state",
+        "R#H(3850,390,3840,240,-25)": "HOME command received - entering ZEROING state", 
+        "L#G(1620,2205,3975,240,60,270,750,3960,2340,240)": "GLAD command parsed successfully",
+        "R#G(1600,2205,3975,240,65,275,750,3960,2340,240)": "GLAD command parsed successfully",
+        "L#P": "PARK command received - entering ZEROING state",
+        "R#P": "PARK command received - entering ZEROING state",
+        "L#C": "CAL command received - entering ZEROING state", 
+        "R#C": "CAL command received - entering ZEROING state"
       };
       
       const response = mockResponses[command] || `Response to: ${command}`;
@@ -304,9 +306,19 @@ export function SerialInterface({ connectionStatus, setConnectionStatus }) {
         <CardHeader>
           <CardTitle>Arduino Commands</CardTitle>
           <CardDescription>
-            Send commands to the Arduino controller
+            Send RS485 commands to ARM Control modules (PalletizerArmControl.ino)
           </CardDescription>
         </CardHeader>
+        <CardContent>
+          <Alert className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>Communication Architecture:</strong> USB connects to ARM Control modules, not Central State Machine. 
+              Commands use format: <code className="bg-muted px-1 rounded">ARM_PREFIX#COMMAND</code> where PREFIX is L (LEFT) or R (RIGHT).
+              Parameter management must be done via firmware modification.
+            </AlertDescription>
+          </Alert>
+        </CardContent>
         <CardContent className="space-y-4">
           {/* Quick Commands */}
           <div>

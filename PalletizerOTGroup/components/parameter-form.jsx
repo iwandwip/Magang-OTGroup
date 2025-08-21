@@ -186,9 +186,23 @@ export function ParameterForm() {
   const onSubmit = async (data) => {
     setIsLoading(true);
     try {
-      // Simulate API call to Arduino
+      // Note: Direct parameter writing to Arduino requires firmware modification
+      // Current firmware doesn't implement USB parameter commands in Central State Machine
       await new Promise(resolve => setTimeout(resolve, 1000));
-      toast.success("Parameters saved successfully!");
+      toast.warning("Parameters exported locally. Firmware modification required for direct Arduino upload.");
+      
+      // Export parameters as JSON for manual firmware integration
+      const dataStr = JSON.stringify(data, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `palletizer_parameters_${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
       setHasChanges(false);
     } catch (error) {
       toast.error("Failed to save parameters");
@@ -237,6 +251,15 @@ export function ParameterForm() {
 
   return (
     <div className="space-y-6">
+      {/* Important Notice */}
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          <strong>Note:</strong> Current firmware (PalletizerCentralStateMachine.ino) does not implement USB parameter commands. 
+          Parameters are hardcoded in firmware. Use Export/Import for configuration management and manual firmware integration.
+        </AlertDescription>
+      </Alert>
+
       {/* Action Bar */}
       <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
         <div className="flex items-center space-x-2">
@@ -295,7 +318,7 @@ export function ParameterForm() {
             className="flex items-center space-x-1"
           >
             <Save className="w-4 h-4" />
-            <span>{isLoading ? "Saving..." : "Save to Arduino"}</span>
+            <span>{isLoading ? "Exporting..." : "Export Parameters"}</span>
           </Button>
         </div>
       </div>

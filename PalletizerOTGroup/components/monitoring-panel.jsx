@@ -49,11 +49,11 @@ export function MonitoringPanel({ armStatus, setArmStatus }) {
   });
 
   const [commandHistory, setCommandHistory] = useState([
-    { time: "14:30:15", command: "L#H(3870,390,3840,240,-30)", status: "success", arm: "ARM1" },
-    { time: "14:30:18", command: "L#G(1620,2205,3975,240,60,270,750,3960,2340,240)", status: "success", arm: "ARM1" },
-    { time: "14:30:25", command: "R#H(3850,390,3840,240,-25)", status: "success", arm: "ARM2" },
-    { time: "14:30:28", command: "R#G(1600,2205,3975,240,65,275,750,3960,2340,240)", status: "success", arm: "ARM2" },
-    { time: "14:30:35", command: "L#C", status: "success", arm: "ARM1" },
+    { time: "14:30:15", command: "L#H(3915,390,3840,240,-30)*7F", status: "success", arm: "ARM1" },
+    { time: "14:30:18", command: "L#G(1935,2205,3975,240,120,270,750,3960,2355,240)*A3", status: "success", arm: "ARM1" },
+    { time: "14:30:25", command: "R#H(3855,390,3840,150,-15)*9A", status: "success", arm: "ARM2" },
+    { time: "14:30:28", command: "R#G(1875,2205,3975,150,135,285,750,3960,2295,150)*B7", status: "success", arm: "ARM2" },
+    { time: "14:30:35", command: "L#C*4B", status: "success", arm: "ARM1" },
   ]);
 
   // Simulate real-time updates

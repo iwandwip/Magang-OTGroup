@@ -5,7 +5,7 @@
 **Project Name:** Palletizer Parameter Configuration Tool  
 **Type:** Desktop Application (Web-based with Electron)  
 **Target Platform:** Windows (Primary), Cross-platform ready  
-**Development Stack:** React + Vite + JavaScript + TailwindCSS + ShadCN + Electron  
+**Development Stack:** Next.js + JavaScript + TailwindCSS + ShadCN + Electron  
 
 ## 🎯 Project Goals
 
@@ -26,9 +26,8 @@
 ### Technology Stack
 ```
 Frontend:
-├── React 18 (JavaScript)
-├── Vite (Build tool)
-├── TailwindCSS (Styling)
+├── Next.js 15 (JavaScript/TypeScript)
+├── TailwindCSS 4 (Styling)
 ├── ShadCN (UI Components)
 └── Lucide React (Icons)
 
@@ -46,7 +45,7 @@ Arduino Integration:
 ### Application Architecture
 ```
 ┌─────────────────────────────────────────┐
-│           Frontend (React)              │
+│           Frontend (Next.js)            │
 │  ┌─────────────┐  ┌─────────────────┐   │
 │  │ Parameter   │  │ Serial Monitor  │   │
 │  │ Forms       │  │ Dashboard       │   │
@@ -82,75 +81,75 @@ palletizer-config-app/
 │   ├── 03_API_REFERENCE.md
 │   └── 04_USER_GUIDE.md
 │
-├── src/
-│   ├── components/
-│   │   ├── ui/                    # ShadCN components
-│   │   │   ├── button.jsx
-│   │   │   ├── input.jsx
-│   │   │   ├── card.jsx
-│   │   │   └── ...
-│   │   ├── forms/                 # Parameter forms
-│   │   │   ├── HomeParameterForm.jsx
-│   │   │   ├── GladParameterForm.jsx
-│   │   │   ├── PositionParameterForm.jsx
-│   │   │   └── GlobalParameterForm.jsx
-│   │   ├── dashboard/             # Monitoring components
-│   │   │   ├── SensorMonitor.jsx
-│   │   │   ├── ArmStatusPanel.jsx
-│   │   │   └── CommandHistory.jsx
-│   │   └── serial/                # Serial communication
-│   │       ├── SerialPortSelector.jsx
-│   │       ├── ConnectionStatus.jsx
-│   │       └── SerialMonitor.jsx
-│   │
-│   ├── lib/
-│   │   ├── serial.js              # Serial communication logic
-│   │   ├── arduino.js             # Arduino command builder
-│   │   ├── validation.js          # Parameter validation
-│   │   └── utils.js               # Utility functions
-│   │
-│   ├── data/
-│   │   ├── defaultParameters.js   # Default parameter values
-│   │   ├── parameterSchema.js     # Parameter definitions
-│   │   └── commandTemplates.js    # Arduino command templates
-│   │
-│   ├── hooks/
-│   │   ├── useSerial.js          # Serial communication hook
-│   │   ├── useParameters.js      # Parameter management hook
-│   │   └── useArduino.js         # Arduino integration hook
-│   │
-│   ├── pages/
-│   │   ├── Dashboard.jsx         # Main dashboard
-│   │   ├── Parameters.jsx        # Parameter configuration
-│   │   ├── Monitoring.jsx        # System monitoring
-│   │   └── Settings.jsx          # Application settings
-│   │
-│   ├── styles/
-│   │   ├── globals.css
-│   │   └── components.css
-│   │
-│   ├── App.jsx                   # Main application component
-│   └── main.jsx                  # React entry point
+├── app/                         # Next.js app directory
+│   ├── layout.tsx               # Root layout
+│   ├── page.tsx                 # Home page
+│   ├── dashboard/               # Dashboard routes
+│   │   └── page.tsx
+│   ├── parameters/              # Parameter configuration routes
+│   │   └── page.tsx
+│   ├── monitoring/              # System monitoring routes
+│   │   └── page.tsx
+│   └── settings/                # Application settings routes
+│       └── page.tsx
+│
+├── components/
+│   ├── ui/                      # ShadCN components
+│   │   ├── button.tsx
+│   │   ├── input.tsx
+│   │   ├── card.tsx
+│   │   └── ...
+│   ├── forms/                   # Parameter forms
+│   │   ├── HomeParameterForm.tsx
+│   │   ├── GladParameterForm.tsx
+│   │   ├── PositionParameterForm.tsx
+│   │   └── GlobalParameterForm.tsx
+│   ├── dashboard/               # Monitoring components
+│   │   ├── SensorMonitor.tsx
+│   │   ├── ArmStatusPanel.tsx
+│   │   └── CommandHistory.tsx
+│   └── serial/                  # Serial communication
+│       ├── SerialPortSelector.tsx
+│       ├── ConnectionStatus.tsx
+│       └── SerialMonitor.tsx
+│
+├── lib/
+│   ├── serial.ts                # Serial communication logic
+│   ├── arduino.ts               # Arduino command builder
+│   ├── validation.ts            # Parameter validation
+│   └── utils.ts                 # Utility functions
+│
+├── data/
+│   ├── defaultParameters.ts     # Default parameter values
+│   ├── parameterSchema.ts       # Parameter definitions
+│   └── commandTemplates.ts      # Arduino command templates
+│
+├── hooks/
+│   ├── useSerial.ts             # Serial communication hook
+│   ├── useParameters.ts         # Parameter management hook
+│   └── useArduino.ts            # Arduino integration hook
 │
 ├── electron/
-│   ├── main.js                   # Electron main process
-│   ├── preload.js               # Preload script
+│   ├── main.js                  # Electron main process
+│   ├── preload.js              # Preload script
 │   └── utils/
-│       ├── serialManager.js     # Serial port management
-│       └── fileManager.js       # File operations
+│       ├── serialManager.js    # Serial port management
+│       └── fileManager.js      # File operations
 │
 ├── public/
 │   ├── icons/                   # Application icons
 │   └── assets/                  # Static assets
 │
-├── arduino/
-│   ├── protocol/                # Communication protocol docs
-│   └── commands/                # Command reference
+├── firmware/                    # Arduino firmware (current location)
+│   ├── PalletizerCentralStateMachine/
+│   ├── PalletizerArmControl/
+│   └── PalletizerArmDriver/
 │
-├── build/                       # Build output
-├── dist/                        # Distribution files
+├── .next/                       # Next.js build output
+├── out/                         # Static export (for Electron)
+├── dist/                        # Electron distribution files
 ├── package.json
-├── vite.config.js
+├── next.config.ts
 ├── tailwind.config.js
 ├── electron-builder.json
 └── README.md
@@ -242,9 +241,9 @@ Based on `resetParametersToDefault()` function:
 ## 📊 Development Phases
 
 ### Phase 1: Foundation (Week 1-2)
-- [ ] Setup Vite + React + Electron project
-- [ ] Install and configure TailwindCSS + ShadCN
-- [ ] Create basic project structure
+- [ ] Setup Next.js + Electron project with static export
+- [ ] Install and configure TailwindCSS 4 + ShadCN
+- [ ] Create basic project structure with app directory
 - [ ] Implement serial port detection and connection
 
 ### Phase 2: Parameter Management (Week 2-3)

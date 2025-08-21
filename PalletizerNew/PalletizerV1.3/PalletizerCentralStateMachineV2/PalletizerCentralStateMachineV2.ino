@@ -1003,10 +1003,10 @@ void resetParametersToDefault() {
   // FIXED: Default values matching V1 exactly with separate parameters
   params.H = 100;
   params.Ly = 11;
-  
+
   // ARM LEFT (base dari V1: x=1305, offset xL=0)
   params.x_L = 1305;    // V1: x + xL = 1305 + 0 = 1305
-  params.y1_L = 130;    // V1: y1 + yL = 130 + 0 = 130  
+  params.y1_L = 130;    // V1: y1 + yL = 130 + 0 = 130
   params.y2_L = 410;    // V1: y2 + yL = 410 + 0 = 410
   params.z_L = 1280;    // V1: z + zL = 1280 + 0 = 1280
   params.t_L = 80;      // V1: t + tL = 80 + 0 = 80
@@ -1017,7 +1017,7 @@ void resetParametersToDefault() {
   params.zb_L = 1320;   // FIXED: V1: zb + zL = 1320 + 0 = 1320
   params.T90_L = 1680;  // FIXED: V1: T90 + tL = (1600 + 80) + 0 = 1680
   params.Z1_L = 1325;   // FIXED: V1: Z1 + zL = 1325 + 0 = 1325
-  
+
   // ARM RIGHT (base dari V1: x=1305, offset xR=-20)
   params.x_R = 1285;    // V1: x + xR = 1305 + (-20) = 1285
   params.y1_R = 130;    // V1: y1 + yR = 130 + 0 = 130
@@ -1244,14 +1244,14 @@ String generateCommand(byte armId, int commandIndex) {
     if (armId == 1) {  // ARM LEFT
       homeX = params.x_L * MULTIPLIER;
       int yParam = (params.y_pattern[task] == 1) ? params.y1_L : params.y2_L;
-      homeY = yParam * MULTIPLIER;  // FIXED: Remove 'int'
+      homeY = yParam * MULTIPLIER;      // FIXED: Remove 'int'
       homeZ = params.z_L * MULTIPLIER;  // FIXED: Remove 'int'
       homeT = params.t_L * MULTIPLIER;  // FIXED: Remove 'int'
       homeG = params.g_L * MULTIPLIER;  // FIXED: Remove 'int'
-    } else {  // ARM RIGHT
+    } else {                            // ARM RIGHT
       homeX = params.x_R * MULTIPLIER;
       int yParam = (params.y_pattern[task] == 1) ? params.y1_R : params.y2_R;
-      homeY = yParam * MULTIPLIER;  // FIXED: Remove 'int'
+      homeY = yParam * MULTIPLIER;      // FIXED: Remove 'int'
       homeZ = params.z_R * MULTIPLIER;  // FIXED: Remove 'int'
       homeT = params.t_R * MULTIPLIER;  // FIXED: Remove 'int'
       homeG = params.g_R * MULTIPLIER;  // FIXED: Remove 'int'

@@ -2,7 +2,6 @@
 #include <avr/pgmspace.h>
 #include <EEPROM.h>
 
-
 // Pin definitions
 const int SENSOR1_PIN = A4;
 const int SENSOR2_PIN = A5;
@@ -11,12 +10,10 @@ const int ARM1_PIN = 7;       // Changed from 6 to 7
 const int ARM2_PIN = 8;       // Changed from 7 to 8
 const int CONVEYOR_PIN = 13;  // D13 - Conveyor control (active LOW)
 
-
 // RS485 pins
 const int RS485_RO = 10;
 const int RS485_DI = 11;
 // RE/DE connected to VCC (always enabled for transmission)
-
 
 // DIP Switch pins for ARM1 layer reading
 const int ARM1_DIP_1 = 5;  // D5
@@ -24,23 +21,19 @@ const int ARM1_DIP_2 = 6;  // D6
 const int ARM1_DIP_4 = 3;  // D3
 const int ARM1_DIP_8 = 4;  // D4
 
-
 // DIP Switch pins for ARM2 layer reading
 const int ARM2_DIP_1 = A0;
 const int ARM2_DIP_2 = A1;
 const int ARM2_DIP_4 = A3;  // Note: corrected order
 const int ARM2_DIP_8 = A2;  // Note: corrected order
 
-
 // EEPROM Configuration
 const int EEPROM_START_ADDR = 0;
 const int EEPROM_MAGIC = 0xABCD;  // Magic number to check if EEPROM is initialized
 const int EEPROM_VERSION = 1;
 
-
 // Create SoftwareSerial object for RS485
 SoftwareSerial rs485(RS485_RO, RS485_DI);
-
 
 // Definisi State untuk ARM
 enum ArmState {
@@ -52,13 +45,11 @@ enum ArmState {
   ARM_ERROR               // ARM dalam keadaan error
 };
 
-
 enum SpecialCommand {
   SPECIAL_NONE,
   SPECIAL_PARK,
   SPECIAL_CALI
 };
-
 
 // Struktur ARM Data yang sudah dimodifikasi dengan State Machine
 struct ArmDataStateMachine {
@@ -82,7 +73,6 @@ struct ArmDataStateMachine {
   // Debugging
   bool debug_state_changes;
 
-
   // Retry mechanism variables
   String last_command_sent;
   unsigned long command_sent_time;
@@ -94,11 +84,9 @@ struct ArmDataStateMachine {
   static const int MAX_RETRY_COUNT = 7;                    // maksimal 7x retry
   static const unsigned long RETRY_DELAY = 200;            // delay 200ms antar retry
 
-
   // Special command handling
   SpecialCommand pending_special_command;
   bool need_special_command;
-
 
   // ADD THESE NEW FIELDS:
   bool was_busy_after_command;
@@ -108,14 +96,11 @@ struct ArmDataStateMachine {
   static const int BUSY_STABLE_THRESHOLD = 3;
 };
 
-
 //DELAY after ARM leave center
 static const int LEAVE_CENTER_DELAY = 1;
 
-
 // Replace global arm1 dan arm2 dengan versi state machine
 ArmDataStateMachine arm1_sm, arm2_sm;
-
 
 // System variables
 bool sensor1_state = false;
@@ -127,17 +112,14 @@ byte arm_in_center = 0;  // 0=none, 1=ARM1, 2=ARM2
 bool last_arm_sent = false;
 bool sensor3_prev_state = false;
 
-
 // Conveyor control variables
 bool conveyor_active = true;  // true = ON, false = OFF
 unsigned long conveyor_off_time = 0;
 const unsigned long CONVEYOR_OFF_DURATION = 3000;  // 3 seconds
 
-
 // Timing variables
 unsigned long lastSensorRead = 0;
 const unsigned long SENSOR_READ_INTERVAL = 30;
-
 
 // Global variables for USB commands
 bool debug_mode = false;
@@ -145,11 +127,9 @@ bool monitor_mode = false;
 unsigned long last_monitor_update = 0;
 const unsigned long MONITOR_INTERVAL = 1000;  // 1 second
 
-
 // Buffer for reading USB serial commands
 char usbBuffer[32];
 byte usbBufferIndex = 0;
-
 
 // EEPROM Header structure
 struct EEPROMHeader {
@@ -158,97 +138,81 @@ struct EEPROMHeader {
   int checksum;
 };
 
-
 // Configuration Parameters - Stored in SRAM for runtime access
 struct Parameters {
-  // Global Parameters (13)
-  int x;    //Home X
-  int y1;   //Home Y pick 2
-  int y2;   //Home Y pick 1
-  int z;    //Home Z before product ready
-  int t;    //Home T
-  int g;    //Home G
-  int gp;   //Grip
-  int dp;   //Drop
-  int za;   //Relative lift axis when pick product
-  int zb;   //Home Z after product ready
-  int H;    // Tinggi Product
-  int Ly;   // Jumlah layer
-  int T90;  //
-  int Z1;   //Z layer 1
+  // HOME Parameters untuk ARM LEFT
+  int x_L;   // Home X LEFT
+  int y1_L;  // Home Y pick 2 LEFT
+  int y2_L;  // Home Y pick 1 LEFT
+  int z_L;   // Home Z before product ready LEFT
+  int t_L;   // Home T LEFT
+  int g_L;   // Home G LEFT
 
-  // Base values for first positions (7)
-  int XO1;  //X1 Odd
-  int YO1;  //Y1 Odd
-  int XE1;  //X1 Even
-  int YE1;  //Y1 Even
-  int XO2;  //X2 Odd
-  int YO2;  //Y2 Odd
-  int XE2;  //X2 Even
-  int YE2;  //Y2 Even
-  int XO3;  //X3 Odd
-  int YO3;  //Y3 Odd
-  int XE3;  //X3 Even
-  int YE3;  //Y3 Even
-  int XO4;  //X4 Odd
-  int YO4;  //Y4 Odd
-  int XE4;  //X4 Even
-  int YE4;  //Y4 Even
-  int XO5;  //X5 Odd
-  int YO5;  //Y5 Odd
-  int XE5;  //X5 Even
-  int YE5;  //Y5 Even
-  int XO6;  //X6 Odd
-  int YO6;  //Y6 Odd
-  int XE6;  //X6 Even
-  int YE6;  //Y6 Even
-  int XO7;  //X7 Odd
-  int YO7;  //Y7 Odd
-  int XE7;  //X7 Even
-  int YE7;  //Y7 Even
-  int XO8;  //X8 Odd
-  int YO8;  //Y8 Odd
-  int XE8;  //X8 Even
-  int YE8;  //Y8 Even
+  // HOME Parameters untuk ARM RIGHT
+  int x_R;   // Home X RIGHT
+  int y1_R;  // Home Y pick 2 RIGHT
+  int y2_R;  // Home Y pick 1 RIGHT
+  int z_R;   // Home Z before product ready RIGHT
+  int t_R;   // Home T RIGHT
+  int g_R;   // Home G RIGHT
 
+  // GLAD Parameters untuk ARM LEFT
+  int gp_L;   // Grip LEFT
+  int dp_L;   // Drop LEFT
+  int za_L;   // Relative lift axis when pick product LEFT
+  int zb_L;   // Home Z after product ready LEFT
+  int Z1_L;   // Z layer 1 LEFT
+  int T90_L;  // T90 value
 
-  // ARM1 Offset (LEFT) (5)
-  int xL;
-  int yL;
-  int zL;
-  int tL;
-  int gL;
+  // GLAD Parameters untuk ARM RIGHT
+  int gp_R;   // Grip RIGHT
+  int dp_R;   // Drop RIGHT
+  int za_R;   // Relative lift axis when pick product RIGHT
+  int zb_R;   // Home Z after product ready RIGHT
+  int Z1_R;   // Z layer 1 RIGHT
+  int T90_R;  // T90 value
 
-  // ARM2 Offset (RIGHT) (5)
-  int xR;
-  int yR;
-  int zR;
-  int tR;
-  int gR;
+  // Global Parameters (sama untuk kedua ARM)
+  int H;   // Tinggi Product
+  int Ly;  // Jumlah layer
 
-  // Y pattern for taskings (1 = y1, 2 = y2) (1)
+  // Base positions untuk ARM LEFT (32 parameters)
+  int XO1_L, YO1_L, XE1_L, YE1_L;  // Task 1 LEFT
+  int XO2_L, YO2_L, XE2_L, YE2_L;  // Task 2 LEFT
+  int XO3_L, YO3_L, XE3_L, YE3_L;  // Task 3 LEFT
+  int XO4_L, YO4_L, XE4_L, YE4_L;  // Task 4 LEFT
+  int XO5_L, YO5_L, XE5_L, YE5_L;  // Task 5 LEFT
+  int XO6_L, YO6_L, XE6_L, YE6_L;  // Task 6 LEFT
+  int XO7_L, YO7_L, XE7_L, YE7_L;  // Task 7 LEFT
+  int XO8_L, YO8_L, XE8_L, YE8_L;  // Task 8 LEFT
+
+  // Base positions untuk ARM RIGHT (32 parameters)
+  int XO1_R, YO1_R, XE1_R, YE1_R;  // Task 1 RIGHT
+  int XO2_R, YO2_R, XE2_R, YE2_R;  // Task 2 RIGHT
+  int XO3_R, YO3_R, XE3_R, YE3_R;  // Task 3 RIGHT
+  int XO4_R, YO4_R, XE4_R, YE4_R;  // Task 4 RIGHT
+  int XO5_R, YO5_R, XE5_R, YE5_R;  // Task 5 RIGHT
+  int XO6_R, YO6_R, XE6_R, YE6_R;  // Task 6 RIGHT
+  int XO7_R, YO7_R, XE7_R, YE7_R;  // Task 7 RIGHT
+  int XO8_R, YO8_R, XE8_R, YE8_R;  // Task 8 RIGHT
+
+  // Y pattern untuk kedua ARM (tetap sama)
   byte y_pattern[8];
 };
 
-
 Parameters params;
-
 
 const int MULTIPLIER = 3;
 
-
 byte serialIndex = 0;
-
 
 // String constants in PROGMEM
 const char msg_system_start[] PROGMEM = "=== ARM Control System Started ===";
 const char msg_system_ready[] PROGMEM = "System ready with generated commands";
 const char msg_dip_reading[] PROGMEM = "Reading DIP switch layer positions...";
 
-
 // Buffer for building commands (reused)
 char commandBuffer[150];
-
 
 // Function to read DIP switch value for ARM1
 int readArm1DipSwitch() {
@@ -260,7 +224,6 @@ int readArm1DipSwitch() {
   return value;
 }
 
-
 // Function to read DIP switch value for ARM2
 int readArm2DipSwitch() {
   int value = 0;
@@ -271,97 +234,172 @@ int readArm2DipSwitch() {
   return value;
 }
 
-
-// Function to calculate Z values based on rules
-int calculateZ(int layer) {
-  if (layer == 0) return params.Z1;
-  return params.Z1 - layer * params.H;
+// Function to calculate Z values based on rules - sekarang terpisah
+int calculateZ_L(int layer) {
+  if (layer == 0) return params.Z1_L;
+  return params.Z1_L - layer * params.H;
 }
 
+int calculateZ_R(int layer) {
+  if (layer == 0) return params.Z1_R;
+  return params.Z1_R - layer * params.H;
+}
 
 // Function to calculate XO values based on rules
-int calculateXO(int task) {
+// Function untuk ARM LEFT
+int calculateXO_L(int task) {
   switch (task) {
-    case 0: return params.XO1;  // XO1
-    case 1: return params.XO2;  // XO2
-    case 2: return params.XO3;  // XO3
-    case 3: return params.XO4;  // XO4
-    case 4: return params.XO5;  // XO5
-    case 5: return params.XO6;  // XO6
-    case 6: return params.XO7;  // XO7
-    case 7: return params.XO8;  // XO8
-    default: return params.XO1;
+    case 0: return params.XO1_L;
+    case 1: return params.XO2_L;
+    case 2: return params.XO3_L;
+    case 3: return params.XO4_L;
+    case 4: return params.XO5_L;
+    case 5: return params.XO6_L;
+    case 6: return params.XO7_L;
+    case 7: return params.XO8_L;
+    default: return params.XO1_L;
   }
 }
 
+// Function untuk ARM RIGHT
+int calculateXO_R(int task) {
+  switch (task) {
+    case 0: return params.XO1_R;
+    case 1: return params.XO2_R;
+    case 2: return params.XO3_R;
+    case 3: return params.XO4_R;
+    case 4: return params.XO5_R;
+    case 5: return params.XO6_R;
+    case 6: return params.XO7_R;
+    case 7: return params.XO8_R;
+    default: return params.XO1_R;
+  }
+}
 
 // Function to calculate YO values based on rules
-int calculateYO(int task) {
+// Function untuk ARM LEFT
+int calculateYO_L(int task) {
   switch (task) {
-    case 0: return params.YO1;  // YO1
-    case 1: return params.YO2;  // YO2
-    case 2: return params.YO3;  // YO3
-    case 3: return params.YO4;  // YO4
-    case 4: return params.YO5;  // YO5
-    case 5: return params.YO6;  // YO6
-    case 6: return params.YO7;  // YO7
-    case 7: return params.YO8;  // YO8
-    default: return params.YO1;
+    case 0: return params.YO1_L;
+    case 1: return params.YO2_L;
+    case 2: return params.YO3_L;
+    case 3: return params.YO4_L;
+    case 4: return params.YO5_L;
+    case 5: return params.YO6_L;
+    case 6: return params.YO7_L;
+    case 7: return params.YO8_L;
+    default: return params.YO1_L;
   }
 }
 
+// Function untuk ARM RIGHT
+int calculateYO_R(int task) {
+  switch (task) {
+    case 0: return params.YO1_R;
+    case 1: return params.YO2_R;
+    case 2: return params.YO3_R;
+    case 3: return params.YO4_R;
+    case 4: return params.YO5_R;
+    case 5: return params.YO6_R;
+    case 6: return params.YO7_R;
+    case 7: return params.YO8_R;
+    default: return params.YO1_R;
+  }
+}
+
+// Function untuk ARM LEFT
+int calculateXE_L(int task) {
+  switch (task) {
+    case 0: return params.XE1_L;
+    case 1: return params.XE2_L;
+    case 2: return params.XE3_L;
+    case 3: return params.XE4_L;
+    case 4: return params.XE5_L;
+    case 5: return params.XE6_L;
+    case 6: return params.XE7_L;
+    case 7: return params.XE8_L;
+    default: return params.XE1_L;
+  }
+}
+
+// Function untuk ARM RIGHT
+int calculateXE_R(int task) {
+  switch (task) {
+    case 0: return params.XE1_R;
+    case 1: return params.XE2_R;
+    case 2: return params.XE3_R;
+    case 3: return params.XE4_R;
+    case 4: return params.XE5_R;
+    case 5: return params.XE6_R;
+    case 6: return params.XE7_R;
+    case 7: return params.XE8_R;
+    default: return params.XE1_R;
+  }
+}
+
+// Function untuk ARM LEFT
+int calculateYE_L(int task) {
+  switch (task) {
+    case 0: return params.YE1_L;
+    case 1: return params.YE2_L;
+    case 2: return params.YE3_L;
+    case 3: return params.YE4_L;
+    case 4: return params.YE5_L;
+    case 5: return params.YE6_L;
+    case 6: return params.YE7_L;
+    case 7: return params.YE8_L;
+    default: return params.YE1_L;
+  }
+}
+
+// Function untuk ARM RIGHT
+int calculateYE_R(int task) {
+  switch (task) {
+    case 0: return params.YE1_R;
+    case 1: return params.YE2_R;
+    case 2: return params.YE3_R;
+    case 3: return params.YE4_R;
+    case 4: return params.YE5_R;
+    case 5: return params.YE6_R;
+    case 6: return params.YE7_R;
+    case 7: return params.YE8_R;
+    default: return params.YE1_R;
+  }
+}
 
 // Function to calculate TO values based on rules
-int calculateTO(int task) {
+int calculateTO_L(int task) {
   if (task >= 0 && task <= 3) {
-    return params.T90;  // TO1 to TO4
+    return params.T90_L;  // TO1 to TO4
   } else if (task >= 4 && task <= 7) {
-    return params.t;  // TO5 to TO8
+    return params.t_L;  // TO5 to TO8
   }
 }
 
-
-// Function to calculate XE values based on rules
-int calculateXE(int task) {
-  switch (task) {
-    case 0: return params.XE1;  // XE1
-    case 1: return params.XE2;  // XE2
-    case 2: return params.XE3;  // XE3
-    case 3: return params.XE4;  // XE4
-    case 4: return params.XE5;  // XE5
-    case 5: return params.XE6;  // XE6
-    case 6: return params.XE7;  // XE7
-    case 7: return params.XE8;  // XE8
-    default: return params.XE1;
+int calculateTO_R(int task) {
+  if (task >= 0 && task <= 3) {
+    return params.T90_R;  // TO1 to TO4
+  } else if (task >= 4 && task <= 7) {
+    return params.t_R;  // TO5 to TO8
   }
 }
-
-
-// Function to calculate YE values based on rules
-int calculateYE(int task) {
-  switch (task) {
-    case 0: return params.YE1;  // YE1
-    case 1: return params.YE2;  // YE2
-    case 2: return params.YE3;  // YE3
-    case 3: return params.YE4;  // YE4
-    case 4: return params.YE5;  // YE5
-    case 5: return params.YE6;  // YE6
-    case 6: return params.YE7;  // YE7
-    case 7: return params.YE8;  // YE8
-    default: return params.YE1;
-  }
-}
-
 
 // Function to calculate TE values based on rules
-int calculateTE(int task) {
+int calculateTE_L(int task) {
   if (task >= 0 && task <= 3) {
-    return params.T90;  // TE1 to TE4
+    return params.T90_L;  // TE1 to TE4
   } else if (task >= 4 && task <= 7) {
-    return params.t;  // TE5 to TE8
+    return params.t_L;  // TE5 to TE8
   }
 }
 
+int calculateTE_R(int task) {
+  if (task >= 0 && task <= 3) {
+    return params.T90_R;  // TE1 to TE4
+  } else if (task >= 4 && task <= 7) {
+    return params.t_R;  // TE5 to TE8
+  }
+}
 
 // Calculate checksum for parameters
 int calculateChecksum(const Parameters& params) {
@@ -372,7 +410,6 @@ int calculateChecksum(const Parameters& params) {
   }
   return checksum;
 }
-
 
 // Save parameters to EEPROM
 void saveParametersToEEPROM() {
@@ -389,7 +426,6 @@ void saveParametersToEEPROM() {
 
   Serial.println(F("Parameters saved to EEPROM"));
 }
-
 
 // Load parameters from EEPROM
 bool loadParametersFromEEPROM() {
@@ -420,11 +456,9 @@ bool loadParametersFromEEPROM() {
   return true;
 }
 
-
 // ===================================================================
 // STATE MACHINE CORE FUNCTIONS
 // ===================================================================
-
 
 // Fungsi untuk mengubah state ARM
 void changeArmState(ArmDataStateMachine* arm, ArmState newState) {
@@ -432,7 +466,6 @@ void changeArmState(ArmDataStateMachine* arm, ArmState newState) {
     arm->previous_state = arm->state;
     arm->state = newState;
     arm->state_enter_time = millis();
-
 
     if (newState == ARM_PICKING) {
       arm->was_busy_after_command = false;
@@ -452,7 +485,6 @@ void changeArmState(ArmDataStateMachine* arm, ArmState newState) {
   }
 }
 
-
 // Helper function untuk convert state ke string (untuk debugging)
 String getStateString(ArmState state) {
   switch (state) {
@@ -465,7 +497,6 @@ String getStateString(ArmState state) {
     default: return F("UNKNOWN");
   }
 }
-
 
 // Helper function untuk debounced busy check
 bool isArmTrulyNotBusy(ArmDataStateMachine* arm, bool hardware_busy) {
@@ -486,23 +517,19 @@ bool isArmTrulyNotBusy(ArmDataStateMachine* arm, bool hardware_busy) {
   }
 }
 
-
 // Fungsi untuk mengecek timeout
 bool isStateTimeout(ArmDataStateMachine* arm, unsigned long timeout) {
   return (millis() - arm->state_enter_time) > timeout;
 }
 
-
 // ===================================================================
 // STATE HANDLERS - Setiap state memiliki handler terpisah
 // ===================================================================
-
 
 void handleIdleState(ArmDataStateMachine* arm) {
   // ARM idle, siap menerima command
   // Transisi ke MOVING_TO_CENTER akan dilakukan dari handleSystemLogic()
 }
-
 
 void handleMovingToCenterState(ArmDataStateMachine* arm) {
   // Cek timeout
@@ -520,7 +547,6 @@ void handleMovingToCenterState(ArmDataStateMachine* arm) {
   }
 }
 
-
 void handleInCenterState(ArmDataStateMachine* arm) {
   // ARM sudah di center, menunggu product
   // Transisi ke PICKING akan dilakukan dari handleProductPickup()
@@ -534,7 +560,6 @@ void handleInCenterState(ArmDataStateMachine* arm) {
     changeArmState(arm, ARM_IDLE);
   }
 }
-
 
 void handlePickingState(ArmDataStateMachine* arm) {
   // Cek timeout
@@ -562,7 +587,6 @@ void handlePickingState(ArmDataStateMachine* arm) {
     bool is_even_layer_number = ((current_layer + 1) % 2 == 0);
     bool layer_complete = (position_in_layer == 15);
 
-
     if (/*is_even_layer_number && layer_complete*/ (arm->current_pos % 64 == 0) && arm->current_pos < arm->total_commands) {
       arm->pending_special_command = SPECIAL_CALI;
       arm->need_special_command = true;
@@ -577,7 +601,6 @@ void handlePickingState(ArmDataStateMachine* arm) {
     //arm_in_center = 0;
   }
 }
-
 
 void handleExecutingSpecialState(ArmDataStateMachine* arm) {
   bool hardware_busy = digitalRead((arm->arm_id == 1) ? ARM1_PIN : ARM2_PIN);
@@ -614,7 +637,6 @@ void handleExecutingSpecialState(ArmDataStateMachine* arm) {
   }
 }
 
-
 void handleErrorState(ArmDataStateMachine* arm) {
   // ARM dalam keadaan error
   // Bisa ditambahkan logic untuk recovery atau manual reset
@@ -631,11 +653,9 @@ void handleErrorState(ArmDataStateMachine* arm) {
   }
 }
 
-
 // ===================================================================
 // MAIN STATE MACHINE UPDATE FUNCTION
 // ===================================================================
-
 
 void updateArmStateMachine(ArmDataStateMachine* arm) {
   bool hardware_busy = digitalRead((arm->arm_id == 1) ? ARM1_PIN : ARM2_PIN);
@@ -651,7 +671,6 @@ void updateArmStateMachine(ArmDataStateMachine* arm) {
     arm->is_busy = !isArmTrulyNotBusy(arm, hardware_busy);
   }
 
-
   // Execute state handler
   switch (arm->state) {
     case ARM_IDLE:
@@ -661,7 +680,6 @@ void updateArmStateMachine(ArmDataStateMachine* arm) {
     case ARM_MOVING_TO_CENTER:
       handleMovingToCenterState(arm);
       break;
-
 
     case ARM_EXECUTING_SPECIAL:
       handleExecutingSpecialState(arm);
@@ -681,16 +699,13 @@ void updateArmStateMachine(ArmDataStateMachine* arm) {
   }
 }
 
-
 // ===================================================================
 // MODIFIED SYSTEM FUNCTIONS FOR STATE MACHINE
 // ===================================================================
 
-
 // Modified initializeArmData untuk state machine
 void initializeArmDataStateMachine() {
   Serial.println(F("Initializing ARM State Machines..."));
-
 
   // ARM1 initialization
   arm1_sm.total_commands = params.Ly * 8 * 2;
@@ -706,19 +721,15 @@ void initializeArmDataStateMachine() {
   arm1_sm.state_enter_time = millis();
   arm1_sm.debug_state_changes = true;
 
-
   arm1_sm.waiting_for_busy_response = false;
   arm1_sm.retry_count = 0;
   arm1_sm.last_command_sent = "";
 
-
   arm1_sm.pending_special_command = SPECIAL_NONE;
   arm1_sm.need_special_command = false;
 
-
   arm1_sm.was_busy_after_command = false;
   arm1_sm.busy_stable_count = 0;
-
 
   // ARM2 initialization
   arm2_sm.total_commands = params.Ly * 8 * 2;
@@ -734,19 +745,15 @@ void initializeArmDataStateMachine() {
   arm2_sm.state_enter_time = millis();
   arm2_sm.debug_state_changes = true;
 
-
   arm2_sm.waiting_for_busy_response = false;
   arm2_sm.retry_count = 0;
   arm2_sm.last_command_sent = "";
 
-
   arm2_sm.pending_special_command = SPECIAL_NONE;
   arm2_sm.need_special_command = false;
 
-
   arm2_sm.was_busy_after_command = false;
   arm2_sm.busy_stable_count = 0;
-
 
   Serial.print(F("ARM1 SM starts at position: "));
   Serial.print(arm1_sm.current_pos);
@@ -763,7 +770,6 @@ void initializeArmDataStateMachine() {
   Serial.println(F("ARM State Machines initialized"));
 }
 
-
 // Modified getNextCommand untuk state machine
 String getNextCommandStateMachine(ArmDataStateMachine* arm) {
   // Cek apakah ada special command yang pending
@@ -779,7 +785,6 @@ String getNextCommandStateMachine(ArmDataStateMachine* arm) {
     }
   }
 
-
   // Cek apakah sudah selesai semua command
   if (arm->current_pos >= arm->total_commands) {
     // AUTO-RESET: Kembali ke layer 0 (posisi 0)
@@ -787,10 +792,8 @@ String getNextCommandStateMachine(ArmDataStateMachine* arm) {
     Serial.print(arm->arm_id);
     Serial.println(F(" completed all commands - RESETTING to Layer 0"));
 
-
     // Reset ke posisi 0
     arm->current_pos = 0;
-
 
     Serial.print(F("ARM"));
     Serial.print(arm->arm_id);
@@ -801,7 +804,6 @@ String getNextCommandStateMachine(ArmDataStateMachine* arm) {
   arm->current_pos++;
   return command;
 }
-
 
 // Modified handleProductPickup untuk state machine
 void handleProductPickupStateMachine() {
@@ -836,13 +838,11 @@ void handleProductPickupStateMachine() {
   changeArmState(currentArm, ARM_PICKING);
 }
 
-
 // Modified sendArmToCenterSmart untuk state machine
 void sendArmToCenterSmartStateMachine() {
   // PRIORITAS 1: Cek ARM yang butuh special command (PARK/CALI) terlebih dahulu
   ArmDataStateMachine* specialArm = nullptr;
   byte specialArmId = 0;
-
 
   // ADD SAFETY CHECK:
   unsigned long current_time = millis();
@@ -887,20 +887,16 @@ void sendArmToCenterSmartStateMachine() {
     Serial.print(F("Sent special command: "));
     Serial.println(fullCommand);
 
-
     // Set state ke EXECUTING_SPECIAL
     changeArmState(specialArm, ARM_EXECUTING_SPECIAL);
-
 
     // PENTING: Reset flags SETELAH command dikirim
     specialArm->need_special_command = false;
     specialArm->pending_special_command = SPECIAL_NONE;
 
-
     arm_in_center = 0;  // Reset segera setelah mengirim special command
     Serial.print(F("arm_in_center reset to 0 after sending "));
     Serial.println(actionName);
-
 
     return;  // Exit function setelah mengirim special command
   }
@@ -953,7 +949,6 @@ void sendArmToCenterSmartStateMachine() {
   Serial.println(fullCommand);
 }
 
-
 // Modified handleSystemLogic untuk state machine
 void handleSystemLogicStateMachine() {
   // PRIORITAS 1: Check for product pickup (jika ada ARM di center)
@@ -962,7 +957,6 @@ void handleSystemLogicStateMachine() {
     return;  // Exit setelah handle pickup
   }
 
-
   // PRIORITAS 2: Handle special commands yang pending (tidak perlu sensor3 HIGH)
   bool hasSpecialCommand = (arm1_sm.need_special_command && arm1_sm.state == ARM_IDLE) || (arm2_sm.need_special_command && arm2_sm.state == ARM_IDLE);
 
@@ -970,7 +964,6 @@ void handleSystemLogicStateMachine() {
     sendArmToCenterSmartStateMachine();
     return;  // Exit setelah handle special command
   }
-
 
   // ===== TAMBAHAN: PRIORITAS 2.5 - ARM yang baru selesai special command =====
   // Cek ARM yang baru selesai special command dan perlu HOME berikutnya
@@ -984,7 +977,6 @@ void handleSystemLogicStateMachine() {
     }
   }
 
-
   /*
   // Deteksi transisi sensor3: dari ada ARM (LOW) ke tidak ada ARM (HIGH)
   if (sensor3_prev_state == false && sensor3_state == true) {
@@ -992,11 +984,9 @@ void handleSystemLogicStateMachine() {
     delay(LEAVE_CENTER_DELAY);
   }
 
-
   // Update previous state
   sensor3_prev_state = sensor3_state;
 */
-
 
   // PRIORITAS 3: Send ARM to center untuk command normal (hanya jika sensor3 HIGH)
   if (sensor3_state && arm_in_center == 0) {
@@ -1004,71 +994,103 @@ void handleSystemLogicStateMachine() {
   }
 }
 
-
 // Reset parameters to default values
 void resetParametersToDefault() {
   // Default values (sesuai dengan yang sudah ada di struct)
-  params.x = 1305;
-  params.y1 = 130;
-  params.y2 = 410;
-  params.z = 1280;
-  params.t = 80;  //before 104
-  params.g = -10;
-  params.gp = 90;
-  params.dp = 40;
-  params.za = 250;
-  params.zb = 1320;
-  params.T90 = 1600 + params.t;  //before 2080
-  params.Z1 = 1325;
-
-
   params.H = 100;
   params.Ly = 11;
-
-  params.XO1 = 645;  //Koordinat X1,X3 ganjil
-  params.YO1 = 310;  //Koordinat Y1,Y2 ganjil
-  params.XO2 = 250;  //Koordinat X2,X4 ganjil. Selisih dengan X1 ganjil adalah panjang produk
-  params.YO2 = params.YO1;
-  params.XO3 = params.XO1;
-  params.YO3 = 65;  //Koordinat Y3,Y4 ganjil. Selisih dengan Y1 ganjil adalah lebar produk
-  params.XO4 = params.XO2;
-  params.YO4 = params.YO3;
-  params.XO5 = 785;  //Koordinat X5 ganjil
-  params.YO5 = 735;  //Koordinat Y5,Y6,Y7,Y8 ganjil
-  params.XO6 = 545;  //Koordinat X6 ganjil
-  params.YO6 = params.YO5;
-  params.XO7 = 245;  //Koordinat X7 ganjil
-  params.YO7 = params.YO5;
-  params.XO8 = 5;  //Koordinat X8 ganjil
-  params.YO8 = params.YO5;
-  params.XE1 = params.XO1;  //Koordinat X1,X3 genap adalah sama dengan koordinat X1,X3 ganjil
-  params.YE1 = 980;         //Koordinat Y1,Y2 genap
-  params.XE2 = params.XO2;  //Koordinat X2,X4 genap adalah sama dengan koordinat X2,X4 ganjil
-  params.YE2 = params.YE1;
-  params.XE3 = params.XO1;
-  params.YE3 = 735;  //Koordinat Y3,Y4 genap
-  params.XE4 = params.XO2;
-  params.YE4 = params.YE3;
-  params.XE5 = params.XO5;  //Koordinat X5,X6,X7,X8 genap adalah sama dengan koordinat X5,X6,X7,X8 ganjil
-  params.YE5 = 250;         //Koordinat Y5,Y6,Y7,Y8 genap
-  params.XE6 = params.XO6;
-  params.YE6 = params.YE5;
-  params.XE7 = params.XO7;
-  params.YE7 = params.YE5;
-  params.XE8 = params.XO8;
-  params.YE8 = params.YE5;
-
-  params.xL = 0;
-  params.yL = 0;
-  params.zL = 0;
-  params.tL = 0;
-  params.gL = 0;
-
-  params.xR = -20;
-  params.yR = 0;
-  params.zR = 0;
-  params.tR = -30;
-  params.gR = 5;
+  //ARM HOME LEFT
+  params.x_L = 1305;
+  params.y1_L = 130;
+  params.y2_L = 410;
+  params.z_L = 1280;
+  params.t_L = 80;
+  params.g_L = -10;
+  params.gp_L = 90;
+  params.dp_L = 1;
+  params.za_L = 250;
+  params.zb_L = 1315;
+  params.T90_L = 1600 + params.t_L;
+  params.Z1_L = 1355;
+  //ARM HOME RIGHT
+  params.gp_R = 90;
+  params.dp_R = 5;
+  params.za_R = 280;
+  params.zb_R = 1345;
+  params.T90_R = 1600 + params.t_R;
+  params.Z1_R = 1385;
+  params.x_R = 1285;
+  params.y1_R = 130;
+  params.y2_R = 410;
+  params.z_R = 1310;
+  params.t_R = 50;
+  params.g_R = -5;
+  //ARM GLAD LEFT
+  params.XO1_L = 645;  //Koordinat X1,X3 ganjil
+  params.YO1_L = 310;  //Koordinat Y1,Y2 ganjil
+  params.XO2_L = 250;  //Koordinat X2,X4 ganjil. Selisih dengan X1 ganjil adalah panjang produk
+  params.YO2_L = params.YO1_L;
+  params.XO3_L = params.XO1_L;
+  params.YO3_L = 65;  //Koordinat Y3,Y4 ganjil. Selisih dengan Y1 ganjil adalah lebar produk
+  params.XO4_L = params.XO2_L;
+  params.YO4_L = params.YO3_L;
+  params.XO5_L = 815;  //Koordinat X5 ganjil
+  params.YO5_L = 775;  //Koordinat Y5,Y6,Y7,Y8 ganjil
+  params.XO6_L = 575;  //Koordinat X6 ganjil
+  params.YO6_L = params.YO5_L;
+  params.XO7_L = 275;  //Koordinat X7 ganjil
+  params.YO7_L = params.YO5_L;
+  params.XO8_L = 35;  //Koordinat X8 ganjil
+  params.YO8_L = params.YO5_L;
+  params.XE1_L = params.XO1_L;  //Koordinat X1,X3 genap adalah sama dengan koordinat X1,X3 ganjil
+  params.YE1_L = 980;           //Koordinat Y1,Y2 genap
+  params.XE2_L = params.XO2_L;  //Koordinat X2,X4 genap adalah sama dengan koordinat X2,X4 ganjil
+  params.YE2_L = params.YE1_L;
+  params.XE3_L = params.XO1_L;
+  params.YE3_L = 735;  //Koordinat Y3,Y4 genap
+  params.XE4_L = params.XO2_L;
+  params.YE4_L = params.YE3_L;
+  params.XE5_L = params.XO5_L;  //Koordinat X5,X6,X7,X8 genap adalah sama dengan koordinat X5,X6,X7,X8 ganjil
+  params.YE5_L = 290;           //Koordinat Y5,Y6,Y7,Y8 genap
+  params.XE6_L = params.XO6_L;
+  params.YE6_L = params.YE5_L;
+  params.XE7_L = params.XO7_L;
+  params.YE7_L = params.YE5_L;
+  params.XE8_L = params.XO8_L;
+  params.YE8_L = params.YE5_L;
+  //ARM GLAD RIGHT
+  params.XO1_R = 625;  //Koordinat X1,X3 ganjil
+  params.YO1_R = 310;  //Koordinat Y1,Y2 ganjil
+  params.XO2_R = 230;  //Koordinat X2,X4 ganjil. Selisih dengan X1 ganjil adalah panjang produk
+  params.YO2_R = params.YO1_R;
+  params.XO3_R = params.XO1_R;
+  params.YO3_R = 65;  //Koordinat Y3,Y4 ganjil. Selisih dengan Y1 ganjil adalah lebar produk
+  params.XO4_R = params.XO2_R;
+  params.YO4_R = params.YO3_R;
+  params.XO5_R = 795;  //Koordinat X5 ganjil
+  params.YO5_R = 775;  //Koordinat Y5,Y6,Y7,Y8 ganjil
+  params.XO6_R = 555;  //Koordinat X6 ganjil
+  params.YO6_R = params.YO5_R;
+  params.XO7_R = 255;  //Koordinat X7 ganjil
+  params.YO7_R = params.YO5_R;
+  params.XO8_R = 15;  //Koordinat X8 ganjil
+  params.YO8_R = params.YO5_R;
+  params.XE1_R = params.XO1_R;  //Koordinat X1,X3 genap adalah sama dengan koordinat X1,X3 ganjil
+  params.YE1_R = 980;           //Koordinat Y1,Y2 genap
+  params.XE2_R = params.XO2_R;  //Koordinat X2,X4 genap adalah sama dengan koordinat X2,X4 ganjil
+  params.YE2_R = params.YE1_R;
+  params.XE3_R = params.XO1_R;
+  params.YE3_R = 735;  //Koordinat Y3,Y4 genap
+  params.XE4_R = params.XO2_R;
+  params.YE4_R = params.YE3_R;
+  params.XE5_R = params.XO5_R;  //Koordinat X5,X6,X7,X8 genap adalah sama dengan koordinat X5,X6,X7,X8 ganjil
+  params.YE5_R = 290;           //Koordinat Y5,Y6,Y7,Y8 genap
+  params.XE6_R = params.XO6_R;
+  params.YE6_R = params.YE5_R;
+  params.XE7_R = params.XO7_R;
+  params.YE7_R = params.YE5_R;
+  params.XE8_R = params.XO8_R;
+  params.YE8_R = params.YE5_R;
 
   // Y pattern
   params.y_pattern[0] = 2;
@@ -1082,7 +1104,6 @@ void resetParametersToDefault() {
 
   Serial.println(F("Parameters reset to default values"));
 }
-
 
 void setup() {
   Serial.begin(9600);
@@ -1104,7 +1125,6 @@ void setup() {
   pinMode(ARM2_DIP_2, INPUT_PULLUP);
   pinMode(ARM2_DIP_4, INPUT_PULLUP);
   pinMode(ARM2_DIP_8, INPUT_PULLUP);
-
 
   // Configure conveyor pin
   pinMode(CONVEYOR_PIN, OUTPUT);
@@ -1137,7 +1157,6 @@ void setup() {
   Serial.println(F("Type 'HELP' for available commands"));
 }
 
-
 void loop() {
   unsigned long currentTime = millis();
 
@@ -1151,7 +1170,6 @@ void loop() {
   updateArmStateMachine(&arm1_sm);
   updateArmStateMachine(&arm2_sm);
 
-
   // Check command retry untuk kedua ARM
   checkCommandRetry(&arm1_sm);
   checkCommandRetry(&arm2_sm);
@@ -1159,14 +1177,11 @@ void loop() {
   // Handle system logic with state machine
   handleSystemLogicStateMachine();
 
-
   // Control conveyor
   controlConveyor();
 
-
   //delay(10);
 }
-
 
 void readDipSwitchLayers() {
   // Read ARM1 layer position from DIP switch
@@ -1198,13 +1213,11 @@ void readDipSwitchLayers() {
   Serial.println(F(")"));
 }
 
-
 void printProgmemString(const char* str) {
   char buffer[60];
   strcpy_P(buffer, str);
   Serial.println(buffer);
 }
-
 
 // Generate command on-demand instead of storing all commands
 String generateCommand(byte armId, int commandIndex) {
@@ -1216,47 +1229,67 @@ String generateCommand(byte armId, int commandIndex) {
 
   if (layer >= params.Ly || task >= 8) return "";
 
-  // Select offset based on ARM
-  int xOffset = (armId == 1) ? params.xL : params.xR;
-  int yOffset = (armId == 1) ? params.yL : params.yR;
-  int zOffset = (armId == 1) ? params.zL : params.zR;
-  int tOffset = (armId == 1) ? params.tL : params.tR;
-  int gOffset = (armId == 1) ? params.gL : params.gR;
-
   bool isOdd = (layer % 2 == 0);
-  int zValue = calculateZ(layer);
-
-  int yParam = (params.y_pattern[task] == 1) ? params.y1 : params.y2;
 
   if (isHomeCommand) {
     // Generate HOME command
-    int homeX = (params.x + xOffset) * MULTIPLIER;
-    int homeY = (yParam + yOffset) * MULTIPLIER;
-    int homeZ = (params.z + zOffset) * MULTIPLIER;
-    int homeT = (params.t + tOffset) * MULTIPLIER;
-    int homeG = (params.g + gOffset) * MULTIPLIER;
+    int homeX, homeY, homeZ, homeT, homeG;
 
+    if (armId == 1) {  // ARM LEFT
+      homeX = params.x_L * MULTIPLIER;
+      int yParam = (params.y_pattern[task] == 1) ? params.y1_L : params.y2_L;
+      int homeY = yParam * MULTIPLIER;
+      int homeZ = params.z_L * MULTIPLIER;
+      int homeT = params.t_L * MULTIPLIER;
+      int homeG = params.g_L * MULTIPLIER;
+    } else {  //ARM RIGHT
+      homeX = params.x_R * MULTIPLIER;
+      int yParam = (params.y_pattern[task] == 1) ? params.y1_R : params.y2_R;
+      int homeY = yParam * MULTIPLIER;
+      int homeZ = params.z_R * MULTIPLIER;
+      int homeT = params.t_R * MULTIPLIER;
+      int homeG = params.g_R * MULTIPLIER;
+    }
     sprintf(commandBuffer, "H(%d,%d,%d,%d,%d)", homeX, homeY, homeZ, homeT, homeG);
   } else {
     // Generate GLAD command
-    int gladXn, gladYn, gladTn;
-    if (isOdd) {
-      gladXn = (calculateXO(task) + xOffset) * MULTIPLIER;
-      gladYn = (calculateYO(task) + yOffset) * MULTIPLIER;
-      gladTn = (calculateTO(task) + tOffset) * MULTIPLIER;
-    } else {
-      gladXn = (calculateXE(task) + xOffset) * MULTIPLIER;
-      gladYn = (calculateYE(task) + yOffset) * MULTIPLIER;
-      gladTn = (calculateTE(task) + tOffset) * MULTIPLIER;
-    }
+    int gladXn, gladYn, gladTn, gladZn, gladDp, gladGp, gladZa, gladZb, gladXa, gladTa;
 
-    int gladZn = (zValue + zOffset) * MULTIPLIER;
-    int gladDp = (params.dp + gOffset) * MULTIPLIER;
-    int gladGp = (params.gp + gOffset) * MULTIPLIER;
-    int gladZa = params.za * MULTIPLIER;
-    int gladZb = (params.zb + zOffset) * MULTIPLIER;
-    int gladXa = (params.XO5 + xOffset - 0) * MULTIPLIER;
-    int gladTa = (params.t + tOffset) * MULTIPLIER;
+    if (armId == 1) {  //ARM LEFT
+      if (isOdd) {
+        gladXn = calculateXO_L(task) * MULTIPLIER;
+        gladYn = calculateYO_L(task) * MULTIPLIER;
+        gladTn = calculateTO_L(task) * MULTIPLIER;
+      } else {
+        gladXn = calculateXE_L(task) * MULTIPLIER;
+        gladYn = calculateYE_L(task) * MULTIPLIER;
+        gladTn = calculateTE_L(task) * MULTIPLIER;
+      }
+      gladZn = calculateZ_L(layer) * MULTIPLIER;
+      gladDp = params.dp_L * MULTIPLIER;
+      gladGp = params.gp_L * MULTIPLIER;
+      gladZa = params.za_L * MULTIPLIER;
+      gladZb = params.zb_L * MULTIPLIER;
+      gladXa = params.XO5_L * MULTIPLIER;
+      gladTa = params.t_L * MULTIPLIER;
+    } else {  //ARM RIGHT
+      if (isOdd) {
+        gladXn = calculateXO_R(task) * MULTIPLIER;
+        gladYn = calculateYO_R(task) * MULTIPLIER;
+        gladTn = calculateTO_R(task) * MULTIPLIER;
+      } else {
+        gladXn = calculateXE_R(task) * MULTIPLIER;
+        gladYn = calculateYE_R(task) * MULTIPLIER;
+        gladTn = calculateTE_R(task) * MULTIPLIER;
+      }
+      gladZn = calculateZ_R(layer) * MULTIPLIER;
+      gladDp = params.dp_R * MULTIPLIER;
+      gladGp = params.gp_R * MULTIPLIER;
+      gladZa = params.za_R * MULTIPLIER;
+      gladZb = params.zb_R * MULTIPLIER;
+      gladXa = params.XO5_R * MULTIPLIER;
+      gladTa = params.t_R * MULTIPLIER;
+    }
 
     sprintf(commandBuffer, "G(%d,%d,%d,%d,%d,%d,%d,%d,%d,%d)",
             gladXn, gladYn, gladZn, gladTn, gladDp, gladGp, gladZa, gladZb, gladXa, gladTa);
@@ -1264,7 +1297,6 @@ String generateCommand(byte armId, int commandIndex) {
 
   return String(commandBuffer);
 }
-
 
 void readSensors() {
   // Store previous sensor3 state BEFORE reading new state
@@ -1284,7 +1316,6 @@ void readSensors() {
   arm1_sm.is_busy = arm1_response;
   arm2_sm.is_busy = arm2_response;
 
-
   if (prev_sensor3 == false && sensor3_state == true && arm_in_center != 0) {
     Serial.print(F("ARM"));
     Serial.print(arm_in_center);
@@ -1300,7 +1331,6 @@ void readSensors() {
   sensor3_prev_state = sensor3_state;
 }
 
-
 // Hitung checksum XOR
 uint8_t calculateXORChecksum(const char* data, int length) {
   uint8_t checksum = 0;
@@ -1309,7 +1339,6 @@ uint8_t calculateXORChecksum(const char* data, int length) {
   }
   return checksum;
 }
-
 
 void sendRS485CommandWithRetry(ArmDataStateMachine* arm, String command) {
   arm->last_command_sent = command;
@@ -1320,7 +1349,6 @@ void sendRS485CommandWithRetry(ArmDataStateMachine* arm, String command) {
   sendRS485Command(command);  // fungsi existing
 }
 
-
 void sendRS485Command(String command) {
   // Since RE/DE is connected to VCC, no need to control it
   uint8_t checksum = calculateXORChecksum(command.c_str(), command.length());
@@ -1329,7 +1357,6 @@ void sendRS485Command(String command) {
   rs485.flush();
   delay(50);  // Small delay to ensure transmission
 }
-
 
 void checkCommandRetry(ArmDataStateMachine* arm) {
   if (!arm->waiting_for_busy_response) return;
@@ -1370,7 +1397,6 @@ void checkCommandRetry(ArmDataStateMachine* arm) {
   }
 }
 
-
 // Control conveyor after GLAD command
 void controlConveyor() {
   unsigned long currentTime = millis();
@@ -1382,7 +1408,6 @@ void controlConveyor() {
     Serial.println(F("Conveyor turned ON"));
   }
 }
-
 
 // Turn OFF conveyor for specified duration
 void turnOffConveyor() {

@@ -150,6 +150,10 @@ const unsigned long MONITOR_INTERVAL = 1000;  // 1 second
 char usbBuffer[32];
 byte usbBufferIndex = 0;
 
+// Force run flags untuk bypass busy check
+bool force_run_arm1 = false;
+bool force_run_arm2 = false;
+
 
 // EEPROM Header structure
 struct EEPROMHeader {
@@ -909,6 +913,16 @@ void sendArmToCenterSmartStateMachine() {
   bool arm1_ready = (arm1_sm.state == ARM_IDLE) && !arm1_sm.is_busy && !arm1_sm.need_special_command;
   bool arm2_ready = (arm2_sm.state == ARM_IDLE) && !arm2_sm.is_busy && !arm2_sm.need_special_command;
 
+  // BYPASS: Force ready jika ada force flag
+  if (force_run_arm1) {
+    arm1_ready = true;
+    Serial.println(F("ARM1 ready BYPASSED by force flag"));
+  }
+  if (force_run_arm2) {
+    arm2_ready = true;
+    Serial.println(F("ARM2 ready BYPASSED by force flag"));
+  }
+
   if (!arm1_ready && !arm2_ready) {
     return;  // Tidak ada ARM yang ready untuk command normal
   }
@@ -929,6 +943,10 @@ void sendArmToCenterSmartStateMachine() {
   }
 
   currentArm = (selectedArm == 1) ? &arm1_sm : &arm2_sm;
+
+  // Reset force flag setelah digunakan
+  if (selectedArm == 1) force_run_arm1 = false;
+  if (selectedArm == 2) force_run_arm2 = false;
 
   // Generate HOME command
   String command = getNextCommandStateMachine(currentArm);
@@ -1163,6 +1181,8 @@ void loop() {
   // Control conveyor
   controlConveyor();
 
+  // Process USB commands
+  processUSBCommands();
 
   //delay(10);
 }
@@ -1390,4 +1410,228 @@ void turnOffConveyor() {
   conveyor_off_time = millis() + CONVEYOR_OFF_DURATION;
   digitalWrite(CONVEYOR_PIN, HIGH);  // Turn OFF (active LOW)
   Serial.println(F("Conveyor turned OFF for 3 seconds"));
+}
+
+// ===================================================================
+// USB COMMAND INTERFACE
+// ===================================================================
+
+void processUSBCommands() {
+  if (Serial.available()) {
+    while (Serial.available() && usbBufferIndex < sizeof(usbBuffer) - 1) {
+      char receivedChar = Serial.read();
+
+      if (receivedChar == '\n' || receivedChar == '\r') {
+        usbBuffer[usbBufferIndex] = '\0';
+        if (usbBufferIndex > 0) {
+          executeUSBCommand(String(usbBuffer));
+        }
+        usbBufferIndex = 0;
+        memset(usbBuffer, 0, sizeof(usbBuffer));
+      } else {
+        usbBuffer[usbBufferIndex++] = receivedChar;
+      }
+    }
+  }
+}
+
+void executeUSBCommand(String command) {
+  command.trim();
+  command.toUpperCase();
+
+  Serial.print(F("USB Command: "));
+  Serial.println(command);
+
+  if (command == "HELP") {
+    printUSBHelp();
+  } else if (command == "STATUS") {
+    printSystemStatus();
+  } else if (command == "RUN_ARM1") {
+    forceRunARM(1);
+  } else if (command == "RUN_ARM2") {
+    forceRunARM(2);
+  } else if (command == "HOME_ARM1") {
+    forceHomeCommand(1);
+  } else if (command == "HOME_ARM2") {
+    forceHomeCommand(2);
+  } else if (command == "GLAD_ARM1") {
+    forceGladCommand(1);
+  } else if (command == "GLAD_ARM2") {
+    forceGladCommand(2);
+  } else if (command == "RESET_ARM1") {
+    resetARM(1);
+  } else if (command == "RESET_ARM2") {
+    resetARM(2);
+  } else if (command == "FORCE_READY_ARM1") {
+    forceArmState(1, ARM_IDLE);
+  } else if (command == "FORCE_READY_ARM2") {
+    forceArmState(2, ARM_IDLE);
+  } else if (command.startsWith("SEND_")) {
+    String armCommand = command.substring(5);
+    forceDirectCommand(armCommand);
+  } else {
+    Serial.println(F("Unknown command. Type HELP for available commands."));
+  }
+}
+
+void printUSBHelp() {
+  Serial.println(F("========== USB COMMAND INTERFACE =========="));
+  Serial.println(F("Available commands:"));
+  Serial.println(F("  HELP           - Show this help"));
+  Serial.println(F("  STATUS         - Show system status"));
+  Serial.println(F("  RUN_ARM1       - Force run ARM1 (bypass busy check)"));
+  Serial.println(F("  RUN_ARM2       - Force run ARM2 (bypass busy check)"));
+  Serial.println(F("  HOME_ARM1      - Send HOME command to ARM1"));
+  Serial.println(F("  HOME_ARM2      - Send HOME command to ARM2"));
+  Serial.println(F("  GLAD_ARM1      - Send GLAD command to ARM1"));
+  Serial.println(F("  GLAD_ARM2      - Send GLAD command to ARM2"));
+  Serial.println(F("  RESET_ARM1     - Reset ARM1 state machine"));
+  Serial.println(F("  RESET_ARM2     - Reset ARM2 state machine"));
+  Serial.println(F("  FORCE_READY_ARM1 - Force ARM1 to IDLE state"));
+  Serial.println(F("  FORCE_READY_ARM2 - Force ARM2 to IDLE state"));
+  Serial.println(F("  SEND_<cmd>     - Send direct command (e.g., SEND_R#H(1,2,3,4,5))"));
+  Serial.println(F("=========================================="));
+}
+
+void printSystemStatus() {
+  Serial.println(F("========== SYSTEM STATUS =========="));
+
+  Serial.print(F("ARM1 State: "));
+  Serial.print(getStateString(arm1_sm.state));
+  Serial.print(F(", Busy: "));
+  Serial.print(arm1_sm.is_busy ? F("YES") : F("NO"));
+  Serial.print(F(", Pos: "));
+  Serial.print(arm1_sm.current_pos);
+  Serial.print(F("/"));
+  Serial.println(arm1_sm.total_commands);
+
+  Serial.print(F("ARM2 State: "));
+  Serial.print(getStateString(arm2_sm.state));
+  Serial.print(F(", Busy: "));
+  Serial.print(arm2_sm.is_busy ? F("YES") : F("NO"));
+  Serial.print(F(", Pos: "));
+  Serial.print(arm2_sm.current_pos);
+  Serial.print(F("/"));
+  Serial.println(arm2_sm.total_commands);
+
+  Serial.print(F("Hardware - ARM1_PIN: "));
+  Serial.print(digitalRead(ARM1_PIN));
+  Serial.print(F(", ARM2_PIN: "));
+  Serial.println(digitalRead(ARM2_PIN));
+
+  bool arm1_ready = (arm1_sm.state == ARM_IDLE) && !arm1_sm.is_busy && !arm1_sm.need_special_command;
+  bool arm2_ready = (arm2_sm.state == ARM_IDLE) && !arm2_sm.is_busy && !arm2_sm.need_special_command;
+
+  Serial.print(F("ARM1 Ready: "));
+  Serial.print(arm1_ready ? F("YES") : F("NO"));
+  Serial.print(F(", ARM2 Ready: "));
+  Serial.println(arm2_ready ? F("YES") : F("NO"));
+
+  Serial.print(F("Force flags - ARM1: "));
+  Serial.print(force_run_arm1 ? F("ON") : F("OFF"));
+  Serial.print(F(", ARM2: "));
+  Serial.println(force_run_arm2 ? F("ON") : F("OFF"));
+
+  Serial.println(F("=================================="));
+}
+
+void forceRunARM(byte armId) {
+  if (armId == 1) {
+    force_run_arm1 = true;
+    Serial.println(F("ARM1 force run ENABLED - will bypass busy check"));
+  } else if (armId == 2) {
+    force_run_arm2 = true;
+    Serial.println(F("ARM2 force run ENABLED - will bypass busy check"));
+  }
+}
+
+void forceHomeCommand(byte armId) {
+  ArmDataStateMachine* arm = (armId == 1) ? &arm1_sm : &arm2_sm;
+  String command = getNextCommandStateMachine(arm);
+
+  if (command.length() > 0) {
+    String armPrefix = (armId == 1) ? "L" : "R";
+    String fullCommand = armPrefix + "#" + command;
+
+    Serial.print(F("Force sending HOME to ARM"));
+    Serial.print(armId);
+    Serial.print(F(": "));
+    Serial.println(fullCommand);
+
+    sendRS485CommandWithRetry(arm, fullCommand);
+    changeArmState(arm, ARM_MOVING_TO_CENTER);
+    arm_in_center = armId;
+  } else {
+    Serial.print(F("No more commands for ARM"));
+    Serial.println(armId);
+  }
+}
+
+void forceGladCommand(byte armId) {
+  ArmDataStateMachine* arm = (armId == 1) ? &arm1_sm : &arm2_sm;
+  String command = getNextCommandStateMachine(arm);
+
+  if (command.length() > 0) {
+    String armPrefix = (armId == 1) ? "L" : "R";
+    String fullCommand = armPrefix + "#" + command;
+
+    Serial.print(F("Force sending GLAD to ARM"));
+    Serial.print(armId);
+    Serial.print(F(": "));
+    Serial.println(fullCommand);
+
+    sendRS485CommandWithRetry(arm, fullCommand);
+    changeArmState(arm, ARM_PICKING);
+    turnOffConveyor();
+  } else {
+    Serial.print(F("No more commands for ARM"));
+    Serial.println(armId);
+  }
+}
+
+void resetARM(byte armId) {
+  ArmDataStateMachine* arm = (armId == 1) ? &arm1_sm : &arm2_sm;
+
+  arm->current_pos = arm->start_layer * 16;
+  arm->state = ARM_IDLE;
+  arm->is_busy = false;
+  arm->need_special_command = false;
+  arm->pending_special_command = SPECIAL_NONE;
+
+  if (armId == 1) force_run_arm1 = false;
+  else force_run_arm2 = false;
+
+  Serial.print(F("ARM"));
+  Serial.print(armId);
+  Serial.println(F(" reset to initial state"));
+}
+
+void forceArmState(byte armId, ArmState newState) {
+  ArmDataStateMachine* arm = (armId == 1) ? &arm1_sm : &arm2_sm;
+
+  changeArmState(arm, newState);
+  arm->is_busy = false;
+
+  Serial.print(F("ARM"));
+  Serial.print(armId);
+  Serial.print(F(" forced to state: "));
+  Serial.println(getStateString(newState));
+}
+
+void forceDirectCommand(String command) {
+  Serial.print(F("Force sending direct command: "));
+  Serial.println(command);
+
+  byte armId = (command.charAt(0) == 'L') ? 1 : 2;
+  ArmDataStateMachine* arm = (armId == 1) ? &arm1_sm : &arm2_sm;
+
+  sendRS485CommandWithRetry(arm, command);
+
+  if (command.indexOf("#H(") > 0) {
+    changeArmState(arm, ARM_MOVING_TO_CENTER);
+    arm_in_center = armId;
+  } else if (command.indexOf("#G(") > 0) {
+    changeArmState(arm, ARM_PICKING);
+    turnOffConveyor();
+  }
 }
